@@ -5,7 +5,7 @@ import { promptExamples, promptExampleVersion, PROMPT_EXAMPLES_VERSION } from '.
 import { useStore } from '../../store'
 import { promptLibraries, getRemovedPromptSources, setRemovedPromptSources } from '../../lib/promptLibrary'
 import { PROMPT_SOURCES, promptSourceName, type LibraryPrompt, type PromptSourceId } from '../../lib/promptSources'
-import { takePromptToGallery } from '../../lib/workspaceTransfer'
+import { takePromptImageToGallery, takePromptToGallery } from '../../lib/workspaceTransfer'
 import PromptDetail from './PromptDetail'
 import PromptCategoryManager from './PromptCategoryManager'
 import PromptImage from './PromptImage'
@@ -218,13 +218,13 @@ export default function PromptWorkspace({ startWithDraft = false }: { startWithD
               <div className="prompt-card-preview">{item.previewUrl ? <><span className="prompt-card-image-fallback">正在加载预览…</span><PromptImage src={item.previewUrl} alt={item.title} loading="lazy" onLoad={(event) => { event.currentTarget.hidden = false }} referrerPolicy="no-referrer" onError={(event) => { event.currentTarget.hidden = true; const label = event.currentTarget.previousElementSibling; if (label) label.textContent = '预览暂不可用' }} /></> : <div className="prompt-card-excerpt"><span aria-hidden="true">Aa</span><p>{item.content}</p></div>}<span className="prompt-card-preview-label">查看详情 ↗</span></div>
               <div className="prompt-card-title"><h3>{item.title}</h3><span>{item.category ? item.category : item.sourceUrl ? `来自 ${promptSourceName(item)}` : promptExamples.some((example) => example.id === item.id) ? '展示示例 · 可编辑或删除' : '文字提示词'}</span></div>
             </button>
-            <div className="prompt-card-actions"><button type="button" onClick={() => takePromptToGallery(item.content)}>一键使用</button>{source === 'personal' ? <button type="button" onClick={() => setSelected(item)}>查看 / 编辑</button> : <button type="button" disabled={isSaved(item)} onClick={() => collect(item)}>{isSaved(item) ? '已收藏' : '收藏'}</button>}</div>
+            <div className="prompt-card-actions"><button type="button" onClick={() => takePromptToGallery(item.content)}>引用提示词</button>{source === 'personal' ? <button type="button" onClick={() => setSelected(item)}>查看 / 编辑</button> : <button type="button" disabled={isSaved(item)} onClick={() => collect(item)}>{isSaved(item) ? '已收藏' : '收藏'}</button>}</div>
           </article>)}</div>}
         </div>
         <div className="prompt-pagination"><span>第 {currentPage + 1} / {pages} 页</span><div><button type="button" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>上一页</button><button type="button" disabled={currentPage + 1 >= pages} onClick={() => setPage(currentPage + 1)}>下一页</button></div></div>
       </section>
     </div>
-    {selected && <PromptDetail key={selected.id} item={selected} categories={personalCategories} personal={source === 'personal'} saved={isSaved(selected)} onClose={() => setSelected(null)} onUse={() => { if (takePromptToGallery(selected.content)) setSelected(null) }} onCollect={() => collect(selected)} onSave={async (title, content, promptCategory) => {
+    {selected && <PromptDetail key={selected.id} item={selected} categories={personalCategories} personal={source === 'personal'} saved={isSaved(selected)} onClose={() => setSelected(null)} onUse={() => { if (takePromptToGallery(selected.content)) setSelected(null) }} onUseImage={async (includePrompt) => { if (await takePromptImageToGallery(selected, includePrompt)) setSelected(null) }} onCollect={() => collect(selected)} onSave={async (title, content, promptCategory) => {
       const state = useStore.getState()
       const now = Date.now()
       const item = { ...selected, id: selected.id || crypto.randomUUID(), title, content, category: promptCategory, createdAt: selected.createdAt || now, updatedAt: now }

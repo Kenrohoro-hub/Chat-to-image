@@ -1,13 +1,49 @@
-import type { TaskRecord } from '../types'
-import { useStore, reuseConfig, setCurrentAgentPreferences } from '../store'
+import { API_MAX_IMAGES, type PromptTemplate, type TaskRecord } from '../types'
+import { useStore, reuseConfig, setCurrentAgentPreferences, deleteImageIfUnreferenced } from '../store'
 import { applyCreationDraft, captureCreationDraft } from './creationDraft'
-import { ensureImageCached } from './imageCache'
+import { blobToDataUrl } from './dataUrl'
+import { storeImage } from './db'
+import { desktopApi } from './desktop'
+import { cacheImage, ensureImageCached } from './imageCache'
+import { getCachedPromptImage } from './promptLibrary'
+import { promptImageUrl } from './promptSources'
 
 export function takePromptToGallery(prompt: string) {
   const state = useStore.getState()
   state.setAppMode('agent')
   const before = captureCreationDraft()
   return applyCreationDraft(before, { prompt })
+}
+
+export async function takePromptImageToGallery(item: PromptTemplate, includePrompt = false) {
+  const state = useStore.getState()
+  const url = item.previewUrl
+  if (!url) { state.showToast('这条提示词没有预览图。', 'info'); return false }
+  state.setAppMode('agent')
+  const before = captureCreationDraft()
+  if (before.inputImages.length >= API_MAX_IMAGES) { state.showToast(`参考图最多 ${API_MAX_IMAGES} 张，请移除部分参考图后重试。`, 'info'); return false }
+  try {
+    let blob: Blob | null = null
+    try { blob = await getCachedPromptImage(url) } catch (err) { console.warn('Prompt image cache read failed', err) }
+    const dataUrl = blob ? await blobToDataUrl(blob) : promptImageUrl(url)
+      ? (await (await desktopApi()).download_prompt_image(url)).dataUrl
+      : await (async () => {
+        const response = await fetch(url)
+        if (!response.ok) throw new Error('预览图下载失败。')
+        return blobToDataUrl(await response.blob())
+      })()
+    if (!/^data:image\/(?:png|jpeg|webp|gif|avif);base64,/.test(dataUrl)) throw new Error('预览图不是支持的图片格式。')
+    const id = await storeImage(dataUrl, 'upload')
+    cacheImage(id, dataUrl)
+    const inputImages = before.inputImages.some((img) => img.id === id) ? before.inputImages : [...before.inputImages, { id, dataUrl }]
+    const applied = applyCreationDraft(before, { ...(includePrompt ? { prompt: item.content } : {}), inputImages })
+    if (!applied) await deleteImageIfUnreferenced(id)
+    return applied
+  } catch (err) {
+    console.warn('Prompt image reference failed', err)
+    useStore.getState().showToast(`引用图片失败：${err instanceof Error ? err.message : '请重试。'}`, 'error')
+    return false
+  }
 }
 
 export async function openTaskInGallery(task: TaskRecord) {

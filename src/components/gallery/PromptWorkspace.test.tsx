@@ -6,9 +6,9 @@ import type { PromptTemplate } from '../../types'
 import PromptWorkspace from './PromptWorkspace'
 import { PROMPT_EXAMPLES_VERSION } from '../../lib/promptExamples'
 
-const mock = vi.hoisted(() => ({ state: { prompt: '当前草稿', promptTemplates: [] as PromptTemplate[], promptCategories: ['默认', '漫画', 'agnet形象'], setPromptTemplates: vi.fn(), showToast: vi.fn(), setConfirmDialog: vi.fn() }, apply: vi.fn(), load: vi.fn(), preload: vi.fn(), clear: vi.fn(), status: { busy: '', updatedAt: 0, imageCount: 0, itemCount: 0, revision: 0 } }))
+const mock = vi.hoisted(() => ({ state: { prompt: '当前草稿', promptTemplates: [] as PromptTemplate[], promptCategories: ['默认', '漫画', 'agnet形象'], setPromptTemplates: vi.fn(), showToast: vi.fn(), setConfirmDialog: vi.fn() }, apply: vi.fn(), imageApply: vi.fn(), load: vi.fn(), preload: vi.fn(), clear: vi.fn(), status: { busy: '', updatedAt: 0, imageCount: 0, itemCount: 0, revision: 0 } }))
 vi.mock('../../store', () => ({ useStore: Object.assign((select: (state: typeof mock.state) => unknown) => select(mock.state), { getState: () => mock.state }) }))
-vi.mock('../../lib/workspaceTransfer', () => ({ takePromptToGallery: mock.apply }))
+vi.mock('../../lib/workspaceTransfer', () => ({ takePromptToGallery: mock.apply, takePromptImageToGallery: mock.imageApply }))
 vi.mock('../../lib/promptLibrary', () => ({ promptLibraries: Object.fromEntries(['garden', 'promptfill', 'youmind', 'pixto', 'nanoimage', 'nano', 'hero'].map((id) => [id, { load: mock.load, preload: mock.preload, clear: mock.clear, getStatus: () => mock.status, subscribe: () => () => {}, cancel: vi.fn() }])), getRemovedPromptSources: () => JSON.parse(localStorage.getItem('prompt-library-removed-v1') || '[]'), setRemovedPromptSources: (ids: string[]) => localStorage.setItem('prompt-library-removed-v1', JSON.stringify(ids)), getCachedPromptImage: async () => null, getPromptImageRevision: () => 0, subscribePromptImages: () => () => {} }))
 beforeEach(() => { mock.state.promptCategories = ['默认', '漫画', 'agnet形象']; localStorage.removeItem('prompt-library-removed-v1'); localStorage.setItem('prompt-examples-added-v1', '1'); localStorage.setItem('prompt-examples-version', String(PROMPT_EXAMPLES_VERSION)); mock.preload.mockResolvedValue(undefined); mock.clear.mockResolvedValue(undefined) })
 let root: ReturnType<typeof createRoot>
@@ -32,9 +32,30 @@ it('opens card details, saves metadata once and applies only the prompt', async 
   await act(() => { save.click(); save.click() })
   expect(mock.state.setPromptTemplates).toHaveBeenCalledTimes(1)
   expect(mock.state.promptTemplates[0]).toMatchObject({ content: item.content, sourceUrl: item.sourceUrl, previewUrl: item.previewUrl })
-  await act(() => document.querySelector<HTMLButtonElement>('[aria-label="使用当前提示词"]')!.click())
+  await act(() => document.querySelector<HTMLButtonElement>('[aria-label="引用当前提示词"]')!.click())
   expect(mock.apply).toHaveBeenCalledExactlyOnceWith(item.content)
   expect(document.querySelector('[role=dialog]')).toBeNull()
+})
+
+it('references a preview image alone or with its prompt and keeps the dialog on failure', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  const item = { id: 'garden-image', title: '配图提示词', content: '新提示词', previewUrl: 'https://r2.qqsrc.com/images/1.jpg' }
+  mock.load.mockResolvedValue([item, { id: 'garden-text', title: '纯文字', content: '文字' }])
+  mock.imageApply.mockResolvedValueOnce(false).mockResolvedValue(true)
+  document.body.innerHTML = '<div id="root"></div>'
+  root = createRoot(document.getElementById('root')!)
+  await act(() => root.render(<PromptWorkspace />))
+  await act(() => document.querySelector<HTMLButtonElement>('[aria-label="查看提示词：配图提示词"]')!.click())
+  const button = (label: string) => [...document.querySelectorAll<HTMLButtonElement>('.prompt-detail-actions button')].find((el) => el.textContent === label)!
+  await act(async () => { button('引用图片').click() })
+  expect(mock.imageApply).toHaveBeenLastCalledWith(item, false)
+  expect(document.querySelector('[role=dialog]')).not.toBeNull()
+  await act(async () => { button('引用提示词和图片').click() })
+  expect(mock.imageApply).toHaveBeenLastCalledWith(item, true)
+  expect(document.querySelector('[role=dialog]')).toBeNull()
+  await act(() => document.querySelector<HTMLButtonElement>('[aria-label="查看提示词：纯文字"]')!.click())
+  expect(button('引用图片').disabled).toBe(true)
+  expect(button('引用提示词和图片').disabled).toBe(true)
 })
 
 it('shows retry and allows personal prompts during a website failure', async () => {
@@ -70,7 +91,7 @@ it('keeps details open when the current draft cannot be replaced', async () => {
   root = createRoot(document.getElementById('root')!)
   await act(() => root.render(<PromptWorkspace />))
   await act(() => document.querySelector<HTMLButtonElement>('[aria-label="查看提示词：保护检查"]')!.click())
-  await act(() => document.querySelector<HTMLButtonElement>('[aria-label="使用当前提示词"]')!.click())
+  await act(() => document.querySelector<HTMLButtonElement>('[aria-label="引用当前提示词"]')!.click())
   expect(document.querySelector('[role=dialog]')).not.toBeNull()
 })
 

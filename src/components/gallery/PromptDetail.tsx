@@ -6,13 +6,14 @@ import { usePreventBackgroundScroll } from '../../hooks/usePreventBackgroundScro
 import { getPromptImageRevision, subscribePromptImages } from '../../lib/promptLibrary'
 import PromptImage from './PromptImage'
 
-export default function PromptDetail({ item, categories, personal, saved, onClose, onUse, onCollect, onSave, onDelete }: {
+export default function PromptDetail({ item, categories, personal, saved, onClose, onUse, onUseImage, onCollect, onSave, onDelete }: {
   item: PromptTemplate
   categories: string[]
   personal: boolean
   saved: boolean
   onClose: () => void
   onUse: () => void
+  onUseImage: (includePrompt: boolean) => Promise<void>
   onCollect: () => void
   onSave: (title: string, content: string, category: string) => Promise<boolean>
   onDelete: () => void
@@ -24,6 +25,7 @@ export default function PromptDetail({ item, categories, personal, saved, onClos
   const [category, setCategory] = useState(item.category || categories[0])
   const [zoom, setZoom] = useState(false)
   const [imageFailed, setImageFailed] = useState(false)
+  const [usingImage, setUsingImage] = useState(false)
   const revision = useSyncExternalStore(subscribePromptImages, getPromptImageRevision)
   useEffect(() => setImageFailed(false), [revision])
   const panel = useRef<HTMLDivElement>(null)
@@ -34,6 +36,11 @@ export default function PromptDetail({ item, categories, personal, saved, onClos
     panel.current?.querySelector<HTMLElement>(item.id ? 'button' : 'input')?.focus()
     return () => { if (previous?.isConnected) previous.focus() }
   }, [])
+  const referenceImage = async (includePrompt: boolean) => {
+    if (usingImage) return
+    setUsingImage(true)
+    try { await onUseImage(includePrompt) } finally { setUsingImage(false) }
+  }
   return createPortal(<div className="prompt-detail-overlay" onClick={(event) => { if (event.target === event.currentTarget) onClose() }}>
     <div className="prompt-detail" data-zoom={zoom} ref={panel} role="dialog" aria-modal="true" aria-labelledby="prompt-detail-title" onKeyDown={(event) => {
       if (event.key !== 'Tab') return
@@ -56,7 +63,16 @@ export default function PromptDetail({ item, categories, personal, saved, onClos
             <div className="prompt-detail-actions"><button type="submit" className="prompt-primary" disabled={saving}>{saving ? '保存中…' : '保存'}</button><button type="button" onClick={() => { if (!item.id) onClose(); else { setEditing(false); setTitle(item.title); setContent(item.content); setCategory(item.category || categories[0]) } }}>取消</button></div>
           </form> : <>
             <div className="prompt-detail-text-wrap"><div className="prompt-detail-label"><span>{personal ? `主题分类 · ${item.category || categories[0]}` : '完整提示词'}</span><span>{item.content.length} 字符</span></div><p className="prompt-detail-text">{item.content}</p></div>
-            <footer><p>使用后填入创作草稿，可继续修改。预览图不会作为参考图上传。</p><div className="prompt-detail-actions"><button type="button" className="prompt-primary" aria-label="使用当前提示词" onClick={onUse}>一键使用</button>{personal ? <><button type="button" onClick={() => { setTitle(item.title); setContent(item.content); setCategory(item.category || categories[0]); setEditing(true) }}>编辑</button><button type="button" onClick={onDelete}>删除</button></> : <button type="button" aria-label="收藏提示词" disabled={saved} onClick={onCollect}>{saved ? '已收藏' : '收藏'}</button>}{item.sourceUrl && <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer">查看来源 ↗</a>}</div></footer>
+            <footer>
+              <p>{usingImage ? '正在读取预览图…' : '引用提示词只替换草稿文字；引用图片会把预览图加入参考图。不会自动生成。'}</p>
+              <div className="prompt-detail-actions">
+                <button type="button" className="prompt-primary" aria-label="引用当前提示词" disabled={usingImage} onClick={onUse}>引用提示词</button>
+                <button type="button" disabled={!item.previewUrl || usingImage} title={!item.previewUrl ? '这条提示词没有预览图' : undefined} onClick={() => void referenceImage(false)}>引用图片</button>
+                <button type="button" disabled={!item.previewUrl || usingImage} title={!item.previewUrl ? '这条提示词没有预览图' : undefined} onClick={() => void referenceImage(true)}>引用提示词和图片</button>
+                {personal ? <><button type="button" disabled={usingImage} onClick={() => { setTitle(item.title); setContent(item.content); setCategory(item.category || categories[0]); setEditing(true) }}>编辑</button><button type="button" disabled={usingImage} onClick={onDelete}>删除</button></> : <button type="button" aria-label="收藏提示词" disabled={saved || usingImage} onClick={onCollect}>{saved ? '已收藏' : '收藏'}</button>}
+                {item.sourceUrl && <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer">查看来源 ↗</a>}
+              </div>
+            </footer>
           </>}
         </div>
       </div>
