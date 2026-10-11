@@ -521,7 +521,7 @@ export default function SettingsModal() {
             {activeTab === 'api' && (
               <div className="space-y-4">
                 <div role="tablist" aria-label="API 用途" className="flex gap-2 rounded-xl bg-gray-100 p-1 dark:bg-white/5">
-                  {(['gallery', 'agent'] as const).map((group) => <button key={group} role="tab" aria-selected={apiGroup === group} onClick={() => { setShowApiKey(false); setEditingProfileId(null); setApiGroup(group) }} className={`flex-1 rounded-lg px-4 py-2 text-sm ${apiGroup === group ? 'bg-white shadow-sm dark:bg-white/10' : 'text-gray-500'}`}>{group === 'gallery' ? '画廊 · Images' : 'Agent · Responses'}</button>)}
+                  {(['gallery', 'agent'] as const).map((group) => <button key={group} role="tab" aria-selected={apiGroup === group} onClick={() => { setShowApiKey(false); setEditingProfileId(null); setApiGroup(group) }} className={`flex-1 rounded-lg px-4 py-2 text-sm ${apiGroup === group ? 'bg-white shadow-sm dark:bg-white/10' : 'text-gray-500'}`}>{group === 'gallery' ? '生图API配置卡' : '对话API配置卡'}</button>)}
                 </div>
                 <ApiProfileList draft={draft} onChange={(next) => setDraft(normalizeSettings(next))} group={apiGroup} editingId={editingProfileId}
                   onEdit={(id) => { setEditingProfileId(editingProfileId === id ? null : id); setShowApiKey(false) }}
