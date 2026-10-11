@@ -1,0 +1,5 @@
+GitHub upload test
+
+This file verifies that Git can commit and push to this repository.
+Test date: 2026-10-11 (Asia/Hong_Kong).
+No project code, personal configuration, or API credentials are included.
