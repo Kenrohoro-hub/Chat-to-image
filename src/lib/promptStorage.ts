@@ -1,12 +1,13 @@
 import type { PromptTemplate } from '../types'
+import { PROMPT_EXAMPLES_VERSION } from './promptExamples'
 import { desktopApi, isLocalService } from './desktop'
 import { normalizePromptTemplates } from './promptTemplates'
 import type { LibraryPrompt, PromptSourceId } from './promptSources'
 
 export interface PromptStorageStatus { directory: string; ready: boolean; busy: boolean; message: string; error: string }
-export interface PromptCatalog { items: PromptTemplate[]; updatedAt: number; cleared: boolean; revision: string; examplesAdded?: boolean }
+export interface PromptCatalog { items: PromptTemplate[]; updatedAt: number; cleared: boolean; revision: string; examplesAdded?: boolean; examplesVersion?: number }
 export interface StoredPromptCatalog { catalog: PromptCatalog | null; images: string[] }
-export interface PromptStorageLocation { directory: string; message?: string; preferences: { removed: PromptSourceId[]; examplesAdded: boolean } | null }
+export interface PromptStorageLocation { directory: string; message?: string; preferences: { removed: PromptSourceId[]; examplesAdded: boolean; examplesVersion?: number } | null }
 let status: PromptStorageStatus = { directory: '', ready: false, busy: false, message: '', error: '' }
 let initializing: Promise<PromptStorageStatus> | undefined
 let personalRevision = ''
@@ -52,6 +53,8 @@ export async function loadPersonalPromptStorage(): Promise<PromptTemplate[] | nu
   const items = normalizePromptTemplates(result.catalog.items)
   if (items.length !== result.catalog.items.length) throw new Error('个人提示词文件格式错误，未覆盖当前入口数据。')
   personalRevision = result.catalog.revision
+  if (result.catalog.examplesVersion) localStorage.setItem('prompt-examples-version', String(result.catalog.examplesVersion))
+  else localStorage.removeItem('prompt-examples-version')
   if (result.catalog.examplesAdded) localStorage.setItem('prompt-examples-added-v1', '1')
   else localStorage.removeItem('prompt-examples-added-v1')
   return items
@@ -64,7 +67,7 @@ export function savePersonalPromptChange(getItems: () => PromptTemplate[], apply
     ensurePromptStorageIdle()
     const items = getItems()
     if (current.directory) {
-      const result = await promptStorageCall<StoredPromptCatalog>('catalog_write', { source: 'personal', items, updatedAt: Date.now(), revision: personalRevision, examplesAdded: localStorage.getItem('prompt-examples-added-v1') === '1' || items.some((item) => item.id.startsWith('example-')) })
+      const result = await promptStorageCall<StoredPromptCatalog>('catalog_write', { source: 'personal', items, updatedAt: Date.now(), revision: personalRevision, examplesAdded: localStorage.getItem('prompt-examples-added-v1') === '1' || items.some((item) => item.id.startsWith('example-')), examplesVersion: Math.max(Number(localStorage.getItem('prompt-examples-version')) || 0, items.some((item) => item.id.startsWith('example-curated-')) ? PROMPT_EXAMPLES_VERSION : 0) })
       personalRevision = result.catalog!.revision
     }
     apply(items)
@@ -77,12 +80,14 @@ export function savePersonalPromptChange(getItems: () => PromptTemplate[], apply
 export async function savePromptSourcePreferences(removed: PromptSourceId[]) {
   ensurePromptStorageIdle()
   const current = await initPromptStorage()
-  if (current.directory) await promptStorageCall('preferences', { preferences: { removed, examplesAdded: localStorage.getItem('prompt-examples-added-v1') === '1' } })
+  if (current.directory) await promptStorageCall('preferences', { preferences: { removed, examplesAdded: localStorage.getItem('prompt-examples-added-v1') === '1', examplesVersion: Number(localStorage.getItem('prompt-examples-version')) || 0 } })
   localStorage.setItem('prompt-library-removed-v1', JSON.stringify(removed))
 }
 
 export function activatePromptDirectory(location: PromptStorageLocation, revision: string) {
   personalRevision = revision
+  if (location.preferences?.examplesVersion) localStorage.setItem('prompt-examples-version', String(location.preferences.examplesVersion))
+  else localStorage.removeItem('prompt-examples-version')
   if (location.preferences?.examplesAdded) localStorage.setItem('prompt-examples-added-v1', '1')
   else localStorage.removeItem('prompt-examples-added-v1')
   if (location.preferences) localStorage.setItem('prompt-library-removed-v1', JSON.stringify(location.preferences.removed))

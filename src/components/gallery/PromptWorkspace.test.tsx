@@ -9,7 +9,7 @@ const mock = vi.hoisted(() => ({ state: { prompt: '当前草稿', promptTemplate
 vi.mock('../../store', () => ({ useStore: Object.assign((select: (state: typeof mock.state) => unknown) => select(mock.state), { getState: () => mock.state }) }))
 vi.mock('../../lib/workspaceTransfer', () => ({ takePromptToGallery: mock.apply }))
 vi.mock('../../lib/promptLibrary', () => ({ promptLibraries: Object.fromEntries(['garden', 'promptfill', 'youmind', 'pixto', 'nanoimage', 'nano', 'hero'].map((id) => [id, { load: mock.load, preload: mock.preload, clear: mock.clear, getStatus: () => mock.status, subscribe: () => () => {}, cancel: vi.fn() }])), getRemovedPromptSources: () => JSON.parse(localStorage.getItem('prompt-library-removed-v1') || '[]'), setRemovedPromptSources: (ids: string[]) => localStorage.setItem('prompt-library-removed-v1', JSON.stringify(ids)), getCachedPromptImage: async () => null, getPromptImageRevision: () => 0, subscribePromptImages: () => () => {} }))
-beforeEach(() => { localStorage.removeItem('prompt-library-removed-v1'); localStorage.setItem('prompt-examples-added-v1', '1'); mock.preload.mockResolvedValue(undefined); mock.clear.mockResolvedValue(undefined) })
+beforeEach(() => { localStorage.removeItem('prompt-library-removed-v1'); localStorage.setItem('prompt-examples-added-v1', '1'); localStorage.setItem('prompt-examples-version', '2'); mock.preload.mockResolvedValue(undefined); mock.clear.mockResolvedValue(undefined) })
 let root: ReturnType<typeof createRoot>
 afterEach(async () => { if (root) await act(() => root.unmount()); vi.unstubAllGlobals(); vi.clearAllMocks(); document.body.innerHTML = ''; mock.state.promptTemplates = [] })
 
@@ -96,17 +96,19 @@ it('confirms all categories and clear, but preloads a selected category directly
   expect(mock.state.setPromptTemplates).not.toHaveBeenCalled()
 })
 
-it('adds the three personal examples once and does not restore a deleted example', async () => {
+it('adds illustrated examples once without sources and does not restore a deleted example', async () => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   localStorage.removeItem('prompt-examples-added-v1')
+  localStorage.removeItem('prompt-examples-version')
   mock.state.setPromptTemplates.mockImplementation(async (items) => { mock.state.promptTemplates = typeof items === 'function' ? items(mock.state.promptTemplates) : items; return true })
   document.body.innerHTML = '<div id="root"></div>'
   root = createRoot(document.getElementById('root')!)
   await act(() => root.render(<PromptWorkspace startWithDraft />))
-  expect(mock.state.promptTemplates).toHaveLength(3)
+  expect(mock.state.promptTemplates).toHaveLength(22)
+  expect(mock.state.promptTemplates.every((item) => item.previewUrl?.startsWith('/prompt-examples/') && !item.sourceUrl && !item.sourcePromptId)).toBe(true)
   mock.state.promptTemplates = mock.state.promptTemplates.slice(1)
   await act(() => root.render(<PromptWorkspace key="reopen" startWithDraft />))
-  expect(mock.state.promptTemplates).toHaveLength(2)
+  expect(mock.state.promptTemplates).toHaveLength(21)
   expect(mock.state.setPromptTemplates).toHaveBeenCalledTimes(1)
 })
 
@@ -165,4 +167,20 @@ it('retains the edited text when disk saving fails', async () => {
   })
   await act(() => document.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
   expect(document.querySelector<HTMLTextAreaElement>('[aria-label="提示词内容"]')?.value).toBe('当前草稿')
+})
+
+
+it('adds the new pack to an existing library without replacing edited entries', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  localStorage.removeItem('prompt-examples-version')
+  const edited = { id: 'example-curated-01', title: '自己改过的海报', content: '保留修改', createdAt: 0, updatedAt: 1 }
+  const personal = { ...edited, id: 'my-prompt', title: '个人内容' }
+  mock.state.promptTemplates = [personal, edited]
+  mock.state.setPromptTemplates.mockImplementation(async (items) => { mock.state.promptTemplates = typeof items === 'function' ? items(mock.state.promptTemplates) : items; return true })
+  document.body.innerHTML = '<div id="root"></div>'
+  root = createRoot(document.getElementById('root')!)
+  await act(() => root.render(<PromptWorkspace startWithDraft />))
+  expect(mock.state.promptTemplates).toHaveLength(23)
+  expect(mock.state.promptTemplates.slice(0, 2)).toEqual([personal, edited])
+  expect(localStorage.getItem('prompt-examples-version')).toBe('2')
 })

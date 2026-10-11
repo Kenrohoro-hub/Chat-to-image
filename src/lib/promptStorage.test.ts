@@ -64,3 +64,15 @@ it('moves the latest disk personal catalog instead of overwriting it with stale 
   const { useStore } = await import('../store')
   expect(useStore.setState).toHaveBeenLastCalledWith({ promptTemplates: [expect.objectContaining(item)] })
 })
+
+
+it('restores the example version from disk and preserves it after all examples are deleted', async () => {
+  mock.call.mockImplementation(async (action: string) => action === 'status' ? { directory: 'C:/old', preferences: null } : { catalog: { items: [], revision: 'r1', updatedAt: 0, examplesAdded: true, examplesVersion: 2 }, images: [] })
+  const storage = await import('./promptStorage')
+  await storage.loadPersonalPromptStorage()
+  expect(localStorage.getItem('prompt-examples-version')).toBe('2')
+  await storage.savePersonalPromptChange(() => [], () => {})
+  expect(mock.call.mock.lastCall![1]).toMatchObject({ items: [], examplesVersion: 2 })
+  storage.activatePromptDirectory({ directory: 'C:/other', preferences: { removed: [], examplesAdded: true } }, 'r2')
+  expect(localStorage.getItem('prompt-examples-version')).toBeNull()
+})

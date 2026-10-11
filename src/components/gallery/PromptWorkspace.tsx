@@ -1,6 +1,7 @@
 import { getPromptStorageStatus, subscribePromptStorage } from '../../lib/promptStorage'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { PromptTemplate } from '../../types'
+import { promptExamples, PROMPT_EXAMPLES_VERSION } from '../../lib/promptExamples'
 import { useStore } from '../../store'
 import { promptLibraries, getRemovedPromptSources, setRemovedPromptSources } from '../../lib/promptLibrary'
 import { PROMPT_SOURCES, promptSourceName, type LibraryPrompt, type PromptSourceId } from '../../lib/promptSources'
@@ -9,11 +10,6 @@ import PromptDetail from './PromptDetail'
 import PromptImage from './PromptImage'
 
 type Source = PromptSourceId | 'personal'
-const examples: PromptTemplate[] = [
-  { id: 'example-product', title: '产品摄影', content: '为一只白色陶瓷咖啡杯拍摄极简产品照片，暖白背景，柔和侧光，细腻釉面，留出充足留白。', createdAt: 0, updatedAt: 0 },
-  { id: 'example-illustration', title: '创意插画', content: '画一幅温暖的纸艺插画：一艘小船漂浮在云海中，橘色落日，层叠纸张质感，简洁而富有想象力。', createdAt: 0, updatedAt: 0 },
-  { id: 'example-scene', title: '场景设计', content: '设计一间雨天的街角书店，落地窗透出温暖灯光，窗外湿润路面，电影感构图，安静的蓝调时刻。', createdAt: 0, updatedAt: 0 },
-]
 
 export default function PromptWorkspace({ startWithDraft = false }: { startWithDraft?: boolean }) {
   const templates = useStore((state) => state.promptTemplates)
@@ -39,9 +35,9 @@ export default function PromptWorkspace({ startWithDraft = false }: { startWithD
   const grid = useRef<HTMLDivElement>(null)
   useEffect(() => {
     try {
-      if (localStorage.getItem('prompt-examples-added-v1')) return
+      if (Number(localStorage.getItem('prompt-examples-version')) >= PROMPT_EXAMPLES_VERSION) return
       const state = useStore.getState()
-      void state.setPromptTemplates((current) => [...current, ...examples.filter((example) => !current.some((item) => item.id === example.id))]).then((saved) => { if (saved) localStorage.setItem('prompt-examples-added-v1', '1') }).catch((err) => console.warn('Prompt examples could not be saved', err))
+      void state.setPromptTemplates((current) => [...current, ...promptExamples.filter((example) => !current.some((item) => item.id === example.id))]).then((saved) => { if (saved) { localStorage.setItem('prompt-examples-added-v1', '1'); localStorage.setItem('prompt-examples-version', String(PROMPT_EXAMPLES_VERSION)) } }).catch((err) => console.warn('Prompt examples could not be saved', err))
     } catch (err) {
       console.warn('Prompt examples could not be saved', err)
       useStore.getState().showToast('示例保存失败，请检查本地存储空间。', 'error')
@@ -153,7 +149,7 @@ export default function PromptWorkspace({ startWithDraft = false }: { startWithD
           {source !== 'personal' && loading ? <p className="prompt-empty" role="status">正在加载 {site.name}…</p> : !filtered.length ? <div className="prompt-empty"><h3>{source === 'personal' && !query ? '还没有个人提示词' : source !== 'personal' && cacheStatus.cleared ? '本地缓存已清除' : '没有匹配的提示词'}</h3><p>{source === 'personal' && !query ? '从网络提示词库收藏喜欢的内容，或新建一条自己的提示词。' : source !== 'personal' && cacheStatus.cleared ? `点击刷新，重新载入 ${site.name} 的提示词目录。` : '试试其他关键词或分类。'}</p></div> : <div className="prompt-card-grid">{filtered.slice(currentPage * 24, (currentPage + 1) * 24).map((item) => <article className="prompt-card" key={item.id}>
             <button type="button" className="prompt-card-open" aria-label={`查看提示词：${item.title}`} onClick={() => setSelected(item)}>
               <div className="prompt-card-preview">{item.previewUrl ? <><span className="prompt-card-image-fallback">正在加载预览…</span><PromptImage src={item.previewUrl} alt={item.title} loading="lazy" onLoad={(event) => { event.currentTarget.hidden = false }} referrerPolicy="no-referrer" onError={(event) => { event.currentTarget.hidden = true; const label = event.currentTarget.previousElementSibling; if (label) label.textContent = '预览暂不可用' }} /></> : <div className="prompt-card-excerpt"><span aria-hidden="true">Aa</span><p>{item.content}</p></div>}<span className="prompt-card-preview-label">查看详情 ↗</span></div>
-              <div className="prompt-card-title"><h3>{item.title}</h3><span>{'category' in item ? String(item.category) : item.sourceUrl ? `来自 ${promptSourceName(item)}` : examples.some((example) => example.id === item.id) ? '展示示例 · 可编辑或删除' : '文字提示词'}</span></div>
+              <div className="prompt-card-title"><h3>{item.title}</h3><span>{item.category ? item.category : item.sourceUrl ? `来自 ${promptSourceName(item)}` : promptExamples.some((example) => example.id === item.id) ? '展示示例 · 可编辑或删除' : '文字提示词'}</span></div>
             </button>
             <div className="prompt-card-actions"><button type="button" onClick={() => takePromptToGallery(item.content)}>一键使用</button>{source === 'personal' ? <button type="button" onClick={() => setSelected(item)}>查看 / 编辑</button> : <button type="button" disabled={isSaved(item)} onClick={() => collect(item)}>{isSaved(item) ? '已收藏' : '收藏'}</button>}</div>
           </article>)}</div>}

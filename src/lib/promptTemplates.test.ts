@@ -20,3 +20,13 @@ it('preserves source and preview through normalization and backup merging', () =
   expect(mergePromptTemplates([], [item])).toEqual([item])
   expect(normalizePromptTemplates([{ ...item, sourceUrl: 'javascript:alert(1)', previewUrl: 'file:///secret' }])[0]).toEqual({ ...item, sourceUrl: undefined, previewUrl: undefined })
 })
+
+
+it('keeps bundled preview images through restore and rejects other local paths', () => {
+  const item = { id: 'example-curated-01', title: '海报', content: '纸张质感', createdAt: 0, updatedAt: 0, previewUrl: '/prompt-examples/example-curated-01.png' }
+  expect(normalizePromptTemplates([item])[0].previewUrl).toBe(item.previewUrl)
+  expect(mergePromptTemplates([], [item])[0].previewUrl).toBe(item.previewUrl)
+  for (const previewUrl of ['/prompt-examples/../secret.png', '//example.com/image.png', '/user-config/image.png', '/prompt-examples/test.svg']) {
+    expect(normalizePromptTemplates([{ ...item, previewUrl }])[0].previewUrl).toBeUndefined()
+  }
+})

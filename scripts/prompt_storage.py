@@ -200,6 +200,9 @@ def write_catalog(root, source, payload, migrating=False):
   updated = payload.get('updatedAt', 0)
   if type(updated) not in (int, float) or not 0 <= updated < 1e16:
     raise ValueError('提示词更新时间错误。')
+  version = payload.get('examplesVersion', 0)
+  if type(version) is not int or not 0 <= version <= 1000000:
+    raise ValueError('示例版本格式错误。')
   if source == 'personal':
     preserve_personal_images(root, items)
   for name, rows in groups.items():
@@ -210,7 +213,7 @@ def write_catalog(root, source, payload, migrating=False):
     index = image_index(root, source)
     keep = {item.get('previewUrl') for item in items}
     paths += [image_path(root, source, url, entry) for url, entry in index.items() if url not in keep]
-  value = {'examplesAdded': payload.get('examplesAdded') is True, 'items': items, 'updatedAt': updated, 'cleared': payload.get('cleared') is True, 'revision': uuid.uuid4().hex}
+  value = {'examplesVersion': version, 'examplesAdded': payload.get('examplesAdded') is True, 'items': items, 'updatedAt': updated, 'cleared': payload.get('cleared') is True, 'revision': uuid.uuid4().hex}
   write_json(checked(folder(root, source) / '目录.json'), value)
   # 主数据成功保存后才清理旧文件；清理失败不把已完成的保存误报为失败。
   try:

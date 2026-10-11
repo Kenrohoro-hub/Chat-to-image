@@ -43,8 +43,9 @@ export async function changePromptDirectory(directory: string, cleanPrevious = f
     const personal = copied ? diskPrompts(copied.catalog!) : useStore.getState().promptTemplates.map((item) => item.category ? item : { ...item, ...categories.get(item.sourcePromptId || ''), category: categories.get(item.sourcePromptId || '')?.category || '未分类' })
     updatePromptStorage({ message: '正在保存个人提示词、收藏和目录偏好…' })
     const examplesAdded = localStorage.getItem('prompt-examples-added-v1') === '1'
-    const saved = copied ?? await api.prompt_storage('catalog_write', { migration, source: 'personal', items: personal, updatedAt: Date.now(), examplesAdded }) as StoredPromptCatalog
-    const location = await api.prompt_storage('commit', { migration, cleanPrevious, preferences: { removed: getRemovedPromptSources(), examplesAdded } }) as PromptStorageLocation
+    const examplesVersion = copied?.catalog?.examplesVersion ?? (Number(localStorage.getItem('prompt-examples-version')) || 0)
+    const saved = copied ?? await api.prompt_storage('catalog_write', { migration, source: 'personal', items: personal, updatedAt: Date.now(), examplesAdded, examplesVersion }) as StoredPromptCatalog
+    const location = await api.prompt_storage('commit', { migration, cleanPrevious, preferences: { removed: getRemovedPromptSources(), examplesAdded, examplesVersion } }) as PromptStorageLocation
     pending = undefined
     activatePromptDirectory(location, saved.catalog!.revision)
     resetPromptLibraries()

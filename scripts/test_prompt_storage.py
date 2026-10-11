@@ -37,6 +37,18 @@ class PromptStorageTests(unittest.TestCase):
     self.call('catalog_write', migration=pending['migration'], source='personal', items=[], updatedAt=0)
     return self.call('commit', migration=pending['migration'], preferences={'removed': [], 'examplesAdded': True})
 
+  def test_example_version_survives_save_delete_and_directory_copy(self):
+    self.enable()
+    revision = self.call('catalog_read', source='personal')['catalog']['revision']
+    saved = self.call('catalog_write', source='personal', items=[self.item], revision=revision, examplesVersion=2)['catalog']
+    self.assertEqual(saved['examplesVersion'], 2)
+    self.call('catalog_write', source='personal', items=[], revision=saved['revision'], examplesVersion=2)
+    pending = self.call('prepare', directory=str(self.home / 'Copied'))
+    copied = self.call('catalog_read', source='personal', migration=pending['migration'])['catalog']
+    self.assertEqual(copied['items'], [])
+    self.assertEqual(copied['examplesVersion'], 2)
+    self.call('abort', migration=pending['migration'])
+
   def test_failed_personal_catalog_write_keeps_saved_images(self):
     root = Path(self.enable()['directory'])
     self.call('image_write', source='garden', category=self.item['category'], url=self.item['previewUrl'], dataUrl=self.data)
