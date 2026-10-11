@@ -8,6 +8,8 @@
 - `build-app.cmd` 将前端同步到本机构建缓存并更新 `dist/`，支持中文和网络共享路径。桌面检查使用 `python -B scripts/test_desktop_startup.py`、`python -B scripts/test_desktop.py`，前端使用构建及 Vitest；测试隔离配置和作品，不调用收费服务。
 - `scripts/native_*.py` 为退出正式使用的 Qt 实现，保留用于读取 Qt 阶段作品和备份；不得自动删除其 SQLite 库或用户图片，不再作为默认启动链。`run-legacy-export.cmd` 仍打开同一 Web 桌面历史入口。
 - 源码在 `src/`，构建产物由 Vite 生成，不要手动编辑 `dist/`。
+- 发布打包按 `README_使用说明.md` 的“内置示例与发布包”说明区分项目资源与个人资料；项目自带的默认提示词和展示图应随包保留，不得按个人资料排除。
+- `build-installer.cmd` 使用系统 Inno Setup 6 生成 `release/` 的 Windows x64 独立安装器；按白名单收集程序并重新构建前端，附带 Python 与 WebView2 离线组件。保留内置示例，严禁收集 `user-config/`、作品、日志和用户备份；安装器改动运行 `scripts/test_installer.py` 与 `scripts/test_desktop_startup.py`，实际安装/升级/卸载使用隔离测试目录。
 - 包管理器为 npm（有 `package-lock.json`），不要使用 yarn 或 pnpm。
 
 ## Codex 图片调用入口
@@ -16,7 +18,7 @@
 
 开发期间改代码和构建必须保留用户已填写的 `user-config/` 及本机数据，开发完毕由用户自行删除个人配置。测试使用隔离的假配置，仅清理本任务创建的测试数据。
 
-用户明确要求通过本项目生图或编辑图片时，使用 `chat-to-image.cmd` / `scripts/chat_to_image.py`：先读取 `agent-guide`，再调用 `generate`，复用 `scripts/playground_image.py` 及桌面共享配置；没有桌面配置时读取旧网页同步快照。外部 Agent 接入由桌面“设置与 API → Agent 连接”或 `agents` 子命令管理，完整参数与保护边界见 `docs/codex-image-interface.md`。本次任务状态以 `tasks/plan.md` 为唯一入口。CLI 或连接管理改动运行 `python -B scripts/test_chat_to_image.py` 和 `python -B scripts/test_agent_connections.py`；桌面配置或主备改动运行 `python -B scripts/test_desktop.py`；生图执行器改动运行 `python -B scripts/test_playground_image.py`。配置同步改动还需运行 `python -B scripts/test_playground_sync.py` 和 `node --test scripts/test-playground-bridge.mjs`。
+generate-playground-image 技能已按用户要求卸载。用户明确要求通过本项目生图或编辑图片时，使用 `chat-to-image.cmd` / `scripts/chat_to_image.py`：先读取 `agent-guide`，再调用 `generate`，复用 `scripts/playground_image.py` 及桌面共享配置；没有桌面配置时读取旧网页同步快照。外部 Agent 接入由桌面“设置与 API → Agent 连接”或 `agents` 子命令管理，完整参数与保护边界见 `docs/codex-image-interface.md`。本次任务状态以 `tasks/plan.md` 为唯一入口。CLI 或连接管理改动运行 `python -B scripts/test_chat_to_image.py` 和 `python -B scripts/test_agent_connections.py`；桌面配置或主备改动运行 `python -B scripts/test_desktop.py`；生图执行器改动运行 `python -B scripts/test_playground_image.py`。配置同步改动还需运行 `python -B scripts/test_playground_sync.py` 和 `node --test scripts/test-playground-bridge.mjs`。
 
 ## 常用命令
 

@@ -10,3 +10,6 @@ __pycache__/
 user-config/
 release/
 runtime/
+
+Thumbs.db
+.env
