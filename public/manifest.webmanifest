@@ -1,0 +1,18 @@
+{
+  "name": "Chat to image",
+  "short_name": "Chat to image",
+  "description": "Chat to image 图像生成工作台",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#030712",
+  "theme_color": "#111827",
+  "icons": [
+    {
+      "src": "./pwa-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,120 @@
+name: Bug 反馈
+description: 报告本项目自身可复现的 Bug
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请描述在 Chat to image 中遇到的问题、复现步骤和预期结果。附上版本及运行入口；截图与日志请去除密钥等个人信息。
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+      description: 请简要描述你遇到的问题。
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 请提供可稳定复现问题的操作步骤。
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期行为
+      description: 你期望项目应该如何表现？
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际行为
+      description: 实际发生了什么？如有报错请粘贴完整错误信息。
+    validations:
+      required: true
+
+  - type: input
+    id: app_version
+    attributes:
+      label: Chat to image 版本
+      description: 在设置的功能介绍页查看。
+      placeholder: 例如 0.1.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: version
+    attributes:
+      label: 运行入口
+      description: 请选择问题发生的入口。
+      options:
+        - Windows 桌面
+        - 本机网页
+        - CLI / Agent 连接
+        - Vercel
+        - Cloudflare Workers
+        - Docker
+        - 本地部署
+        - 其他
+    validations:
+      required: true
+
+  - type: input
+    id: deployment_detail
+    attributes:
+      label: 运行入口补充
+      description: 如果上面选择的是「其他」，请在此填写具体的部署方式。
+    validations:
+      required: false
+
+  - type: input
+    id: browser
+    attributes:
+      label: 浏览器与操作系统
+    validations:
+      required: true
+
+  - type: dropdown
+    id: api
+    attributes:
+      label: API 来源
+      description: 请选择你使用的 API 来源类型。
+      options:
+        - OpenAI 官方 API
+        - 第三方服务商提供的兼容 API
+        - 反代 / 中转项目
+        - 其他
+    validations:
+      required: true
+
+  - type: input
+    id: api_detail
+    attributes:
+      label: API 来源补充
+      description: 如果上面选择的不是「OpenAI 官方 API」，请在此填写具体的服务商名称或反代 / 中转项目（请勿填写密钥）。
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 错误信息 / 截图
+      description: 请提供报错、页面截图或复现录屏，注意隐藏密钥。
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: 补充信息
+      description: 其他有助于定位问题的信息。
+    validations:
+      required: false

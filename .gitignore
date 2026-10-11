@@ -1,0 +1,10 @@
+node_modules/
+dist/
+dev-proxy.config.json
+.wrangler/
+.env.local
+.env.*.local
+playground-cli.local.json
+outputs/
+__pycache__/
+user-config/

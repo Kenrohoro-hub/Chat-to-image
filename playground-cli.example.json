@@ -1,0 +1,14 @@
+{
+  "profiles": [
+    {
+      "id": "my-image-api",
+      "name": "我的图片接口",
+      "provider": "openai",
+      "apiMode": "images",
+      "baseUrl": "https://api.example.com/v1",
+      "model": "your-image-model",
+      "apiKeyEnv": "PLAYGROUND_API_KEY",
+      "isDefault": true
+    }
+  ]
+}

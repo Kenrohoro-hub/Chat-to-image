@@ -1,0 +1,41 @@
+name: 功能建议
+description: 提出新功能、改进或体验优化建议
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请描述在 Chat to image 中想完成的任务、当前遇到的限制和期望效果。
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 使用场景 / 想解决的问题
+      description: 这个功能想解决什么问题？请描述具体的使用场景。
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: 期望的解决方案
+      description: 你希望项目如何实现或呈现这个功能？
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 替代方案
+      description: 你是否尝试过其他方案？为什么现有方案不够好？
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: 补充信息
+      description: 可以补充截图、参考链接、相关项目或其他说明。
+    validations:
+      required: false
