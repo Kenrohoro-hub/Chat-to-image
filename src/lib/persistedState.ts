@@ -1,5 +1,5 @@
 import type { AgentConversation, AgentInputDraft, AppMode, AppSettings, FavoriteCollection, InputImage, MaskDraft, PresetConfig, TaskParams, PromptTemplate } from '../types'
-import { normalizePromptTemplates } from './promptTemplates'
+import { normalizePersonalPromptLibrary } from './promptTemplates'
 import { normalizePresetAgent, normalizeSettings } from './apiProfiles'
 import { normalizeTaskParams } from './taskParams'
 import { normalizeAgentConversations } from './agentConversationState'
@@ -26,6 +26,7 @@ export interface PersistedAppState {
   agentAssetPanelCollapsed: boolean
   favoriteCollections: FavoriteCollection[]
   promptTemplates?: PromptTemplate[]
+  promptCategories?: string[]
   defaultFavoriteCollectionId: string | null
 }
 
@@ -102,6 +103,7 @@ export function createPersistedState(state: PersistedStateSource, includeLegacyA
     agentAssetPanelCollapsed: state.agentAssetPanelCollapsed,
     favoriteCollections: state.favoriteCollections,
     promptTemplates: state.promptTemplates ?? [],
+    promptCategories: state.promptCategories,
     defaultFavoriteCollectionId: state.defaultFavoriteCollectionId,
   }
 }
@@ -195,7 +197,7 @@ export function normalizePersistedState(
       agentAssetTab: persistedState.agentAssetTab === 'references' ? 'references' : 'outputs',
       agentAssetPanelCollapsed: Boolean(persistedState.agentAssetPanelCollapsed),
       favoriteCollections,
-      promptTemplates: normalizePromptTemplates(persistedState.promptTemplates, now),
+      ...normalizePersonalPromptLibrary(persistedState.promptTemplates, persistedState.promptCategories, now),
       defaultFavoriteCollectionId: resolveDefaultFavoriteCollectionId(favoriteCollections, preferredDefaultFavoriteCollectionId),
       prompt: restoredAgentDraft ? restoredAgentDraft.prompt : galleryInputDraft?.prompt ?? '',
       inputImages: restoredAgentDraft ? restoredAgentDraft.inputImages : galleryInputDraft?.inputImages ?? [],

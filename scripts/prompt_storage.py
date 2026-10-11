@@ -188,6 +188,14 @@ def write_catalog(root, source, payload, migrating=False):
   previous = catalog(root, source)
   if source == 'personal' and not migrating and payload.get('revision') != (previous or {}).get('revision', ''):
     raise ValueError('个人提示词已在其他窗口变化，请重新打开工具后再修改。')
+  prompt_categories = payload.get('promptCategories')
+  if source == 'personal' and 'promptCategories' in payload and (
+    not isinstance(prompt_categories, list)
+    or not prompt_categories
+    or any(not isinstance(name, str) or not name or name != name.strip() or len(name) > 200 for name in prompt_categories)
+    or len(prompt_categories) != len(set(prompt_categories))
+  ):
+    raise ValueError('个人提示词主题分类格式错误。')
   groups, ids = {}, set()
   for item in items:
     if not isinstance(item, dict) or any(not isinstance(item.get(key), str) or not item[key].strip() for key in ('id', 'title', 'content')) or item['id'] in ids:
@@ -214,6 +222,11 @@ def write_catalog(root, source, payload, migrating=False):
     keep = {item.get('previewUrl') for item in items}
     paths += [image_path(root, source, url, entry) for url, entry in index.items() if url not in keep]
   value = {'examplesVersion': version, 'examplesAdded': payload.get('examplesAdded') is True, 'items': items, 'updatedAt': updated, 'cleared': payload.get('cleared') is True, 'revision': uuid.uuid4().hex}
+  if source == 'personal':
+    if 'promptCategories' in payload:
+      value['promptCategories'] = prompt_categories
+    elif 'promptCategories' in (previous or {}):
+      value['promptCategories'] = previous['promptCategories']
   write_json(checked(folder(root, source) / '目录.json'), value)
   # 主数据成功保存后才清理旧文件；清理失败不把已完成的保存误报为失败。
   try:

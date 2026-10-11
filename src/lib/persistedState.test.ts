@@ -384,3 +384,15 @@ describe('persisted state codec', () => {
     expect(merged[1].title).toBe('legacy')
   })
 })
+
+
+it('persists empty personal categories without restoring renamed defaults', () => {
+  const promptCategories = ['日常', '空分类']
+  const promptTemplates = [{ id: 'one', title: '故事', content: '正文', category: '日常', createdAt: 1, updatedAt: 1 }]
+  const encoded = createPersistedState({ ...source(), promptCategories, promptTemplates })
+  expect(encoded.promptCategories).toEqual(promptCategories)
+  const restored = normalizePersistedState(encoded, fallback())!.state
+  expect(restored.promptCategories).toEqual(promptCategories)
+  expect(restored.promptTemplates).toEqual(promptTemplates)
+  expect(normalizePersistedState({}, fallback())!.state.promptCategories).toEqual(['默认', '漫画', 'agnet形象'])
+})

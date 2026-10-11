@@ -1,11 +1,11 @@
 import type { PromptTemplate } from '../types'
 import { promptExampleVersion } from './promptExamples'
 import { desktopApi, isLocalService } from './desktop'
-import { normalizePromptTemplates } from './promptTemplates'
+import { normalizePromptTemplates, normalizePersonalPromptLibrary } from './promptTemplates'
 import type { LibraryPrompt, PromptSourceId } from './promptSources'
 
 export interface PromptStorageStatus { directory: string; ready: boolean; busy: boolean; message: string; error: string }
-export interface PromptCatalog { items: PromptTemplate[]; updatedAt: number; cleared: boolean; revision: string; examplesAdded?: boolean; examplesVersion?: number }
+export interface PromptCatalog { items: PromptTemplate[]; promptCategories?: string[]; updatedAt: number; cleared: boolean; revision: string; examplesAdded?: boolean; examplesVersion?: number }
 export interface StoredPromptCatalog { catalog: PromptCatalog | null; images: string[] }
 export interface PromptStorageLocation { directory: string; message?: string; preferences: { removed: PromptSourceId[]; examplesAdded: boolean; examplesVersion?: number } | null }
 let status: PromptStorageStatus = { directory: '', ready: false, busy: false, message: '', error: '' }
@@ -45,7 +45,7 @@ export function diskPrompts(catalog: PromptCatalog): LibraryPrompt[] {
   return items.map((item) => ({ ...item, category: item.category || '未分类' }))
 }
 
-export async function loadPersonalPromptStorage(): Promise<PromptTemplate[] | null> {
+export async function loadPersonalPromptStorage() {
   const current = await initPromptStorage()
   if (!current.directory) return null
   const result = await promptStorageCall<StoredPromptCatalog>('catalog_read', { source: 'personal' })
@@ -57,20 +57,21 @@ export async function loadPersonalPromptStorage(): Promise<PromptTemplate[] | nu
   else localStorage.removeItem('prompt-examples-version')
   if (result.catalog.examplesAdded) localStorage.setItem('prompt-examples-added-v1', '1')
   else localStorage.removeItem('prompt-examples-added-v1')
-  return items
+  return normalizePersonalPromptLibrary(items, result.catalog.promptCategories)
 }
 
-export function savePersonalPromptChange(getItems: () => PromptTemplate[], apply: (items: PromptTemplate[]) => void): Promise<boolean> {
+export function savePersonalPromptChange(getItems: () => PromptTemplate[], apply: (items: PromptTemplate[], categories: string[]) => void, getCategories: () => string[] | undefined = () => undefined): Promise<boolean> {
   personalWrites++
   const work = personalQueue.catch(() => undefined).then(async () => {
     const current = await initPromptStorage()
     ensurePromptStorageIdle()
-    const items = getItems()
+    const personal = normalizePersonalPromptLibrary(getItems(), getCategories())
+    const items = personal.promptTemplates
     if (current.directory) {
-      const result = await promptStorageCall<StoredPromptCatalog>('catalog_write', { source: 'personal', items, updatedAt: Date.now(), revision: personalRevision, examplesAdded: localStorage.getItem('prompt-examples-added-v1') === '1' || items.some((item) => item.id.startsWith('example-')), examplesVersion: Math.max(Number(localStorage.getItem('prompt-examples-version')) || 0, items.reduce((version, item) => Math.max(version, promptExampleVersion(item)), 0)) })
+      const result = await promptStorageCall<StoredPromptCatalog>('catalog_write', { source: 'personal', items, promptCategories: personal.promptCategories, updatedAt: Date.now(), revision: personalRevision, examplesAdded: localStorage.getItem('prompt-examples-added-v1') === '1' || items.some((item) => item.id.startsWith('example-')), examplesVersion: Math.max(Number(localStorage.getItem('prompt-examples-version')) || 0, items.reduce((version, item) => Math.max(version, promptExampleVersion(item)), 0)) })
       personalRevision = result.catalog!.revision
     }
-    apply(items)
+    apply(items, personal.promptCategories)
     return true
   }).finally(() => { personalWrites-- })
   personalQueue = work

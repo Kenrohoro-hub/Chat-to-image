@@ -525,6 +525,7 @@ export interface ExportData {
   tasks?: TaskRecord[]
   favoriteCollections?: FavoriteCollection[]
   promptTemplates?: PromptTemplate[]
+  promptCategories?: string[]
   defaultFavoriteCollectionId?: string | null
   agentConversations?: AgentConversation[]
   /** imageId → 图片信息 */

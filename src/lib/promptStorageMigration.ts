@@ -1,9 +1,10 @@
 import { useStore } from '../store'
+import { normalizePersonalPromptLibrary } from './promptTemplates'
 import { desktopApi } from './desktop'
 import { blobToDataUrl } from './dataUrl'
 import { PROMPT_SOURCES, normalizePromptSource, promptImageUrl } from './promptSources'
 import { promptLibraries, resetPromptLibraries, getRemovedPromptSources } from './promptLibrary'
-import { diskPrompts, activatePromptDirectory, hasPersonalPromptWrites, initPromptStorage, updatePromptStorage, getPromptStorageStatus, type PromptStorageLocation, type StoredPromptCatalog } from './promptStorage'
+import { activatePromptDirectory, hasPersonalPromptWrites, initPromptStorage, updatePromptStorage, getPromptStorageStatus, type PromptStorageLocation, type StoredPromptCatalog } from './promptStorage'
 
 export async function changePromptDirectory(directory: string, cleanPrevious = false) {
   await initPromptStorage()
@@ -15,7 +16,6 @@ export async function changePromptDirectory(directory: string, cleanPrevious = f
   try {
     pending = await api.prompt_storage('prepare', { directory }) as typeof pending
     const migration = pending!.migration
-    const categories = new Map<string, { category: string; categories?: string[] }>()
     if (!previous && typeof caches !== 'undefined') {
       for (const source of PROMPT_SOURCES) {
         const cache = await caches.open(source.cache)
@@ -25,7 +25,6 @@ export async function changePromptDirectory(directory: string, cleanPrevious = f
         const snapshot = await response.json()
         if (!snapshot || snapshot.items === undefined || !Number.isFinite(snapshot.updatedAt)) throw new Error(`${source.name} 的旧目录格式错误，未切换保存位置。`)
         const items = snapshot.cleared === true ? [] : [...new Map(normalizePromptSource(source.id, snapshot.items).map((item) => [item.id, item])).values()]
-        items.forEach((item) => categories.set(item.sourcePromptId || item.id, { category: item.category, categories: item.categories }))
         updatePromptStorage({ message: `正在复制 ${source.name}：${items.length} 条提示词…` })
         await api.prompt_storage('catalog_write', { migration, source: source.id, items, updatedAt: snapshot.updatedAt, cleared: snapshot.cleared === true })
         const images = (await cache.keys()).filter((key) => key.url !== catalogUrl && promptImageUrl(key.url))
@@ -40,16 +39,18 @@ export async function changePromptDirectory(directory: string, cleanPrevious = f
     }
     const copied = previous ? await api.prompt_storage('catalog_read', { migration, source: 'personal' }) as StoredPromptCatalog : null
     if (copied && !copied.catalog) throw new Error('复制后的个人提示词文件缺失，未切换保存位置。')
-    const personal = copied ? diskPrompts(copied.catalog!) : useStore.getState().promptTemplates.map((item) => item.category ? item : { ...item, ...categories.get(item.sourcePromptId || ''), category: categories.get(item.sourcePromptId || '')?.category || '未分类' })
+    const personal = copied ? copied.catalog!.items : useStore.getState().promptTemplates
+    const personalLibrary = normalizePersonalPromptLibrary(personal, copied ? copied.catalog!.promptCategories : useStore.getState().promptCategories)
+    if (personalLibrary.promptTemplates.length !== personal.length) throw new Error('个人提示词文件中有无效条目，未切换保存位置。')
     updatePromptStorage({ message: '正在保存个人提示词、收藏和目录偏好…' })
     const examplesAdded = localStorage.getItem('prompt-examples-added-v1') === '1'
     const examplesVersion = copied?.catalog?.examplesVersion ?? (Number(localStorage.getItem('prompt-examples-version')) || 0)
-    const saved = copied ?? await api.prompt_storage('catalog_write', { migration, source: 'personal', items: personal, updatedAt: Date.now(), examplesAdded, examplesVersion }) as StoredPromptCatalog
+    const saved = copied ?? await api.prompt_storage('catalog_write', { migration, source: 'personal', items: personalLibrary.promptTemplates, promptCategories: personalLibrary.promptCategories, updatedAt: Date.now(), examplesAdded, examplesVersion }) as StoredPromptCatalog
     const location = await api.prompt_storage('commit', { migration, cleanPrevious, preferences: { removed: getRemovedPromptSources(), examplesAdded, examplesVersion } }) as PromptStorageLocation
     pending = undefined
     activatePromptDirectory(location, saved.catalog!.revision)
     resetPromptLibraries()
-    useStore.setState({ promptTemplates: personal })
+    useStore.setState(personalLibrary)
   } catch (err) {
     if (pending) {
       try { await api.prompt_storage('abort', { migration: pending.migration }) }

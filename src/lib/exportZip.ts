@@ -27,6 +27,7 @@ export interface BuildExportZipParams {
   thumbnailsByImageId: Map<string, StoredImageThumbnail>
   favoriteCollections: FavoriteCollection[]
   promptTemplates?: ExportData['promptTemplates']
+  promptCategories?: string[]
   defaultFavoriteCollectionId: string | null
   agentConversations: AgentConversation[]
   imageTasks?: TaskRecord[]
@@ -114,6 +115,7 @@ export async function buildExportZip(params: BuildExportZipParams) {
     if (params.includeManifestData !== false) {
       manifest.favoriteCollections = params.favoriteCollections
       manifest.promptTemplates = params.promptTemplates ?? []
+      manifest.promptCategories = params.promptCategories
       manifest.defaultFavoriteCollectionId = params.defaultFavoriteCollectionId
     }
     manifest.imageFiles = imageFiles
@@ -258,6 +260,7 @@ function getBaseManifestEstimatedBytes(params: Omit<BuildExportZipParams, 'image
       tasks: [],
       favoriteCollections: params.favoriteCollections,
       promptTemplates: params.promptTemplates ?? [],
+      promptCategories: params.promptCategories,
       defaultFavoriteCollectionId: params.defaultFavoriteCollectionId,
       agentConversations: [],
     } : {}),

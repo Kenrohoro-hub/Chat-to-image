@@ -29,7 +29,6 @@
 .prompt-removed-sources[open] summary { margin-bottom: 8px; }
 .prompt-removed-sources button { min-height: 36px; width: 100%; justify-content: space-between; font-size: 11px; }
 .prompt-workspace-body { display: grid; grid-template-columns: 184px minmax(0, 1fr); flex: 1; min-height: 0; gap: 20px; }
-.prompt-workspace-body[data-personal="true"] { grid-template-columns: minmax(0, 1fr); }
 .prompt-categories { display: flex; flex-direction: column; min-height: 0; padding: 14px 10px; border: 1px solid var(--workspace-line); border-radius: 12px; }
 .prompt-categories > p { display: flex; align-items: center; justify-content: space-between; padding: 2px 10px 14px; color: var(--workspace-muted); font-size: 12px; }
 .prompt-categories > p span { font-size: 11px; }
@@ -38,6 +37,18 @@
 .prompt-categories button[aria-pressed="true"] { background: var(--workspace-panel); font-weight: 600; box-shadow: inset 3px 0 var(--workspace-ink); }
 .prompt-categories button:hover:not([aria-pressed="true"]) { background: var(--workspace-panel); }
 .prompt-categories .prompt-category-toggle { display: none; }
+.prompt-categories .prompt-manage-categories { font-size: 12px; text-decoration: underline; }
+.prompt-category-manager { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; min-height: 0; padding: 2px; margin-bottom: 12px; }
+.prompt-category-manager form { display: grid; gap: 6px; font-size: 12px; }
+.prompt-category-manager input { width: 100%; min-width: 0; padding: 8px; background: var(--workspace-panel); border: 1px solid var(--workspace-line); border-radius: 6px; }
+.prompt-category-manager form > div, .prompt-category-manage-row > div { display: flex; gap: 4px; }
+.prompt-category-manager button { min-height: 36px; padding: 6px; font-size: 12px; }
+.prompt-category-manager button:disabled { opacity: .45; cursor: not-allowed; }
+.prompt-category-manager [role="alert"] { font-size: 12px; color: #c44b4b; }
+.prompt-category-manage-list { display: grid; gap: 6px; }
+.prompt-category-manage-row { border-bottom: 1px solid var(--workspace-line); padding: 4px; }
+.prompt-category-manage-row > span { display: block; font-size: 13px; overflow-wrap: anywhere; }
+.prompt-category-note { font-size: 11px; line-height: 1.6; color: var(--workspace-muted); }
 .prompt-category-list { overflow-y: auto; min-height: 0; padding: 2px; scrollbar-width: thin; }
 .prompt-category-list button { width: 100%; margin-bottom: 4px; }
 .prompt-catalog { display: flex; flex-direction: column; min-height: 0; min-width: 0; border: 1px solid var(--workspace-line); border-radius: 12px; overflow: hidden; }
@@ -101,7 +112,7 @@
 .prompt-detail-actions a { text-decoration: underline; padding: 8px 0; }
 .prompt-detail-copy form { display: flex; flex-direction: column; padding: 24px; gap: 18px; flex: 1; min-height: 0; overflow-y: auto; }
 .prompt-detail-copy label { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
-.prompt-detail-copy input, .prompt-detail-copy textarea { width: 100%; padding: 10px; background: var(--workspace-panel); border: 1px solid var(--workspace-line); border-radius: 6px; }
+.prompt-detail-copy input, .prompt-detail-copy textarea, .prompt-detail-copy select { width: 100%; padding: 10px; background: var(--workspace-panel); border: 1px solid var(--workspace-line); border-radius: 6px; }
 .prompt-content-field { flex: 1; min-height: 160px; }
 .prompt-detail-copy textarea { flex: 1; resize: vertical; min-height: 130px; line-height: 1.8; }
 .prompt-detail[data-zoom="true"] .prompt-detail-body { grid-template-columns: minmax(0, 1fr); }
@@ -127,6 +138,7 @@
   .prompt-categories .prompt-category-toggle { display: flex; width: 100%; min-height: 44px; }
   .prompt-category-toggle > span:last-child { color: var(--workspace-muted); font-size: 11px; }
   .prompt-category-list { display: none; max-height: 180px; }
+  .prompt-category-manager { max-height: 270px; }
   .prompt-categories[data-expanded="true"] .prompt-category-list { display: block; border-top: 1px solid var(--workspace-line); padding-top: 6px; }
   .prompt-category-list button { min-height: 44px; }
   .prompt-catalog { flex: 1; }

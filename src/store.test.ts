@@ -2492,8 +2492,8 @@ describe('data import', () => {
 
   it('preserves personal prompts from old backups and retains conflicting imported content', async () => {
     await clearTasks()
-    const current = { id: 'prompt-a', title: '纸艺', content: '当前正文', createdAt: 1, updatedAt: 1 }
-    useStore.setState({ promptTemplates: [current] })
+    const current = { id: 'prompt-a', title: '纸艺', content: '当前正文', category: '默认', createdAt: 1, updatedAt: 1 }
+    useStore.setState({ promptTemplates: [current], promptCategories: ['默认'] })
     const backup = { version: 3, exportedAt: new Date(0).toISOString(), tasks: [], imageFiles: {} }
     expect(await importData(importFile(backup), { importConfig: false, importTasks: true })).toBe(true)
     expect(useStore.getState().promptTemplates).toEqual([current])
@@ -2501,10 +2501,27 @@ describe('data import', () => {
     const templates = useStore.getState().promptTemplates
     expect(templates.map((item) => item.content)).toEqual(['当前正文', '导入正文'])
     expect(new Set(templates.map((item) => item.id)).size).toBe(2)
+  })
+
+  it('merges prompt categories from backups and resets them only when clearing prompts', async () => {
+    await clearTasks()
+    const current = { id: 'prompt-a', title: '纸艺', content: '当前正文', createdAt: 1, updatedAt: 1 }
+    const incoming = { id: 'prompt-b', title: '插画', content: '导入正文', category: '来者分类', createdAt: 1, updatedAt: 1 }
+    useStore.setState({ promptTemplates: [current], promptCategories: ['自定义'] })
+    const backup = { version: 3, exportedAt: new Date(0).toISOString(), tasks: [], imageFiles: {}, promptTemplates: [current, incoming], promptCategories: ['空分类'] }
+    expect(await importData(importFile(backup), { importConfig: false, importTasks: true })).toBe(true)
+    expect(useStore.getState().promptCategories).toEqual(['自定义', '空分类', '来者分类'])
+    expect(useStore.getState().promptTemplates).toHaveLength(2)
+    expect(await importData(importFile(backup), { importConfig: false, importTasks: true })).toBe(true)
+    expect(useStore.getState().promptTemplates).toHaveLength(2)
+
+    const templates = useStore.getState().promptTemplates
     await clearData({ clearConfig: true, clearTasks: false })
     expect(useStore.getState().promptTemplates).toEqual(templates)
+    expect(useStore.getState().promptCategories).toEqual(['自定义', '空分类', '来者分类'])
     await clearData({ clearConfig: false, clearTasks: true })
     expect(useStore.getState().promptTemplates).toEqual([])
+    expect(useStore.getState().promptCategories).toEqual(['默认', '漫画', 'agnet形象'])
   })
 
   it('restores favorite collections and default collection when importing task data', async () => {

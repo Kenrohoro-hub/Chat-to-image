@@ -79,7 +79,7 @@ import { addImageSizeParam, createTaskDonePatch, createTaskErrorPatch, deriveAge
 import { stripInjectedCodexCliSizePrompt } from './lib/size'
 import { applyCreationDraft, captureCreationDraft } from './lib/creationDraft'
 import { flushAgentConversationsToIndexedDB, initializeAgentConversationPersistence, persistAgentConversationChanges, scheduleAgentConversationSave } from './lib/agentConversationPersistence'
-import { mergePromptTemplates } from './lib/promptTemplates'
+import { DEFAULT_PROMPT_CATEGORIES, mergePromptTemplates } from './lib/promptTemplates'
 
 const FAL_RECOVERY_POLL_MS = 10_000
 const CUSTOM_RECOVERY_POLL_MS = 10_000
@@ -267,7 +267,8 @@ interface AppState {
   setPrompt: (p: string) => void
   creationDraftUndo: { before: CreationDraftSnapshot; after: CreationDraftSnapshot } | null
   promptTemplates: PromptTemplate[]
-  setPromptTemplates: (templates: PromptTemplate[] | ((current: PromptTemplate[]) => PromptTemplate[])) => Promise<boolean>
+  promptCategories: string[]
+  setPromptTemplates: (templates: PromptTemplate[] | ((current: PromptTemplate[]) => PromptTemplate[]), categories?: string[] | ((current: string[]) => string[])) => Promise<boolean>
   inputImages: InputImage[]
   addInputImage: (img: InputImage) => void
   replaceInputImage: (idx: number, img: InputImage) => void
@@ -611,7 +612,8 @@ export const useStore = create<AppState>()(
       setPrompt: (prompt) => set((s) => syncActiveInputDraft(s, { prompt })),
       creationDraftUndo: null,
       promptTemplates: [],
-      setPromptTemplates: (templates) => savePersonalPromptChange(() => typeof templates === 'function' ? templates(get().promptTemplates) : templates, (promptTemplates) => set({ promptTemplates })).catch((err) => { console.warn('Personal prompt save failed', err); get().showToast(err instanceof Error ? err.message : '个人提示词保存失败，原数据保留。', 'error'); return false }),
+      promptCategories: DEFAULT_PROMPT_CATEGORIES,
+      setPromptTemplates: (templates, categories) => savePersonalPromptChange(() => typeof templates === 'function' ? templates(get().promptTemplates) : templates, (promptTemplates, promptCategories) => set({ promptTemplates, promptCategories }), () => typeof categories === 'function' ? categories(get().promptCategories) : categories ?? get().promptCategories).catch((err) => { console.warn('Personal prompt save failed', err); get().showToast(err instanceof Error ? err.message : '个人提示词保存失败，原数据保留。', 'error'); return false }),
       inputImages: [],
       addInputImage: (img) =>
         set((s) => {
@@ -4093,7 +4095,7 @@ export async function clearData(options: ClearOptions = { clearConfig: true, cle
   const { setTasks, clearInputImages, clearMaskDraft, setSettings, setParams, showToast } = useStore.getState()
 
   if (options.clearTasks) {
-    if (!await useStore.getState().setPromptTemplates([])) return
+    if (!await useStore.getState().setPromptTemplates([], DEFAULT_PROMPT_CATEGORIES)) return
     setTasks([])
     useStore.setState({
       agentConversations: [],
@@ -4199,7 +4201,7 @@ export async function exportData(options: ExportOptions = { exportConfig: true, 
     if (options.exportTasks && hasActiveDataOperations(state.tasks, state.agentConversations)) throw new Error('当前有任务正在进行，请完成或停止后再导出。')
     const tasks = options.exportTasks ? await getAllTasks() : []
     const imageIds = options.exportTasks ? await getAllImageIds() : []
-    const { settings, agentConversations, favoriteCollections, defaultFavoriteCollectionId, promptTemplates } = state
+    const { settings, agentConversations, favoriteCollections, defaultFavoriteCollectionId, promptTemplates, promptCategories } = state
     const exportedAt = Date.now()
     const params = {
       options,
@@ -4209,6 +4211,7 @@ export async function exportData(options: ExportOptions = { exportConfig: true, 
       imageTasks: tasks,
       favoriteCollections,
       promptTemplates,
+      promptCategories,
       defaultFavoriteCollectionId,
       agentConversations: options.exportTasks ? getPersistableAgentConversations(agentConversations) : [],
     }
@@ -4389,7 +4392,7 @@ export async function importData(input: File | File[], options: ImportOptions = 
         ? resolveDefaultFavoriteCollectionId(favoriteCollections, importedDefaultFavoriteCollectionId)
         : state.defaultFavoriteCollectionId
       const normalizedFavorites = normalizeLoadedFavoriteState(tasks, favoriteCollections, defaultFavoriteCollectionId)
-      if (!await state.setPromptTemplates((current) => mergePromptTemplates(current, selected.flatMap((part) => part.manifest.promptTemplates ?? [])))) throw new Error('个人提示词未能保存，原个人库保留。')
+      if (!await state.setPromptTemplates((current) => mergePromptTemplates(current, selected.flatMap((part) => part.manifest.promptTemplates ?? [])), (current) => [...current, ...selected.flatMap((part) => Array.isArray(part.manifest.promptCategories) ? part.manifest.promptCategories : [])])) throw new Error('个人提示词未能保存，原个人库保留。')
       useStore.setState({
         tasks: normalizedFavorites.tasks,
         favoriteCollections: normalizedFavorites.collections,

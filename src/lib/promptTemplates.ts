@@ -1,4 +1,23 @@
 import type { PromptTemplate } from '../types'
+import { promptExampleVersion } from './promptExamples'
+
+export const DEFAULT_PROMPT_CATEGORIES = ['默认', '漫画', 'agnet形象']
+
+export function normalizePersonalPromptLibrary(items: unknown, categories: unknown, now = Date.now()) {
+  const promptCategories = [...new Set(Array.isArray(categories)
+    ? categories.filter((name): name is string => typeof name === 'string' && !!name.trim() && name.trim().length <= 200).map((name) => name.trim())
+    : DEFAULT_PROMPT_CATEGORIES)]
+  if (!promptCategories.length) promptCategories.push('默认')
+  const promptTemplates = normalizePromptTemplates(items, now).map((item) => {
+    const version = promptExampleVersion(item)
+    const suggested = version === 4 ? '漫画' : version === 3 ? 'agnet形象' : '默认'
+    const existing = !Array.isArray(categories) && item.category === '未分类' ? undefined : item.category
+    const category = existing || (promptCategories.includes(suggested) ? suggested : promptCategories[0])
+    if (!promptCategories.includes(category)) promptCategories.push(category)
+    return { ...item, category }
+  })
+  return { promptTemplates, promptCategories }
+}
 
 function safeUrl(value: unknown) {
   if (typeof value !== 'string') return undefined
@@ -22,7 +41,7 @@ export function mergePromptTemplates(current: PromptTemplate[], incoming: unknow
   const merged = [...current]
   for (const item of normalizePromptTemplates(incoming)) {
     const existing = merged.find((template) => template.id === item.id)
-    if (existing?.title === item.title && existing.content === item.content && existing.sourceUrl === item.sourceUrl && existing.previewUrl === item.previewUrl && existing.sourcePromptId === item.sourcePromptId && existing.category === item.category && JSON.stringify(existing.categories) === JSON.stringify(item.categories)) continue
+    if (existing?.title === item.title && existing.content === item.content && existing.sourceUrl === item.sourceUrl && existing.previewUrl === item.previewUrl && existing.sourcePromptId === item.sourcePromptId && (!item.category || existing.category === item.category) && JSON.stringify(existing.categories) === JSON.stringify(item.categories)) continue
     merged.push(existing ? { ...item, id: crypto.randomUUID(), title: `${item.title}（导入）` } : item)
   }
   return merged

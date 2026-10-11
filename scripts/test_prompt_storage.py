@@ -49,6 +49,31 @@ class PromptStorageTests(unittest.TestCase):
     self.assertEqual(copied['examplesVersion'], 2)
     self.call('abort', migration=pending['migration'])
 
+  def test_personal_prompt_categories_roundtrip_and_update_with_items(self):
+    self.enable()
+    revision = self.call('catalog_read', source='personal')['catalog']['revision']
+    categories = ['默认', '漫画', 'agnet形象']
+    saved = self.call('catalog_write', source='personal', items=[{**self.item, 'category': '漫画'}], promptCategories=categories, revision=revision)['catalog']
+    self.assertEqual(saved['promptCategories'], categories)
+    root = Path(storage.setting()) / '个人提示词'
+    self.assertFalse((root / storage.category_name('默认')).exists())
+    renamed = self.call('catalog_write', source='personal', items=[{**self.item, 'category': '新漫画'}], promptCategories=['默认', '新漫画'], revision=saved['revision'])['catalog']
+    self.assertEqual(renamed['promptCategories'], ['默认', '新漫画'])
+    self.assertEqual(renamed['items'][0]['category'], '新漫画')
+    preserved = self.call('catalog_write', source='personal', items=renamed['items'], revision=renamed['revision'])['catalog']
+    self.assertEqual(preserved['promptCategories'], ['默认', '新漫画'])
+
+  def test_invalid_personal_prompt_categories_are_rejected_before_writes(self):
+    self.enable()
+    previous = self.call('catalog_read', source='personal')['catalog']
+    prompt_files = sorted(path.relative_to(self.home) for path in self.home.rglob('提示词.json'))
+    invalid = [None, [], [''], [' 默认'], ['重复', '重复'], ['x' * 201], [1]]
+    for categories in invalid:
+      with self.subTest(categories=categories), self.assertRaisesRegex(ValueError, '主题分类格式'):
+        self.call('catalog_write', source='personal', items=[self.item], promptCategories=categories, revision=previous['revision'])
+      self.assertEqual(self.call('catalog_read', source='personal')['catalog'], previous)
+      self.assertEqual(sorted(path.relative_to(self.home) for path in self.home.rglob('提示词.json')), prompt_files)
+
   def test_failed_personal_catalog_write_keeps_saved_images(self):
     root = Path(self.enable()['directory'])
     self.call('image_write', source='garden', category=self.item['category'], url=self.item['previewUrl'], dataUrl=self.data)

@@ -5,11 +5,13 @@ import { DEFAULT_SETTINGS } from './apiProfiles'
 import { buildExportZip, getExportImageEstimatedBytes, getExportZipPlan, readExportZip, readExportZipFileAsDataUrl } from './exportZip'
 
 describe('exportZip', () => {
-  it('keeps personal prompt templates in a works backup without including API configuration', async () => {
+  it('keeps personal prompts and empty categories in a works backup without API configuration', async () => {
     const promptTemplates = [{ id: 'personal', title: '产品摄影', content: '柔和侧光', createdAt: 1, updatedAt: 2, sourceUrl: 'https://prompt.qqsrc.com/detail.html?id=1', previewUrl: 'https://r2.qqsrc.com/images/originals/1.jpg' }]
-    const backup = await buildExportZip({ options: { exportTasks: true, exportConfig: false }, exportedAt: Date.now(), settings: DEFAULT_SETTINGS, tasks: [], images: [], thumbnailsByImageId: new Map(), favoriteCollections: [], defaultFavoriteCollectionId: null, agentConversations: [], promptTemplates })
+    const promptCategories = ['默认', '空分类']
+    const backup = await buildExportZip({ options: { exportTasks: true, exportConfig: false }, exportedAt: Date.now(), settings: DEFAULT_SETTINGS, tasks: [], images: [], thumbnailsByImageId: new Map(), favoriteCollections: [], defaultFavoriteCollectionId: null, agentConversations: [], promptTemplates, promptCategories })
     const restored = await readExportZip(backup.bytes)
     expect(restored.manifest.promptTemplates).toEqual(promptTemplates)
+    expect(restored.manifest.promptCategories).toEqual(promptCategories)
     expect(restored.manifest.settings).toBeUndefined()
   })
   it('omits empty customProviders in backup settings and retains non-empty providers', async () => {

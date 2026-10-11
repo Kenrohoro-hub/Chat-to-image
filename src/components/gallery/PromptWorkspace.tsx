@@ -7,12 +7,14 @@ import { promptLibraries, getRemovedPromptSources, setRemovedPromptSources } fro
 import { PROMPT_SOURCES, promptSourceName, type LibraryPrompt, type PromptSourceId } from '../../lib/promptSources'
 import { takePromptToGallery } from '../../lib/workspaceTransfer'
 import PromptDetail from './PromptDetail'
+import PromptCategoryManager from './PromptCategoryManager'
 import PromptImage from './PromptImage'
 
 type Source = PromptSourceId | 'personal'
 
 export default function PromptWorkspace({ startWithDraft = false }: { startWithDraft?: boolean }) {
   const templates = useStore((state) => state.promptTemplates)
+  const personalCategories = useStore((state) => state.promptCategories)
   const storage = useSyncExternalStore(subscribePromptStorage, getPromptStorageStatus)
   const prompt = useStore((state) => state.prompt)
   const [removed, setRemoved] = useState(getRemovedPromptSources)
@@ -22,6 +24,7 @@ export default function PromptWorkspace({ startWithDraft = false }: { startWithD
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('')
   const [categoriesOpen, setCategoriesOpen] = useState(false)
+  const [managingCategories, setManagingCategories] = useState(false)
   const [page, setPage] = useState(0)
   const site = PROMPT_SOURCES.find((item) => item.id === source) ?? PROMPT_SOURCES[0]
   const library = promptLibraries[site.id]
@@ -56,9 +59,13 @@ export default function PromptWorkspace({ startWithDraft = false }: { startWithD
     return () => { active = false }
   }, [source, library, site.name, storage.directory])
   useEffect(() => { grid.current?.scrollTo?.({ top: 0 }) }, [source, category, query, page])
-  const categories = new Map<string, number>()
-  for (const item of items) for (const name of item.categories ?? [item.category]) categories.set(name, (categories.get(name) ?? 0) + 1)
-  const pool = source !== 'personal' ? items.filter((item) => !category || (item.categories ?? [item.category]).includes(category)) : templates
+  const categories = new Map<string, number>(source === 'personal' ? personalCategories.map((name) => [name, 0]) : [])
+  for (const item of source === 'personal' ? templates : items) {
+    const names = source === 'personal' ? [item.category || personalCategories[0]] : item.categories ?? [item.category!]
+    for (const name of names) categories.set(name, (categories.get(name) ?? 0) + 1)
+  }
+  const categoryEntries = source === 'personal' ? [...categories] : [...categories].sort(([a], [b]) => a.localeCompare(b, 'zh-CN'))
+  const pool = source !== 'personal' ? items.filter((item) => !category || (item.categories ?? [item.category]).includes(category)) : templates.filter((item) => !category || (item.category || personalCategories[0]) === category)
   const keyword = query.trim().toLowerCase()
   const filtered = pool.filter((item) => `${item.title}\n${item.content}`.toLowerCase().includes(keyword))
   const pages = Math.max(1, Math.ceil(filtered.length / 24))
@@ -68,7 +75,7 @@ export default function PromptWorkspace({ startWithDraft = false }: { startWithD
     const state = useStore.getState()
     if (state.promptTemplates.some((entry) => item.sourcePromptId && entry.sourcePromptId ? item.sourcePromptId === entry.sourcePromptId : item.sourceUrl ? entry.sourceUrl === item.sourceUrl : entry.title === item.title && entry.content === item.content)) return
     const now = Date.now()
-    const saved = await state.setPromptTemplates((current) => current.some((entry) => item.sourcePromptId && entry.sourcePromptId ? item.sourcePromptId === entry.sourcePromptId : item.sourceUrl ? entry.sourceUrl === item.sourceUrl : entry.title === item.title && entry.content === item.content) ? current : [{ id: crypto.randomUUID(), title: item.title, content: item.content, category: item.category, categories: item.categories, sourcePromptId: item.sourcePromptId, sourceUrl: item.sourceUrl, previewUrl: item.previewUrl, createdAt: now, updatedAt: now }, ...current])
+    const saved = await state.setPromptTemplates((current) => current.some((entry) => item.sourcePromptId && entry.sourcePromptId ? item.sourcePromptId === entry.sourcePromptId : item.sourceUrl ? entry.sourceUrl === item.sourceUrl : entry.title === item.title && entry.content === item.content) ? current : [{ id: crypto.randomUUID(), title: item.title, content: item.content, category: personalCategories[0], categories: item.categories, sourcePromptId: item.sourcePromptId, sourceUrl: item.sourceUrl, previewUrl: item.previewUrl, createdAt: now, updatedAt: now }, ...current])
     if (!saved) return
     state.showToast('已收藏到个人提示词', 'success')
   }
@@ -110,7 +117,7 @@ export default function PromptWorkspace({ startWithDraft = false }: { startWithD
     },
   })
   return <main className="prompt-workspace" aria-label="提示词库工作区">
-    <header className="prompt-workspace-heading"><div><span>挑选灵感，带回创作</span><h1>提示词库</h1></div><div className="prompt-heading-actions"><button type="button" disabled={!prompt.trim()} onClick={() => { setSource('personal'); setSelected({ id: '', title: '', content: prompt, createdAt: 0, updatedAt: 0 }) }}>保存当前草稿</button><button type="button" className="prompt-primary" onClick={() => { setSource('personal'); setSelected({ id: '', title: '', content: '', createdAt: 0, updatedAt: 0 }) }}>＋ 新建提示词</button></div></header>
+    <header className="prompt-workspace-heading"><div><span>挑选灵感，带回创作</span><h1>提示词库</h1></div><div className="prompt-heading-actions"><button type="button" disabled={!prompt.trim()} onClick={() => { setSource('personal'); if (source !== 'personal') setCategory(''); setSelected({ id: '', title: '', content: prompt, category: source === 'personal' && category ? category : personalCategories[0], createdAt: 0, updatedAt: 0 }) }}>保存当前草稿</button><button type="button" className="prompt-primary" onClick={() => { setSource('personal'); if (source !== 'personal') setCategory(''); setSelected({ id: '', title: '', content: '', category: source === 'personal' && category ? category : personalCategories[0], createdAt: 0, updatedAt: 0 }) }}>＋ 新建提示词</button></div></header>
     <nav className="prompt-sources" aria-label="提示词库来源">
       <div className="prompt-source-heading"><span>选择提示词库<span className="prompt-source-hint">横向滑动切换</span></span>{removed.length > 0 && <details className="prompt-removed-sources"><summary>已删除的库（{removed.length}）</summary>{PROMPT_SOURCES.filter((entry) => removed.includes(entry.id)).map((entry) => <button type="button" key={entry.id} aria-label={`恢复 ${entry.name} 提示词库`} onClick={async () => { try { const next = removed.filter((id) => id !== entry.id); await setRemovedPromptSources(next); setRemoved(next); setSource(entry.id); setItems([]); setCategory(''); setQuery(''); setPage(0) } catch { useStore.getState().showToast('恢复失败，请检查本地存储空间。', 'error') } }}><span>{entry.name}</span><small>恢复</small></button>)}</details>}</div>
       <div className="prompt-source-row">
@@ -120,16 +127,18 @@ export default function PromptWorkspace({ startWithDraft = false }: { startWithD
       </div>
     </nav>
     <div className="prompt-workspace-body" data-personal={source === 'personal'}>
-      {source !== 'personal' && <aside className="prompt-categories" aria-label="提示词分类" data-expanded={categoriesOpen}>
+      <aside className="prompt-categories" aria-label="提示词分类" data-expanded={categoriesOpen}>
         <p>{source === 'youmind' ? '参考图需求' : '主题分类'}<span>{categories.size}</span></p>
         <button type="button" className="prompt-category-toggle" aria-expanded={categoriesOpen} aria-controls="prompt-category-options" onClick={() => setCategoriesOpen(!categoriesOpen)}><span>{category || '全部分类'}</span><span>{categoriesOpen ? '收起分类 −' : '选择分类 ＋'}</span></button>
-        <div className="prompt-category-list" id="prompt-category-options"><button type="button" aria-pressed={!category} onClick={() => { setCategory(''); setPage(0); setCategoriesOpen(false) }}><span>全部分类</span><small>{items.length}</small></button>{[...categories].sort(([a], [b]) => a.localeCompare(b, 'zh-CN')).map(([name, count]) => <button type="button" key={name} aria-pressed={category === name} onClick={() => { setCategory(name); setPage(0); setCategoriesOpen(false) }}><span>{name}</span><small>{count}</small></button>)}</div>
-      </aside>}
+        {source === 'personal' && <button type="button" className="prompt-manage-categories" aria-expanded={managingCategories} onClick={() => setManagingCategories(!managingCategories)}>{managingCategories ? '收起管理' : '管理分类'}</button>}
+        {source === 'personal' && managingCategories && <PromptCategoryManager onChange={(from, to) => { if (category === from && from) setCategory(to); setPage(0) }} />}
+        <div className="prompt-category-list" id="prompt-category-options"><button type="button" aria-pressed={!category} onClick={() => { setCategory(''); setPage(0); setCategoriesOpen(false) }}><span>全部分类</span><small>{source === 'personal' ? templates.length : items.length}</small></button>{categoryEntries.map(([name, count]) => <button type="button" key={name} aria-pressed={category === name} onClick={() => { setCategory(name); setPage(0); setCategoriesOpen(false) }}><span>{name}</span><small>{count}</small></button>)}</div>
+      </aside>
       <section className="prompt-catalog" aria-label="提示词列表">
         <div className="prompt-catalog-toolbar">
           <div className="prompt-catalog-controls">
             <div className="prompt-catalog-info">
-              <div className="prompt-catalog-title"><h2>{source !== 'personal' ? site.name : '个人提示词'}</h2>{source !== 'personal' && category && <span className="prompt-category-tag">{category}</span>}<span role="status">{source !== 'personal' && loading ? '正在加载…' : `${filtered.length} 条提示词`}</span></div>
+              <div className="prompt-catalog-title"><h2>{source !== 'personal' ? site.name : '个人提示词'}</h2>{category && <span className="prompt-category-tag">{category}</span>}<span role="status">{source !== 'personal' && loading ? '正在加载…' : `${filtered.length} 条提示词`}</span></div>
               {source !== 'personal' && <a className="prompt-site-home" href={site.home} target="_blank" rel="noopener noreferrer" aria-label={`${site.name} 官网首页：${site.home}`} title={site.home}>官网首页 ↗</a>}
             </div>
             <input type="search" aria-label="搜索提示词" placeholder="搜索名称或提示词正文…" value={query} onChange={(event) => { setQuery(event.target.value); setPage(0) }} />
@@ -145,9 +154,9 @@ export default function PromptWorkspace({ startWithDraft = false }: { startWithD
           </div>}
         </div>
         {error && source !== 'personal' && <div className="prompt-cache-error" role="alert"><span>{error}</span><button type="button" disabled={!!cacheStatus.busy} onClick={() => void refresh()}>重新加载</button></div>}
-        {deleted && <div className="prompt-undo" role="status">已删除“{deleted.title}”<button type="button" onClick={async () => { const state = useStore.getState(); if (await state.setPromptTemplates((current) => current.some((item) => item.id === deleted.id) ? current : [deleted, ...current])) setDeleted(null) }}>撤销删除</button></div>}
+        {deleted && <div className="prompt-undo" role="status">已删除“{deleted.title}”<button type="button" onClick={async () => { const state = useStore.getState(); if (await state.setPromptTemplates((current) => current.some((item) => item.id === deleted.id) ? current : [{ ...deleted, category: state.promptCategories.includes(deleted.category || '') ? deleted.category : state.promptCategories[0] }, ...current])) setDeleted(null) }}>撤销删除</button></div>}
         <div className="prompt-grid-scroll" ref={grid}>
-          {source !== 'personal' && loading ? <p className="prompt-empty" role="status">正在加载 {site.name}…</p> : !filtered.length ? <div className="prompt-empty"><h3>{source === 'personal' && !query ? '还没有个人提示词' : source !== 'personal' && cacheStatus.cleared ? '本地缓存已清除' : '没有匹配的提示词'}</h3><p>{source === 'personal' && !query ? '从网络提示词库收藏喜欢的内容，或新建一条自己的提示词。' : source !== 'personal' && cacheStatus.cleared ? `点击刷新，重新载入 ${site.name} 的提示词目录。` : '试试其他关键词或分类。'}</p></div> : <div className="prompt-card-grid">{filtered.slice(currentPage * 24, (currentPage + 1) * 24).map((item) => <article className="prompt-card" key={item.id}>
+          {source !== 'personal' && loading ? <p className="prompt-empty" role="status">正在加载 {site.name}…</p> : !filtered.length ? <div className="prompt-empty"><h3>{source === 'personal' && !query ? category ? '这个分类还没有提示词' : '还没有个人提示词' : source !== 'personal' && cacheStatus.cleared ? '本地缓存已清除' : '没有匹配的提示词'}</h3><p>{source === 'personal' && !query ? '从网络提示词库收藏喜欢的内容，或新建一条自己的提示词。' : source !== 'personal' && cacheStatus.cleared ? `点击刷新，重新载入 ${site.name} 的提示词目录。` : '试试其他关键词或分类。'}</p></div> : <div className="prompt-card-grid">{filtered.slice(currentPage * 24, (currentPage + 1) * 24).map((item) => <article className="prompt-card" key={item.id}>
             <button type="button" className="prompt-card-open" aria-label={`查看提示词：${item.title}`} onClick={() => setSelected(item)}>
               <div className="prompt-card-preview">{item.previewUrl ? <><span className="prompt-card-image-fallback">正在加载预览…</span><PromptImage src={item.previewUrl} alt={item.title} loading="lazy" onLoad={(event) => { event.currentTarget.hidden = false }} referrerPolicy="no-referrer" onError={(event) => { event.currentTarget.hidden = true; const label = event.currentTarget.previousElementSibling; if (label) label.textContent = '预览暂不可用' }} /></> : <div className="prompt-card-excerpt"><span aria-hidden="true">Aa</span><p>{item.content}</p></div>}<span className="prompt-card-preview-label">查看详情 ↗</span></div>
               <div className="prompt-card-title"><h3>{item.title}</h3><span>{item.category ? item.category : item.sourceUrl ? `来自 ${promptSourceName(item)}` : promptExamples.some((example) => example.id === item.id) ? '展示示例 · 可编辑或删除' : '文字提示词'}</span></div>
@@ -158,13 +167,14 @@ export default function PromptWorkspace({ startWithDraft = false }: { startWithD
         <div className="prompt-pagination"><span>第 {currentPage + 1} / {pages} 页</span><div><button type="button" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>上一页</button><button type="button" disabled={currentPage + 1 >= pages} onClick={() => setPage(currentPage + 1)}>下一页</button></div></div>
       </section>
     </div>
-    {selected && <PromptDetail key={selected.id} item={selected} personal={source === 'personal'} saved={isSaved(selected)} onClose={() => setSelected(null)} onUse={() => { if (takePromptToGallery(selected.content)) setSelected(null) }} onCollect={() => collect(selected)} onSave={async (title, content) => {
+    {selected && <PromptDetail key={selected.id} item={selected} categories={personalCategories} personal={source === 'personal'} saved={isSaved(selected)} onClose={() => setSelected(null)} onUse={() => { if (takePromptToGallery(selected.content)) setSelected(null) }} onCollect={() => collect(selected)} onSave={async (title, content, promptCategory) => {
       const state = useStore.getState()
       const now = Date.now()
-      const item = { ...selected, id: selected.id || crypto.randomUUID(), title, content, createdAt: selected.createdAt || now, updatedAt: now }
+      const item = { ...selected, id: selected.id || crypto.randomUUID(), title, content, category: promptCategory, createdAt: selected.createdAt || now, updatedAt: now }
       if (!await state.setPromptTemplates((current) => selected.id ? current.map((entry) => entry.id === item.id ? item : entry) : [item, ...current])) return false
       setSelected((current) => current?.id === selected.id ? item : current)
       setQuery('')
+      if (category) setCategory(promptCategory)
       setPage(0)
       state.showToast('提示词已保存', 'success')
       return true

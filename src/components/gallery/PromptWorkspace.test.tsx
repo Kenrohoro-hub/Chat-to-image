@@ -6,11 +6,11 @@ import type { PromptTemplate } from '../../types'
 import PromptWorkspace from './PromptWorkspace'
 import { PROMPT_EXAMPLES_VERSION } from '../../lib/promptExamples'
 
-const mock = vi.hoisted(() => ({ state: { prompt: '当前草稿', promptTemplates: [] as PromptTemplate[], setPromptTemplates: vi.fn(), showToast: vi.fn(), setConfirmDialog: vi.fn() }, apply: vi.fn(), load: vi.fn(), preload: vi.fn(), clear: vi.fn(), status: { busy: '', updatedAt: 0, imageCount: 0, itemCount: 0, revision: 0 } }))
+const mock = vi.hoisted(() => ({ state: { prompt: '当前草稿', promptTemplates: [] as PromptTemplate[], promptCategories: ['默认', '漫画', 'agnet形象'], setPromptTemplates: vi.fn(), showToast: vi.fn(), setConfirmDialog: vi.fn() }, apply: vi.fn(), load: vi.fn(), preload: vi.fn(), clear: vi.fn(), status: { busy: '', updatedAt: 0, imageCount: 0, itemCount: 0, revision: 0 } }))
 vi.mock('../../store', () => ({ useStore: Object.assign((select: (state: typeof mock.state) => unknown) => select(mock.state), { getState: () => mock.state }) }))
 vi.mock('../../lib/workspaceTransfer', () => ({ takePromptToGallery: mock.apply }))
 vi.mock('../../lib/promptLibrary', () => ({ promptLibraries: Object.fromEntries(['garden', 'promptfill', 'youmind', 'pixto', 'nanoimage', 'nano', 'hero'].map((id) => [id, { load: mock.load, preload: mock.preload, clear: mock.clear, getStatus: () => mock.status, subscribe: () => () => {}, cancel: vi.fn() }])), getRemovedPromptSources: () => JSON.parse(localStorage.getItem('prompt-library-removed-v1') || '[]'), setRemovedPromptSources: (ids: string[]) => localStorage.setItem('prompt-library-removed-v1', JSON.stringify(ids)), getCachedPromptImage: async () => null, getPromptImageRevision: () => 0, subscribePromptImages: () => () => {} }))
-beforeEach(() => { localStorage.removeItem('prompt-library-removed-v1'); localStorage.setItem('prompt-examples-added-v1', '1'); localStorage.setItem('prompt-examples-version', String(PROMPT_EXAMPLES_VERSION)); mock.preload.mockResolvedValue(undefined); mock.clear.mockResolvedValue(undefined) })
+beforeEach(() => { mock.state.promptCategories = ['默认', '漫画', 'agnet形象']; localStorage.removeItem('prompt-library-removed-v1'); localStorage.setItem('prompt-examples-added-v1', '1'); localStorage.setItem('prompt-examples-version', String(PROMPT_EXAMPLES_VERSION)); mock.preload.mockResolvedValue(undefined); mock.clear.mockResolvedValue(undefined) })
 let root: ReturnType<typeof createRoot>
 afterEach(async () => { if (root) await act(() => root.unmount()); vi.unstubAllGlobals(); vi.clearAllMocks(); document.body.innerHTML = ''; mock.state.promptTemplates = [] })
 
@@ -234,4 +234,82 @@ it('adds six comic prompts to version 3 without restoring deleted older packs or
   await act(() => root.render(<PromptWorkspace key="reopen-comics" startWithDraft />))
   expect(mock.state.promptTemplates).toEqual([personal])
   expect(mock.state.setPromptTemplates).toHaveBeenCalledTimes(1)
+})
+
+
+it('manages personal categories, keeps empty categories and moves prompts on deletion', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  mock.state.promptTemplates = [{ id: 'comic', title: '漫画正文', content: '四格故事', category: '漫画', createdAt: 0, updatedAt: 0 }]
+  mock.state.setPromptTemplates.mockImplementation(async (items, categories) => {
+    mock.state.promptTemplates = typeof items === 'function' ? items(mock.state.promptTemplates) : items
+    if (categories) mock.state.promptCategories = typeof categories === 'function' ? categories(mock.state.promptCategories) : categories
+    return true
+  })
+  document.body.innerHTML = '<div id="root"></div>'
+  root = createRoot(document.getElementById('root')!)
+  await act(() => root.render(<PromptWorkspace />))
+  await act(() => document.querySelector<HTMLButtonElement>('[aria-label="个人提示词"]')!.click())
+  const button = (label: string) => [...document.querySelectorAll('button')].find((el) => el.textContent === label)!
+  const fillName = async (value: string) => act(() => {
+    const input = document.querySelector<HTMLInputElement>('[aria-label="分类名称"]')!
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value)
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+  const submit = async () => act(() => document.querySelector('.prompt-category-manager form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
+  expect([...document.querySelectorAll('.prompt-category-list button span')].map((el) => el.textContent)).toEqual(['全部分类', '默认', '漫画', 'agnet形象'])
+  await act(() => button('管理分类').click())
+  await fillName(' 自定义 ')
+  await submit()
+  expect(mock.state.promptCategories).toContain('自定义')
+  await act(() => root.render(<PromptWorkspace />))
+  expect(document.querySelector('.prompt-category-list')?.textContent).toContain('自定义0')
+  await fillName('自定义')
+  await submit()
+  expect(document.querySelector('.prompt-category-manager [role="alert"]')?.textContent).toContain('已存在')
+  expect(mock.state.promptCategories.filter((name) => name === '自定义')).toHaveLength(1)
+  await act(() => document.querySelector<HTMLButtonElement>('[aria-label="重命名分类：漫画"]')!.click())
+  await fillName('四格漫画')
+  await submit()
+  expect(mock.state.promptTemplates[0]).toMatchObject({ category: '四格漫画', content: '四格故事' })
+  await act(() => root.render(<PromptWorkspace />))
+  await act(() => document.querySelector<HTMLButtonElement>('[aria-label="删除分类：四格漫画"]')!.click())
+  const dialog = mock.state.setConfirmDialog.mock.lastCall![0]
+  expect(dialog.message).toContain('正文和图片都会保留')
+  await act(() => dialog.action())
+  expect(mock.state.promptCategories).not.toContain('四格漫画')
+  expect(mock.state.promptTemplates[0]).toMatchObject({ category: '默认', content: '四格故事' })
+  mock.state.setPromptTemplates.mockResolvedValueOnce(false)
+  await fillName('保存失败')
+  await submit()
+  expect(mock.state.promptCategories).not.toContain('保存失败')
+  expect(document.querySelector<HTMLInputElement>('[aria-label="分类名称"]')?.value).toBe('保存失败')
+  expect(document.querySelector('.prompt-category-manager [role="alert"]')?.textContent).toContain('未能保存')
+})
+
+it('filters personal prompts and saves new prompts into the selected category', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  mock.state.promptTemplates = [{ id: 'one', title: '普通提示词', content: '摄影', category: '默认', createdAt: 0, updatedAt: 0 }]
+  mock.state.setPromptTemplates.mockImplementation(async (items) => { mock.state.promptTemplates = typeof items === 'function' ? items(mock.state.promptTemplates) : items; return true })
+  document.body.innerHTML = '<div id="root"></div>'
+  root = createRoot(document.getElementById('root')!)
+  await act(() => root.render(<PromptWorkspace />))
+  await act(() => document.querySelector<HTMLButtonElement>('[aria-label="个人提示词"]')!.click())
+  await act(() => document.querySelectorAll<HTMLButtonElement>('.prompt-category-list button')[2].click())
+  expect(document.body.textContent).toContain('这个分类还没有提示词')
+  const create = [...document.querySelectorAll('button')].find((el) => el.textContent === '＋ 新建提示词')!
+  await act(() => create.click())
+  expect(document.querySelector<HTMLSelectElement>('select[aria-label="提示词分类"]')?.value).toBe('漫画')
+  await act(() => {
+    const title = document.querySelector<HTMLInputElement>('[aria-label="提示词名称"]')!
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(title, '新漫画')
+    title.dispatchEvent(new Event('input', { bubbles: true }))
+    const content = document.querySelector<HTMLTextAreaElement>('[aria-label="提示词内容"]')!
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(content, '完整故事')
+    content.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+  await act(() => document.querySelector('.prompt-detail form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
+  expect(mock.state.promptTemplates[0]).toMatchObject({ title: '新漫画', content: '完整故事', category: '漫画' })
+  await act(() => document.querySelector<HTMLButtonElement>('[aria-label="关闭提示词详情"]')!.click())
+  expect(document.querySelectorAll('.prompt-card')).toHaveLength(1)
+  expect(document.querySelector('.prompt-card')?.textContent).toContain('新漫画')
 })

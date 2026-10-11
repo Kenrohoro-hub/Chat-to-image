@@ -121,7 +121,7 @@ export default function App() {
       await initStore()
       try {
         const personal = await loadPersonalPromptStorage()
-        if (personal) useStore.setState({ promptTemplates: personal })
+        if (personal) useStore.setState(personal)
       } catch (err) {
         const message = err instanceof Error ? err.message : '提示词保存位置加载失败。'
         updatePromptStorage({ error: message })
