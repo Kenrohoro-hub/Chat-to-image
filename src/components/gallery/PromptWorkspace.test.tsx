@@ -313,3 +313,58 @@ it('filters personal prompts and saves new prompts into the selected category', 
   expect(document.querySelectorAll('.prompt-card')).toHaveLength(1)
   expect(document.querySelector('.prompt-card')?.textContent).toContain('新漫画')
 })
+
+
+it('reorders personal categories in both directions without changing prompts or selection', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  const prompt = { id: 'one', title: '故事', content: '完整正文', category: '漫画', createdAt: 0, updatedAt: 0 }
+  mock.state.promptTemplates = [prompt]
+  mock.state.setPromptTemplates.mockImplementation(async (items, categories) => {
+    mock.state.promptTemplates = items(mock.state.promptTemplates)
+    mock.state.promptCategories = categories(mock.state.promptCategories)
+    return true
+  })
+  document.body.innerHTML = '<div id="root"></div>'
+  root = createRoot(document.getElementById('root')!)
+  await act(() => root.render(<PromptWorkspace />))
+  expect(document.querySelector('.prompt-category-list button[draggable="true"]')).toBeNull()
+  await act(() => document.querySelector<HTMLButtonElement>('[aria-label="个人提示词"]')!.click())
+  const row = (name: string) => [...document.querySelectorAll<HTMLButtonElement>('.prompt-category-list button')].find((el) => el.querySelector('span')?.textContent === name)!
+  const transfer = { setData: vi.fn(), effectAllowed: '', dropEffect: '' }
+  const drag = async (from: string, to: string, after: boolean) => {
+    const source = row(from)
+    const target = row(to)
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue({ top: 100, height: 40 } as DOMRect)
+    await act(() => {
+      const event = new MouseEvent('dragstart', { bubbles: true })
+      Object.defineProperty(event, 'dataTransfer', { value: transfer })
+      source.dispatchEvent(event)
+    })
+    await act(() => {
+      const event = new MouseEvent('dragover', { bubbles: true, cancelable: true, clientY: after ? 130 : 110 })
+      Object.defineProperty(event, 'dataTransfer', { value: transfer })
+      target.dispatchEvent(event)
+    })
+    expect(target.dataset.drop).toBe(after ? 'after' : 'before')
+    await act(() => target.dispatchEvent(new MouseEvent('drop', { bubbles: true, cancelable: true, clientY: after ? 130 : 110 })))
+  }
+  await drag('默认', 'agnet形象', true)
+  expect(mock.state.promptCategories).toEqual(['漫画', 'agnet形象', '默认'])
+  await drag('默认', '漫画', false)
+  expect(mock.state.promptCategories).toEqual(['默认', '漫画', 'agnet形象'])
+  await act(() => row('漫画').click())
+  await act(() => row('漫画').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', altKey: true, bubbles: true, cancelable: true })))
+  expect(mock.state.promptCategories).toEqual(['默认', 'agnet形象', '漫画'])
+  expect(row('漫画').getAttribute('aria-pressed')).toBe('true')
+  mock.state.setPromptTemplates.mockResolvedValueOnce(false)
+  await drag('漫画', '默认', false)
+  expect(mock.state.promptCategories).toEqual(['默认', 'agnet形象', '漫画'])
+  expect(mock.state.promptTemplates).toEqual([prompt])
+  expect(document.querySelector('.prompt-category-list [data-dragging]')).toBeNull()
+  expect(document.querySelector('.prompt-category-list [data-drop]')).toBeNull()
+  mock.state.setPromptTemplates.mockClear()
+  await act(() => row('默认').dispatchEvent(new MouseEvent('drop', { bubbles: true, cancelable: true })))
+  expect(mock.state.setPromptTemplates).not.toHaveBeenCalled()
+  await act(() => document.querySelector<HTMLButtonElement>('[aria-label="水仙"]')!.click())
+  expect(document.querySelector('.prompt-category-list button[draggable="true"]')).toBeNull()
+})

@@ -11,7 +11,7 @@ beforeEach(() => { localStorage.clear(); mock.personal = [item]; mock.categories
 afterEach(() => { vi.resetModules(); vi.unstubAllGlobals() })
 
 it('serializes personal writes and keeps items and categories when a queued write fails', async () => {
-  const categories = ['默认', '空分类']
+  const categories = ['漫画', '默认', '空分类']
   mock.call.mockImplementation(async (action: string) => action === 'status' ? { directory: 'C:/old', preferences: null } : { catalog: { items: [item], promptCategories: categories, revision: 'r1', updatedAt: 0 }, images: [] })
   const storage = await import('./promptStorage')
   let saved: { promptTemplates: PromptTemplate[]; promptCategories: string[] } = (await storage.loadPersonalPromptStorage())!

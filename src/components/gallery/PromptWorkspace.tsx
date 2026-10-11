@@ -9,12 +9,14 @@ import { takePromptToGallery } from '../../lib/workspaceTransfer'
 import PromptDetail from './PromptDetail'
 import PromptCategoryManager from './PromptCategoryManager'
 import PromptImage from './PromptImage'
+import { DragHandleIcon } from '../icons'
 
 type Source = PromptSourceId | 'personal'
 
 export default function PromptWorkspace({ startWithDraft = false }: { startWithDraft?: boolean }) {
   const templates = useStore((state) => state.promptTemplates)
   const personalCategories = useStore((state) => state.promptCategories)
+  const defaultCategory = personalCategories.includes('默认') ? '默认' : personalCategories[0]
   const storage = useSyncExternalStore(subscribePromptStorage, getPromptStorageStatus)
   const prompt = useStore((state) => state.prompt)
   const [removed, setRemoved] = useState(getRemovedPromptSources)
@@ -25,6 +27,9 @@ export default function PromptWorkspace({ startWithDraft = false }: { startWithD
   const [category, setCategory] = useState('')
   const [categoriesOpen, setCategoriesOpen] = useState(false)
   const [managingCategories, setManagingCategories] = useState(false)
+  const [draggedCategory, setDraggedCategory] = useState('')
+  const [dropTarget, setDropTarget] = useState<{ name: string; after: boolean } | null>(null)
+  const [sorting, setSorting] = useState(false)
   const [page, setPage] = useState(0)
   const site = PROMPT_SOURCES.find((item) => item.id === source) ?? PROMPT_SOURCES[0]
   const library = promptLibraries[site.id]
@@ -33,7 +38,7 @@ export default function PromptWorkspace({ startWithDraft = false }: { startWithD
   sourceRef.current = source
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [selected, setSelected] = useState<PromptTemplate | null>(startWithDraft ? { id: '', title: '', content: prompt, createdAt: 0, updatedAt: 0 } : null)
+  const [selected, setSelected] = useState<PromptTemplate | null>(startWithDraft ? { id: '', title: '', content: prompt, category: defaultCategory, createdAt: 0, updatedAt: 0 } : null)
   const [deleted, setDeleted] = useState<PromptTemplate | null>(null)
   const grid = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -61,21 +66,33 @@ export default function PromptWorkspace({ startWithDraft = false }: { startWithD
   useEffect(() => { grid.current?.scrollTo?.({ top: 0 }) }, [source, category, query, page])
   const categories = new Map<string, number>(source === 'personal' ? personalCategories.map((name) => [name, 0]) : [])
   for (const item of source === 'personal' ? templates : items) {
-    const names = source === 'personal' ? [item.category || personalCategories[0]] : item.categories ?? [item.category!]
+    const names = source === 'personal' ? [item.category || defaultCategory] : item.categories ?? [item.category!]
     for (const name of names) categories.set(name, (categories.get(name) ?? 0) + 1)
   }
   const categoryEntries = source === 'personal' ? [...categories] : [...categories].sort(([a], [b]) => a.localeCompare(b, 'zh-CN'))
-  const pool = source !== 'personal' ? items.filter((item) => !category || (item.categories ?? [item.category]).includes(category)) : templates.filter((item) => !category || (item.category || personalCategories[0]) === category)
+  const pool = source !== 'personal' ? items.filter((item) => !category || (item.categories ?? [item.category]).includes(category)) : templates.filter((item) => !category || (item.category || defaultCategory) === category)
   const keyword = query.trim().toLowerCase()
   const filtered = pool.filter((item) => `${item.title}\n${item.content}`.toLowerCase().includes(keyword))
   const pages = Math.max(1, Math.ceil(filtered.length / 24))
   const currentPage = Math.min(page, pages - 1)
   const isSaved = (item: PromptTemplate) => templates.some((entry) => item.sourcePromptId && entry.sourcePromptId ? item.sourcePromptId === entry.sourcePromptId : item.sourceUrl ? entry.sourceUrl === item.sourceUrl : entry.title === item.title && entry.content === item.content)
+  const reorderCategory = async (from: string, to: string, after: boolean) => {
+    if (sorting || storage.busy || from === to) return
+    setSorting(true)
+    try {
+      await useStore.getState().setPromptTemplates((current) => current, (current) => {
+        if (!current.includes(from) || !current.includes(to)) return current
+        const next = current.filter((name) => name !== from)
+        next.splice(next.indexOf(to) + Number(after), 0, from)
+        return next
+      })
+    } finally { setSorting(false) }
+  }
   const collect = async (item: PromptTemplate) => {
     const state = useStore.getState()
     if (state.promptTemplates.some((entry) => item.sourcePromptId && entry.sourcePromptId ? item.sourcePromptId === entry.sourcePromptId : item.sourceUrl ? entry.sourceUrl === item.sourceUrl : entry.title === item.title && entry.content === item.content)) return
     const now = Date.now()
-    const saved = await state.setPromptTemplates((current) => current.some((entry) => item.sourcePromptId && entry.sourcePromptId ? item.sourcePromptId === entry.sourcePromptId : item.sourceUrl ? entry.sourceUrl === item.sourceUrl : entry.title === item.title && entry.content === item.content) ? current : [{ id: crypto.randomUUID(), title: item.title, content: item.content, category: personalCategories[0], categories: item.categories, sourcePromptId: item.sourcePromptId, sourceUrl: item.sourceUrl, previewUrl: item.previewUrl, createdAt: now, updatedAt: now }, ...current])
+    const saved = await state.setPromptTemplates((current) => current.some((entry) => item.sourcePromptId && entry.sourcePromptId ? item.sourcePromptId === entry.sourcePromptId : item.sourceUrl ? entry.sourceUrl === item.sourceUrl : entry.title === item.title && entry.content === item.content) ? current : [{ id: crypto.randomUUID(), title: item.title, content: item.content, category: defaultCategory, categories: item.categories, sourcePromptId: item.sourcePromptId, sourceUrl: item.sourceUrl, previewUrl: item.previewUrl, createdAt: now, updatedAt: now }, ...current])
     if (!saved) return
     state.showToast('已收藏到个人提示词', 'success')
   }
@@ -117,7 +134,7 @@ export default function PromptWorkspace({ startWithDraft = false }: { startWithD
     },
   })
   return <main className="prompt-workspace" aria-label="提示词库工作区">
-    <header className="prompt-workspace-heading"><div><span>挑选灵感，带回创作</span><h1>提示词库</h1></div><div className="prompt-heading-actions"><button type="button" disabled={!prompt.trim()} onClick={() => { setSource('personal'); if (source !== 'personal') setCategory(''); setSelected({ id: '', title: '', content: prompt, category: source === 'personal' && category ? category : personalCategories[0], createdAt: 0, updatedAt: 0 }) }}>保存当前草稿</button><button type="button" className="prompt-primary" onClick={() => { setSource('personal'); if (source !== 'personal') setCategory(''); setSelected({ id: '', title: '', content: '', category: source === 'personal' && category ? category : personalCategories[0], createdAt: 0, updatedAt: 0 }) }}>＋ 新建提示词</button></div></header>
+    <header className="prompt-workspace-heading"><div><span>挑选灵感，带回创作</span><h1>提示词库</h1></div><div className="prompt-heading-actions"><button type="button" disabled={!prompt.trim()} onClick={() => { setSource('personal'); if (source !== 'personal') setCategory(''); setSelected({ id: '', title: '', content: prompt, category: source === 'personal' && category ? category : defaultCategory, createdAt: 0, updatedAt: 0 }) }}>保存当前草稿</button><button type="button" className="prompt-primary" onClick={() => { setSource('personal'); if (source !== 'personal') setCategory(''); setSelected({ id: '', title: '', content: '', category: source === 'personal' && category ? category : defaultCategory, createdAt: 0, updatedAt: 0 }) }}>＋ 新建提示词</button></div></header>
     <nav className="prompt-sources" aria-label="提示词库来源">
       <div className="prompt-source-heading"><span>选择提示词库<span className="prompt-source-hint">横向滑动切换</span></span>{removed.length > 0 && <details className="prompt-removed-sources"><summary>已删除的库（{removed.length}）</summary>{PROMPT_SOURCES.filter((entry) => removed.includes(entry.id)).map((entry) => <button type="button" key={entry.id} aria-label={`恢复 ${entry.name} 提示词库`} onClick={async () => { try { const next = removed.filter((id) => id !== entry.id); await setRemovedPromptSources(next); setRemoved(next); setSource(entry.id); setItems([]); setCategory(''); setQuery(''); setPage(0) } catch { useStore.getState().showToast('恢复失败，请检查本地存储空间。', 'error') } }}><span>{entry.name}</span><small>恢复</small></button>)}</details>}</div>
       <div className="prompt-source-row">
@@ -132,7 +149,47 @@ export default function PromptWorkspace({ startWithDraft = false }: { startWithD
         <button type="button" className="prompt-category-toggle" aria-expanded={categoriesOpen} aria-controls="prompt-category-options" onClick={() => setCategoriesOpen(!categoriesOpen)}><span>{category || '全部分类'}</span><span>{categoriesOpen ? '收起分类 −' : '选择分类 ＋'}</span></button>
         {source === 'personal' && <button type="button" className="prompt-manage-categories" aria-expanded={managingCategories} onClick={() => setManagingCategories(!managingCategories)}>{managingCategories ? '收起管理' : '管理分类'}</button>}
         {source === 'personal' && managingCategories && <PromptCategoryManager onChange={(from, to) => { if (category === from && from) setCategory(to); setPage(0) }} />}
-        <div className="prompt-category-list" id="prompt-category-options"><button type="button" aria-pressed={!category} onClick={() => { setCategory(''); setPage(0); setCategoriesOpen(false) }}><span>全部分类</span><small>{source === 'personal' ? templates.length : items.length}</small></button>{categoryEntries.map(([name, count]) => <button type="button" key={name} aria-pressed={category === name} onClick={() => { setCategory(name); setPage(0); setCategoriesOpen(false) }}><span>{name}</span><small>{count}</small></button>)}</div>
+        {source === 'personal' && <p className="prompt-category-sort-hint">{sorting ? '正在保存顺序…' : '拖动分类调整顺序'}</p>}
+        <div className="prompt-category-list" id="prompt-category-options" aria-busy={sorting}>
+          <button type="button" aria-pressed={!category} onClick={() => { setCategory(''); setPage(0); setCategoriesOpen(false) }}><span>全部分类</span><small>{source === 'personal' ? templates.length : items.length}</small></button>
+          {categoryEntries.map(([name, count], index) => <button type="button" key={name} aria-pressed={category === name}
+            draggable={source === 'personal' && !sorting && !storage.busy}
+            title={source === 'personal' ? '拖动排序，或按 Alt + ↑ / ↓ 调整' : undefined}
+            data-dragging={draggedCategory === name || undefined}
+            data-drop={dropTarget && dropTarget.name === name ? dropTarget.after ? 'after' : 'before' : undefined}
+            onDragStart={(event) => {
+              if (source !== 'personal' || sorting || storage.busy) { event.preventDefault(); return }
+              event.dataTransfer.effectAllowed = 'move'
+              event.dataTransfer.setData('text/plain', name)
+              setDraggedCategory(name)
+            }}
+            onDragOver={(event) => {
+              if (source !== 'personal' || !draggedCategory || draggedCategory === name) return
+              event.preventDefault()
+              event.dataTransfer.dropEffect = 'move'
+              const rect = event.currentTarget.getBoundingClientRect()
+              setDropTarget({ name, after: event.clientY >= rect.top + rect.height / 2 })
+            }}
+            onDragLeave={() => setDropTarget((current) => current?.name === name ? null : current)}
+            onDragEnd={() => { setDraggedCategory(''); setDropTarget(null) }}
+            onDrop={(event) => {
+              if (source !== 'personal' || !draggedCategory) return
+              event.preventDefault()
+              const rect = event.currentTarget.getBoundingClientRect()
+              void reorderCategory(draggedCategory, name, event.clientY >= rect.top + rect.height / 2)
+              setDraggedCategory('')
+              setDropTarget(null)
+            }}
+            onKeyDown={(event) => {
+              if (source !== 'personal' || !event.altKey || !['ArrowUp', 'ArrowDown'].includes(event.key)) return
+              event.preventDefault()
+              const after = event.key === 'ArrowDown'
+              const target = categoryEntries[index + (after ? 1 : -1)]
+              if (target) void reorderCategory(name, target[0], after)
+            }}
+            onClick={() => { setCategory(name); setPage(0); setCategoriesOpen(false) }}
+          ><span className="prompt-category-name">{source === 'personal' && <DragHandleIcon aria-hidden="true" />}{name}</span><small>{count}</small></button>)}
+        </div>
       </aside>
       <section className="prompt-catalog" aria-label="提示词列表">
         <div className="prompt-catalog-toolbar">

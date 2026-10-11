@@ -51,6 +51,13 @@
 .prompt-category-note { font-size: 11px; line-height: 1.6; color: var(--workspace-muted); }
 .prompt-category-list { overflow-y: auto; min-height: 0; padding: 2px; scrollbar-width: thin; }
 .prompt-category-list button { width: 100%; margin-bottom: 4px; }
+.prompt-categories > .prompt-category-sort-hint { padding: 0 10px 8px; font-size: 11px; }
+.prompt-category-name { display: flex; align-items: center; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
+.prompt-category-name svg { width: 14px; height: 14px; flex-shrink: 0; color: var(--workspace-muted); }
+.prompt-category-list button[draggable="true"] { cursor: grab; }
+.prompt-category-list button[data-dragging] { opacity: .45; cursor: grabbing; }
+.prompt-category-list button[data-drop="before"] { box-shadow: inset 0 2px var(--workspace-ink); }
+.prompt-category-list button[data-drop="after"] { box-shadow: inset 0 -2px var(--workspace-ink); }
 .prompt-catalog { display: flex; flex-direction: column; min-height: 0; min-width: 0; border: 1px solid var(--workspace-line); border-radius: 12px; overflow: hidden; }
 .prompt-catalog-toolbar { flex-shrink: 0; padding: 16px 20px; display: grid; gap: 12px; background: var(--workspace-paper); border-bottom: 1px solid var(--workspace-line); }
 .prompt-catalog-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 16px; min-width: 0; }
