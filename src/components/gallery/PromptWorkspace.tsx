@@ -1,7 +1,7 @@
 import { getPromptStorageStatus, subscribePromptStorage } from '../../lib/promptStorage'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { PromptTemplate } from '../../types'
-import { promptExamples, PROMPT_EXAMPLES_VERSION } from '../../lib/promptExamples'
+import { promptExamples, promptExampleVersion, PROMPT_EXAMPLES_VERSION } from '../../lib/promptExamples'
 import { useStore } from '../../store'
 import { promptLibraries, getRemovedPromptSources, setRemovedPromptSources } from '../../lib/promptLibrary'
 import { PROMPT_SOURCES, promptSourceName, type LibraryPrompt, type PromptSourceId } from '../../lib/promptSources'
@@ -35,9 +35,10 @@ export default function PromptWorkspace({ startWithDraft = false }: { startWithD
   const grid = useRef<HTMLDivElement>(null)
   useEffect(() => {
     try {
-      if (Number(localStorage.getItem('prompt-examples-version')) >= PROMPT_EXAMPLES_VERSION) return
+      const version = Number(localStorage.getItem('prompt-examples-version')) || 0
+      if (version >= PROMPT_EXAMPLES_VERSION) return
       const state = useStore.getState()
-      void state.setPromptTemplates((current) => [...current, ...promptExamples.filter((example) => !current.some((item) => item.id === example.id))]).then((saved) => { if (saved) { localStorage.setItem('prompt-examples-added-v1', '1'); localStorage.setItem('prompt-examples-version', String(PROMPT_EXAMPLES_VERSION)) } }).catch((err) => console.warn('Prompt examples could not be saved', err))
+      void state.setPromptTemplates((current) => [...current, ...promptExamples.filter((example) => promptExampleVersion(example) > version && !current.some((item) => item.id === example.id))]).then((saved) => { if (saved) { localStorage.setItem('prompt-examples-added-v1', '1'); localStorage.setItem('prompt-examples-version', String(PROMPT_EXAMPLES_VERSION)) } }).catch((err) => console.warn('Prompt examples could not be saved', err))
     } catch (err) {
       console.warn('Prompt examples could not be saved', err)
       useStore.getState().showToast('示例保存失败，请检查本地存储空间。', 'error')

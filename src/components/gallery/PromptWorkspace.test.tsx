@@ -4,12 +4,13 @@ import { createRoot } from 'react-dom/client'
 import { beforeEach, afterEach, expect, it, vi } from 'vitest'
 import type { PromptTemplate } from '../../types'
 import PromptWorkspace from './PromptWorkspace'
+import { PROMPT_EXAMPLES_VERSION } from '../../lib/promptExamples'
 
 const mock = vi.hoisted(() => ({ state: { prompt: '当前草稿', promptTemplates: [] as PromptTemplate[], setPromptTemplates: vi.fn(), showToast: vi.fn(), setConfirmDialog: vi.fn() }, apply: vi.fn(), load: vi.fn(), preload: vi.fn(), clear: vi.fn(), status: { busy: '', updatedAt: 0, imageCount: 0, itemCount: 0, revision: 0 } }))
 vi.mock('../../store', () => ({ useStore: Object.assign((select: (state: typeof mock.state) => unknown) => select(mock.state), { getState: () => mock.state }) }))
 vi.mock('../../lib/workspaceTransfer', () => ({ takePromptToGallery: mock.apply }))
 vi.mock('../../lib/promptLibrary', () => ({ promptLibraries: Object.fromEntries(['garden', 'promptfill', 'youmind', 'pixto', 'nanoimage', 'nano', 'hero'].map((id) => [id, { load: mock.load, preload: mock.preload, clear: mock.clear, getStatus: () => mock.status, subscribe: () => () => {}, cancel: vi.fn() }])), getRemovedPromptSources: () => JSON.parse(localStorage.getItem('prompt-library-removed-v1') || '[]'), setRemovedPromptSources: (ids: string[]) => localStorage.setItem('prompt-library-removed-v1', JSON.stringify(ids)), getCachedPromptImage: async () => null, getPromptImageRevision: () => 0, subscribePromptImages: () => () => {} }))
-beforeEach(() => { localStorage.removeItem('prompt-library-removed-v1'); localStorage.setItem('prompt-examples-added-v1', '1'); localStorage.setItem('prompt-examples-version', '2'); mock.preload.mockResolvedValue(undefined); mock.clear.mockResolvedValue(undefined) })
+beforeEach(() => { localStorage.removeItem('prompt-library-removed-v1'); localStorage.setItem('prompt-examples-added-v1', '1'); localStorage.setItem('prompt-examples-version', String(PROMPT_EXAMPLES_VERSION)); mock.preload.mockResolvedValue(undefined); mock.clear.mockResolvedValue(undefined) })
 let root: ReturnType<typeof createRoot>
 afterEach(async () => { if (root) await act(() => root.unmount()); vi.unstubAllGlobals(); vi.clearAllMocks(); document.body.innerHTML = ''; mock.state.promptTemplates = [] })
 
@@ -96,7 +97,7 @@ it('confirms all categories and clear, but preloads a selected category directly
   expect(mock.state.setPromptTemplates).not.toHaveBeenCalled()
 })
 
-it('adds illustrated examples once without sources and does not restore a deleted example', async () => {
+it('adds illustrated examples once with local previews and does not restore a deleted example', async () => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   localStorage.removeItem('prompt-examples-added-v1')
   localStorage.removeItem('prompt-examples-version')
@@ -104,11 +105,11 @@ it('adds illustrated examples once without sources and does not restore a delete
   document.body.innerHTML = '<div id="root"></div>'
   root = createRoot(document.getElementById('root')!)
   await act(() => root.render(<PromptWorkspace startWithDraft />))
-  expect(mock.state.promptTemplates).toHaveLength(22)
+  expect(mock.state.promptTemplates).toHaveLength(45)
   expect(mock.state.promptTemplates.every((item) => item.previewUrl?.startsWith('/prompt-examples/') && !item.sourceUrl && !item.sourcePromptId)).toBe(true)
   mock.state.promptTemplates = mock.state.promptTemplates.slice(1)
   await act(() => root.render(<PromptWorkspace key="reopen" startWithDraft />))
-  expect(mock.state.promptTemplates).toHaveLength(21)
+  expect(mock.state.promptTemplates).toHaveLength(44)
   expect(mock.state.setPromptTemplates).toHaveBeenCalledTimes(1)
 })
 
@@ -180,7 +181,57 @@ it('adds the new pack to an existing library without replacing edited entries', 
   document.body.innerHTML = '<div id="root"></div>'
   root = createRoot(document.getElementById('root')!)
   await act(() => root.render(<PromptWorkspace startWithDraft />))
-  expect(mock.state.promptTemplates).toHaveLength(23)
+  expect(mock.state.promptTemplates).toHaveLength(46)
   expect(mock.state.promptTemplates.slice(0, 2)).toEqual([personal, edited])
-  expect(localStorage.getItem('prompt-examples-version')).toBe('2')
+  expect(localStorage.getItem('prompt-examples-version')).toBe('4')
+})
+
+it('adds later packs to version 2 without restoring deleted curated examples', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  localStorage.setItem('prompt-examples-version', '2')
+  const edited = { id: 'example-curated-01', title: '自己改过的海报', content: '保留修改', createdAt: 0, updatedAt: 1 }
+  mock.state.promptTemplates = [edited]
+  mock.state.setPromptTemplates.mockImplementation(async (items) => { mock.state.promptTemplates = items(mock.state.promptTemplates); return true })
+  document.body.innerHTML = '<div id="root"></div>'
+  root = createRoot(document.getElementById('root')!)
+  await act(() => root.render(<PromptWorkspace startWithDraft />))
+  expect(mock.state.promptTemplates).toHaveLength(24)
+  expect(mock.state.promptTemplates[0]).toEqual(edited)
+  const names = ['蓝色大肥鱼', 'gpt', '豆包（seed）', 'grok', 'claude code', 'gemini', '千问', 'kimi', 'opencode', '智谱', 'RWKV', '文心一言', 'mistral', 'minimax', 'preplexity', 'image2', 'meta']
+  expect(mock.state.promptTemplates.filter((item) => item.id.startsWith('example-zipzippipe-')).map((item) => item.title)).toEqual(names)
+  for (const item of mock.state.promptTemplates.filter((item) => item.id.startsWith('example-zipzippipe-'))) {
+    expect(item.content).toBe(`${item.title}\n\n图片来源：B站 ZipZipPipe\nhttps://space.bilibili.com/4168597`)
+    expect(item.previewUrl).toMatch(/^\/prompt-examples\/example-zipzippipe-\d{2}\.jpg$/)
+  }
+  expect(localStorage.getItem('prompt-examples-version')).toBe('4')
+  mock.state.promptTemplates = [edited]
+  mock.state.setPromptTemplates.mockClear()
+  await act(() => root.unmount())
+  root = createRoot(document.getElementById('root')!)
+  await act(() => root.render(<PromptWorkspace startWithDraft />))
+  expect(mock.state.setPromptTemplates).not.toHaveBeenCalled()
+})
+
+it('adds six comic prompts to version 3 without restoring deleted older packs or overwriting edits', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  localStorage.setItem('prompt-examples-version', '3')
+  const personal = { id: 'my-comic', title: '自己的故事', content: '保留正文', createdAt: 1, updatedAt: 1 }
+  const edited = { ...personal, id: 'example-ai-comic-01', title: '已修改的吃饭漫画' }
+  mock.state.promptTemplates = [personal, edited]
+  mock.state.setPromptTemplates.mockImplementation(async (items) => { mock.state.promptTemplates = items(mock.state.promptTemplates); return true })
+  document.body.innerHTML = '<div id="root"></div>'
+  root = createRoot(document.getElementById('root')!)
+  await act(() => root.render(<PromptWorkspace startWithDraft />))
+  expect(mock.state.promptTemplates).toHaveLength(7)
+  expect(mock.state.promptTemplates.slice(0, 2)).toEqual([personal, edited])
+  expect(mock.state.promptTemplates.map((item) => item.id)).toEqual(expect.arrayContaining([
+    'example-ai-comic-01', 'example-ai-comic-02', 'example-ai-comic-03', 'example-ai-comic-04',
+    'example-token-rice-comic', 'example-warm-ai-comic',
+  ]))
+  expect(mock.state.promptTemplates.some((item) => item.id.startsWith('example-curated-') || item.id.startsWith('example-zipzippipe-'))).toBe(false)
+  expect(localStorage.getItem('prompt-examples-version')).toBe('4')
+  mock.state.promptTemplates = [personal]
+  await act(() => root.render(<PromptWorkspace key="reopen-comics" startWithDraft />))
+  expect(mock.state.promptTemplates).toEqual([personal])
+  expect(mock.state.setPromptTemplates).toHaveBeenCalledTimes(1)
 })

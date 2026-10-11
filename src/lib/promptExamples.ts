@@ -1,6 +1,10 @@
 import type { PromptTemplate } from '../types'
+import { zipZipPipePromptExamples } from './zipZipPipePromptExamples'
+import { aiComicPromptExamples } from './aiComicPromptExamples'
+import { tokenComicExample } from './promptExampleTokenComic'
+import { warmComicExample } from './promptExampleWarmComic'
 
-export const PROMPT_EXAMPLES_VERSION = 2
+export const PROMPT_EXAMPLES_VERSION = 4
 
 export const promptExamples: PromptTemplate[] = [
   {
@@ -179,4 +183,14 @@ export const promptExamples: PromptTemplate[] = [
     createdAt: 0,
     updatedAt: 0,
   },
+  ...zipZipPipePromptExamples,
+  ...aiComicPromptExamples,
+  tokenComicExample,
+  warmComicExample,
 ]
+
+export function promptExampleVersion(item: PromptTemplate): number {
+  if (item.id.startsWith('example-ai-comic-') || item.id === tokenComicExample.id || item.id === warmComicExample.id) return 4
+  if (item.id.startsWith('example-zipzippipe-')) return 3
+  return item.id.startsWith('example-curated-') ? 2 : 0
+}

@@ -76,3 +76,14 @@ it('restores the example version from disk and preserves it after all examples a
   storage.activatePromptDirectory({ directory: 'C:/other', preferences: { removed: [], examplesAdded: true } }, 'r2')
   expect(localStorage.getItem('prompt-examples-version')).toBeNull()
 })
+
+it('does not mark the new pack installed when saving only older examples', async () => {
+  mock.call.mockImplementation(async (action: string) => action === 'status' ? { directory: 'C:/old', preferences: null } : { catalog: { revision: 'r1' } })
+  const storage = await import('./promptStorage')
+  await storage.savePersonalPromptChange(() => [{ ...item, id: 'example-curated-01' }], () => {})
+  expect(mock.call.mock.lastCall![1].examplesVersion).toBe(2)
+  await storage.savePersonalPromptChange(() => [{ ...item, id: 'example-zipzippipe-01' }], () => {})
+  expect(mock.call.mock.lastCall![1].examplesVersion).toBe(3)
+  await storage.savePersonalPromptChange(() => [{ ...item, id: 'example-ai-comic-01' }], () => {})
+  expect(mock.call.mock.lastCall![1].examplesVersion).toBe(4)
+})

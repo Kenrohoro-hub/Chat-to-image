@@ -1,5 +1,5 @@
 import type { PromptTemplate } from '../types'
-import { PROMPT_EXAMPLES_VERSION } from './promptExamples'
+import { promptExampleVersion } from './promptExamples'
 import { desktopApi, isLocalService } from './desktop'
 import { normalizePromptTemplates } from './promptTemplates'
 import type { LibraryPrompt, PromptSourceId } from './promptSources'
@@ -67,7 +67,7 @@ export function savePersonalPromptChange(getItems: () => PromptTemplate[], apply
     ensurePromptStorageIdle()
     const items = getItems()
     if (current.directory) {
-      const result = await promptStorageCall<StoredPromptCatalog>('catalog_write', { source: 'personal', items, updatedAt: Date.now(), revision: personalRevision, examplesAdded: localStorage.getItem('prompt-examples-added-v1') === '1' || items.some((item) => item.id.startsWith('example-')), examplesVersion: Math.max(Number(localStorage.getItem('prompt-examples-version')) || 0, items.some((item) => item.id.startsWith('example-curated-')) ? PROMPT_EXAMPLES_VERSION : 0) })
+      const result = await promptStorageCall<StoredPromptCatalog>('catalog_write', { source: 'personal', items, updatedAt: Date.now(), revision: personalRevision, examplesAdded: localStorage.getItem('prompt-examples-added-v1') === '1' || items.some((item) => item.id.startsWith('example-')), examplesVersion: Math.max(Number(localStorage.getItem('prompt-examples-version')) || 0, items.reduce((version, item) => Math.max(version, promptExampleVersion(item)), 0)) })
       personalRevision = result.catalog!.revision
     }
     apply(items)
