@@ -85,7 +85,7 @@ export default function SettingsModal() {
   const draftRef = useRef(draft)
   draftRef.current = draft
   const [timeoutInput, setTimeoutInput] = useState(String(getActiveApiProfile(settings).timeout))
-  const [agentMaxToolRoundsInput, setAgentMaxToolRoundsInput] = useState(String(settings.agentMaxToolRounds))
+  const [agentMaxToolRoundsInput, setAgentMaxToolRoundsInput] = useState(String(settings.agentToolCallLimit))
   const [showApiKey, setShowApiKey] = useState(false)
   const [showZipDownloadRouteManager, setShowZipDownloadRouteManager] = useState(false)
   const [activeTab, setActiveTab] = useState<Exclude<SettingsTab, 'agent-api'>>('api')
@@ -155,7 +155,7 @@ export default function SettingsModal() {
     })
     setDraft(nextDraft)
     setTimeoutInput(String(getActiveApiProfile(nextDraft).timeout))
-    setAgentMaxToolRoundsInput(String(nextDraft.agentMaxToolRounds))
+    setAgentMaxToolRoundsInput(String(nextDraft.agentToolCallLimit))
   }, [apiProxyAvailable, apiProxyLocked, showSettings, settings, reusedTaskApiProfileId])
 
   useEffect(() => {
@@ -235,10 +235,10 @@ export default function SettingsModal() {
         : nextTimeout
     const normalizedAgentMaxToolRounds = agentMaxToolRoundsInput.trim() === ''
       ? DEFAULT_AGENT_MAX_TOOL_ROUNDS
-      : normalizeAgentMaxToolRounds(agentMaxToolRoundsInput, draft.agentMaxToolRounds)
+      : normalizeAgentMaxToolRounds(agentMaxToolRoundsInput, draft.agentToolCallLimit)
     const nextDraft = {
       ...draft,
-      agentMaxToolRounds: normalizedAgentMaxToolRounds,
+      agentToolCallLimit: normalizedAgentMaxToolRounds,
       profiles: activeProviderIsOpenAICompatible && !activeProfileLocked
         ? draft.profiles.map((profile) =>
             profile.id === activeProfile.id ? { ...profile, timeout: normalizedTimeout } : profile,
@@ -308,9 +308,9 @@ export default function SettingsModal() {
   const commitAgentMaxToolRounds = useCallback(() => {
     const value = agentMaxToolRoundsInput.trim() === ''
       ? DEFAULT_AGENT_MAX_TOOL_ROUNDS
-      : normalizeAgentMaxToolRounds(agentMaxToolRoundsInput, draft.agentMaxToolRounds)
+      : normalizeAgentMaxToolRounds(agentMaxToolRoundsInput, draft.agentToolCallLimit)
     setAgentMaxToolRoundsInput(String(value))
-    if (value !== draft.agentMaxToolRounds) commitSettings({ ...draft, agentMaxToolRounds: value })
+    if (value !== draft.agentToolCallLimit) commitSettings({ ...draft, agentToolCallLimit: value })
   }, [agentMaxToolRoundsInput, draft])
 
   const showNotificationPermissionMessage = (result: Exclude<BrowserNotificationPermissionResult, { ok: true }>) => {

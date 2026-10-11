@@ -2244,8 +2244,8 @@ async function continueRecoveredAgentRound(taskId: string) {
     const roundTasks = updatedState.tasks.filter((item) => item.agentRoundId === round.id)
     const resumeParams = roundTasks.find((item) => item.params)?.params
       ?? normalizeParamsForSettings(getAgentImageParams(updatedConversation, updatedState.params), createSettingsForApiProfile(normalizedSettings, imageProfile), { hasInputImages: round.inputImageIds.length > 0 })
-    const maxToolCalls = Number.isFinite(normalizedSettings.agentMaxToolRounds)
-      ? Math.max(1, Math.trunc(normalizedSettings.agentMaxToolRounds))
+    const maxToolCalls = Number.isFinite(normalizedSettings.agentToolCallLimit)
+      ? Math.max(1, Math.trunc(normalizedSettings.agentToolCallLimit))
       : DEFAULT_AGENT_MAX_TOOL_ROUNDS
     const toolCallsUsed = getAgentRecoveredToolCallCount(updatedRound.responseOutput ?? [], roundTasks)
 
@@ -2772,8 +2772,8 @@ async function executeAgentRound(
             ],
       }))
     }
-    const maxToolCalls = Number.isFinite(requestSettings.agentMaxToolRounds)
-      ? Math.max(1, Math.trunc(requestSettings.agentMaxToolRounds))
+    const maxToolCalls = Number.isFinite(requestSettings.agentToolCallLimit)
+      ? Math.max(1, Math.trunc(requestSettings.agentToolCallLimit))
       : DEFAULT_AGENT_MAX_TOOL_ROUNDS
     let accumulatedOutputItems: ResponsesOutputItem[] = resume?.responseOutput ?? []
     let accumulatedText = resumedAssistantContent

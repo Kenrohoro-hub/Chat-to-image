@@ -383,7 +383,7 @@ describe('agent input builder', () => {
           text: [
             '[System] The app has saved your generated outputs and is continuing the same Agent turn.',
             'The following image ref ids are now available for you to reference in subsequent generate_image or edit_image prompts: <ref id="round-2-image-1" />, <ref id="round-2-image-2" />, <ref id="round-2-image-3" />',
-            'Continue generating. Do NOT repeat what you already said in earlier responses.',
+            'Check whether the user-requested outputs are complete. If complete, provide the final reply without calling image tools again. Do not regenerate or refine completed images unless the user explicitly requested iteration. Do NOT repeat what you already said in earlier responses.',
             'If you still need another round after this (e.g. more dependent images), call continue_generation.',
             'Tool-call budget: 1/3 used.',
           ].join('\n'),

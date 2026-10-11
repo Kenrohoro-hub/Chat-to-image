@@ -187,7 +187,7 @@ export async function buildAgentContinuationInput(options: BuildAgentContinuatio
   lines.push(
     options.imageToolsEnabled === false
       ? 'Continue the text reply using the saved results. Image tools are disabled for this retry; do not generate or resubmit images.'
-      : 'Continue generating. Do NOT repeat what you already said in earlier responses.',
+      : 'Check whether the user-requested outputs are complete. If complete, provide the final reply without calling image tools again. Do not regenerate or refine completed images unless the user explicitly requested iteration. Do NOT repeat what you already said in earlier responses.',
     ...(options.imageToolsEnabled === false ? [] : ['If you still need another round after this (e.g. more dependent images), call continue_generation.']),
     `Tool-call budget: ${options.toolCallsUsed}/${options.maxToolCalls} used.`,
   )

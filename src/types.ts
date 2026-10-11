@@ -154,7 +154,7 @@ export interface AppSettings {
   enterSubmit: boolean
   zipDownloadRoutes: ZipDownloadRoute[]
   agentScrollToBottomAfterSubmit: boolean
-  agentMaxToolRounds: number
+  agentToolCallLimit: number
   agentWebSearch: boolean
   agentPromptOptimization: boolean
   agentMathFormattingPrompt: boolean

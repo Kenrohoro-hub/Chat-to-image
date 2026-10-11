@@ -762,7 +762,8 @@ export function normalizeSettings(input: Partial<AppSettings> | unknown): AppSet
     enterSubmit: typeof record.enterSubmit === 'boolean' ? record.enterSubmit : false,
     zipDownloadRoutes: normalizeZipDownloadRoutes(record.zipDownloadRoutes),
     agentScrollToBottomAfterSubmit: typeof record.agentScrollToBottomAfterSubmit === 'boolean' ? record.agentScrollToBottomAfterSubmit : true,
-    agentMaxToolRounds: normalizeAgentMaxToolRounds(record.agentMaxToolRounds),
+    // 新字段让旧版保存的自动续跑上限回到 1，之后仍保留用户手动设置。
+    agentToolCallLimit: normalizeAgentMaxToolRounds(record.agentToolCallLimit),
     agentWebSearch: typeof record.agentWebSearch === 'boolean' ? record.agentWebSearch : false,
     agentPromptOptimization: typeof record.agentPromptOptimization === 'boolean' ? record.agentPromptOptimization : true,
     agentMathFormattingPrompt: typeof record.agentMathFormattingPrompt === 'boolean' ? record.agentMathFormattingPrompt : true,
@@ -1350,7 +1351,7 @@ export const DEFAULT_SETTINGS: AppSettings = normalizeSettings({
   enterSubmit: false,
   zipDownloadRoutes: DEFAULT_ZIP_DOWNLOAD_ROUTES,
   agentScrollToBottomAfterSubmit: true,
-  agentMaxToolRounds: DEFAULT_AGENT_MAX_TOOL_ROUNDS,
+  agentToolCallLimit: DEFAULT_AGENT_MAX_TOOL_ROUNDS,
   agentWebSearch: false,
   agentPromptOptimization: true,
   agentMathFormattingPrompt: true,

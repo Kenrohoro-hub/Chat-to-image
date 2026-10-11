@@ -90,8 +90,8 @@ function createAgentInstructions(settings: AppSettings, codexCliSize?: string, i
     settings.agentPromptOptimization ? AGENT_PROMPT_OPTIMIZATION_INSTRUCTIONS : '',
     settings.agentMathFormattingPrompt ? AGENT_MATH_FORMATTING_INSTRUCTIONS : '',
   ].filter(Boolean).join('\n')
-  const maxToolRounds = Number.isFinite(settings.agentMaxToolRounds)
-    ? Math.max(1, Math.trunc(settings.agentMaxToolRounds))
+  const maxToolRounds = Number.isFinite(settings.agentToolCallLimit)
+    ? Math.max(1, Math.trunc(settings.agentToolCallLimit))
     : DEFAULT_AGENT_MAX_TOOL_ROUNDS
   const imageToolInstruction = 'Use generate_image for new prompts, edit_image for changes to references, and generate_image_batch for independent prompts. These tools use the image service and image settings selected in the workspace parameters panel. Do not override image parameters.'
   const imageInstructions = AGENT_IMAGE_INSTRUCTIONS.replace(/image_generation/g, 'generate_image')

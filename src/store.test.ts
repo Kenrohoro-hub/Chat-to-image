@@ -1355,7 +1355,7 @@ describe('fal task recovery', () => {
     useStore.setState({
       settings: normalizeSettings({
         ...DEFAULT_SETTINGS,
-        agentMaxToolRounds: 15,
+        agentToolCallLimit: 15,
         profiles: [textProfile, imageProfile],
         activeProfileId: textProfile.id,
         agentApiConfigMode: 'hybrid',
@@ -1535,7 +1535,7 @@ describe('fal task recovery', () => {
         agentApiConfigMode: 'hybrid',
         agentTextProfileId: textProfile.id,
         agentImageProfileId: imageProfile.id,
-        agentMaxToolRounds: 1,
+        agentToolCallLimit: 1,
       }),
       tasks: [],
       agentConversations: [],
@@ -4433,7 +4433,7 @@ describe('agent built-in image tool failure', () => {
         agentApiConfigMode: 'hybrid',
         agentTextProfileId: responsesProfile.id,
         agentImageProfileId: imageProfile.id,
-        agentMaxToolRounds: 1,
+        agentToolCallLimit: 1,
       }),
     })
     vi.mocked(callAgentResponsesApi).mockResolvedValueOnce({
@@ -4481,7 +4481,7 @@ describe('agent built-in image tool failure', () => {
         agentApiConfigMode: 'hybrid',
         agentTextProfileId: responsesProfile.id,
         agentImageProfileId: imageProfile.id,
-        agentMaxToolRounds: 3,
+        agentToolCallLimit: 3,
       }),
     })
     vi.mocked(callAgentResponsesApi)
@@ -4536,7 +4536,7 @@ describe('agent built-in image tool failure', () => {
   })
 
   it('canonicalizes batch identities across tasks, round output, and continuation without deletion', async () => {
-    useStore.setState({ settings: { ...useStore.getState().settings, agentMaxToolRounds: 15 } })
+    useStore.setState({ settings: { ...useStore.getState().settings, agentToolCallLimit: 15 } })
     const imageProfile = createDefaultOpenAIProfile({ id: 'image-profile', apiKey: 'image-key', apiMode: 'images' })
     const requests = Array.from({ length: 4 }, () => deferred<Awaited<ReturnType<typeof callImageApi>>>())
     useStore.setState({
@@ -4606,7 +4606,7 @@ describe('agent built-in image tool failure', () => {
   })
 
   it('keeps live batch output through repeated cleanup when deleted items fail or reject', async () => {
-    useStore.setState({ settings: { ...useStore.getState().settings, agentMaxToolRounds: 15 } })
+    useStore.setState({ settings: { ...useStore.getState().settings, agentToolCallLimit: 15 } })
     const imageProfile = createDefaultOpenAIProfile({ id: 'image-profile', apiKey: 'image-key', apiMode: 'images' })
     const failedRequest = deferred<Awaited<ReturnType<typeof callImageApi>>>()
     const rejectedRequest = deferred<Awaited<ReturnType<typeof callImageApi>>>()
@@ -4719,7 +4719,7 @@ describe('agent built-in image tool failure', () => {
   })
 
   it('removes the function pair without reporting success when an entire batch is deleted', async () => {
-    useStore.setState({ settings: { ...useStore.getState().settings, agentMaxToolRounds: 15 } })
+    useStore.setState({ settings: { ...useStore.getState().settings, agentToolCallLimit: 15 } })
     const imageProfile = createDefaultOpenAIProfile({ id: 'image-profile', apiKey: 'image-key', apiMode: 'images' })
     const failedRequest = deferred<Awaited<ReturnType<typeof callImageApi>>>()
     const rejectedRequest = deferred<Awaited<ReturnType<typeof callImageApi>>>()
@@ -5585,7 +5585,10 @@ describe('Agent gallery tool integration', () => {
   const toolReply = (name = 'generate_image', prompt = 'a cat') => ({ text: '', images: [], outputItems: [{ type: 'function_call' as const, name, call_id: 'gallery-call', arguments: JSON.stringify({ id: 'one', prompt, size: '1024x1024' }) }] })
   const doneReply = { text: '完成', images: [], outputItems: [{ type: 'message' as const, content: [{ type: 'output_text' as const, text: '完成' }] }] }
 
-  it('stops after one image tool call by default', async () => {
+  it('stops after one image tool call with a restored legacy limit', async () => {
+    const legacy = { ...useStore.getState().settings, agentMaxToolRounds: 15 } as Record<string, unknown>
+    delete legacy.agentToolCallLimit
+    useStore.setState({ settings: normalizeSettings(legacy) })
     vi.mocked(callImageApi).mockResolvedValue({ images: ['data:image/png;base64,1024x1024'] })
     vi.mocked(callAgentResponsesApi).mockResolvedValue(toolReply())
     await submitAgentMessage()
@@ -5596,7 +5599,7 @@ describe('Agent gallery tool integration', () => {
   })
 
   it('uses Images once, saves one linked task and does not repeat a duplicate tool call', async () => {
-    useStore.setState({ settings: { ...useStore.getState().settings, agentMaxToolRounds: 15 } })
+    useStore.setState({ settings: { ...useStore.getState().settings, agentToolCallLimit: 15 } })
     const settings = useStore.getState().settings
     useStore.setState({ settings: normalizeSettings({ ...settings, profiles: settings.profiles.map((profile) => profile.id === 'gallery' ? { ...profile, models: [profile.model, 'gallery-selected'] } : profile), galleryModel: 'gallery-selected' }) })
     vi.mocked(callImageApi).mockResolvedValue({ images: ['data:image/png;base64,1024x1024'], usedProfile: { id: 'gallery', name: 'Gallery', model: 'gallery-selected' } })
@@ -5854,7 +5857,7 @@ describe('Agent gallery tool integration', () => {
   })
 
   it('keeps generated images and disables new image calls when retrying failed follow-up text', async () => {
-    useStore.setState({ settings: { ...useStore.getState().settings, agentMaxToolRounds: 15 } })
+    useStore.setState({ settings: { ...useStore.getState().settings, agentToolCallLimit: 15 } })
     vi.mocked(callAgentResponsesApi).mockResolvedValueOnce(toolReply()).mockRejectedValueOnce(new Error('chat disconnected')).mockResolvedValueOnce(doneReply)
     await submitAgentMessage()
     await vi.waitFor(() => expect(useStore.getState().agentConversations[0].rounds[0].status).toBe('error'))
