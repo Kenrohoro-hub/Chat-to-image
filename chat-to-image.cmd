@@ -1,5 +1,9 @@
 @echo off
 setlocal
+if not exist "%~dp0runtime\python.exe" goto system_python
+"%~dp0runtime\python.exe" -B "%~dp0scripts\chat_to_image.py" %*
+exit /b %errorlevel%
+:system_python
 where py >nul 2>nul
 if errorlevel 1 goto use_python
 py -3 --version >nul 2>nul

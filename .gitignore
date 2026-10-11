@@ -8,3 +8,5 @@ playground-cli.local.json
 outputs/
 __pycache__/
 user-config/
+release/
+runtime/

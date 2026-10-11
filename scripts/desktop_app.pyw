@@ -10,7 +10,8 @@ def launch():
   if sys.version_info < (3, 10):
     raise RuntimeError('请先安装 Python 3.10 或更新版本。')
   from playground_config import local_data_dir, project_id
-  runtime = local_data_dir() / 'desktop-runtime'
+  bundled = Path(__file__).resolve().parent.parent / 'runtime'
+  runtime = bundled if (bundled / 'pythonw.exe').is_file() else local_data_dir() / 'desktop-runtime'
   if Path(sys.prefix).resolve() != runtime.resolve():
     python = runtime / 'Scripts' / 'python.exe'
     kernel = ctypes.WinDLL('kernel32', use_last_error=True)

@@ -12,6 +12,14 @@ from playground_config import config_path, local_data_dir
 
 
 class StartupTests(unittest.TestCase):
+  def test_bundled_runtime_starts_without_installing_dependencies(self):
+    launcher = runpy.run_path(str(Path(__file__).with_name('desktop_app.pyw')), run_name='startup-test')
+    runtime = Path(__file__).resolve().parent.parent / 'runtime'
+    with patch.object(Path, 'is_file', return_value=True), patch.object(sys, 'prefix', str(runtime)), patch('importlib.util.find_spec', return_value=object()), patch('desktop_host.main') as main, patch('subprocess.run') as run:
+      launcher['launch']()
+      main.assert_called_once_with()
+      run.assert_not_called()
+
   def test_launcher_uses_web_desktop_in_its_runtime(self):
     launcher = runpy.run_path(str(Path(__file__).with_name('desktop_app.pyw')), run_name='startup-test')
     with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {'LOCALAPPDATA': directory}):

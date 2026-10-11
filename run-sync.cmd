@@ -4,6 +4,11 @@ chcp 65001 >nul
 pushd "%~dp0"
 if errorlevel 1 goto path_error
 
+if not exist "%~dp0runtime\python.exe" goto system_python
+"%~dp0runtime\python.exe" -B "%~dp0scripts\sync_app.py" %*
+goto finished
+
+:system_python
 where py >nul 2>nul
 if errorlevel 1 goto use_python
 py -3 --version >nul 2>nul

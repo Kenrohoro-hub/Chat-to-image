@@ -4,6 +4,11 @@ chcp 65001 >nul
 pushd "%~dp0"
 if errorlevel 1 goto path_error
 
+if not exist "%~dp0runtime\pythonw.exe" goto system_python
+start "" "%~dp0runtime\pythonw.exe" -B "%~dp0scripts\desktop_app.pyw"
+goto finished
+
+:system_python
 where pyw >nul 2>nul
 if errorlevel 1 goto use_python
 start "" pyw -3 -B "%~dp0scripts\desktop_app.pyw"
