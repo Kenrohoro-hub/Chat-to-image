@@ -6,7 +6,7 @@ A Windows AI image generation and editing tool with direct generation, conversat
 
 ## Install and configure
 
-Supports Windows 10 (1809+) and Windows 11 x64. Run the EXE installer and open the app from the Start menu. Python and Node.js are included.
+Supports Windows 10 (1809+) and Windows 11 x64. Run the EXE installer and open the app from the Start menu. No separate Python or Node.js installation is required.
 
 Enter your API URL, key, and model in **Settings & API → API configuration**, then save. Direct generation uses Images profiles; conversational creation also requires a Responses profile. Provide your own API service and credits.
 

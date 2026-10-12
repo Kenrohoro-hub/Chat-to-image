@@ -4,7 +4,7 @@
 
 ## Install and launch
 
-For Windows 10 (1809+) or Windows 11 x64, download `Chat-to-image-VERSION-windows-x64-setup.exe`, run it, and open **Chat to image** from the Start menu. Python and Node.js are included.
+For Windows 10 (1809+) or Windows 11 x64, download `Chat-to-image-VERSION-windows-x64-setup.exe`, run it, and open **Chat to image** from the Start menu. No separate Python or Node.js installation is required.
 
 The installer is self-signed, so Windows may still show a publisher warning. Download from the project release page. GitHub's **Source code** archive needs a build; see [Run from source](README.en.md#run-from-source).
 
