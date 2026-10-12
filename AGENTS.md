@@ -10,6 +10,7 @@
 - 源码在 `src/`，构建产物由 Vite 生成，不要手动编辑 `dist/`。
 - 发布打包按 `README_使用说明.md` 的“内置示例与发布包”说明区分项目资源与个人资料；项目自带的默认提示词和展示图应随包保留，不得按个人资料排除。
 - `build-installer.cmd` 使用系统 Inno Setup 6 生成 `release/` 的 Windows x64 独立安装器；按白名单收集程序并重新构建前端，附带 Python 与 WebView2 离线组件。保留内置示例，严禁收集 `user-config/`、作品、日志和用户备份；安装器改动运行 `scripts/test_installer.py` 与 `scripts/test_desktop_startup.py`，实际安装/升级/卸载使用隔离测试目录。
+- 安装器与卸载程序通过 `scripts/sign_installer.ps1` 自签，复用当前 Windows 用户证书库中的专用不可导出私钥；只发布 CER 公钥，禁止导出私钥或自动修改根信任库。签名改动还需设置 `CHAT_TO_IMAGE_SIGNING_THUMBPRINT` 后运行安装器篡改检查，并验证隔离安装生成的卸载程序；使用限制见使用说明“安装器与卸载程序自签名”。
 - 包管理器为 npm（有 `package-lock.json`），不要使用 yarn 或 pnpm。
 
 ## Codex 图片调用入口

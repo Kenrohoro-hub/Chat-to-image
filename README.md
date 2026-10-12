@@ -24,7 +24,7 @@
 
 从 [GitHub Releases](https://github.com/Kenrohoro-hub/Chat-to-image/releases) 下载 `Chat-to-image-0.1.0-windows-x64-setup.exe`，双击按中文向导安装，然后从开始菜单打开 **Chat to image**。支持 Windows 10（1809 起）与 Windows 11 x64，内置 Python、桌面依赖、前端和 WebView2 离线安装组件，无需另装 Python 或 Node。
 
-安装包不包含个人设置、Key、作品、历史或备份；保留项目的 45 条内置提示词与展示图。首次使用需自行填写 API。默认按当前 Windows 用户安装，升级请选择原目录；卸载保留使用后产生的配置与作品。首次运行仍可能出现未签名程序的 Windows 发布者提示。
+安装包不包含个人设置、Key、作品、历史或备份；保留项目的 45 条内置提示词与展示图。首次使用需自行填写 API。默认按当前 Windows 用户安装，升级请选择原目录；卸载保留使用后产生的配置与作品。自签名构建的安装器和卸载程序带有签名；其他电脑默认不信任自签证书，仍可能显示 Windows 发布者或 SmartScreen 提示。
 
 以下环境要求适用于从源码运行。
 

@@ -56,6 +56,14 @@ def main():
   compiler = args.iscc or shutil.which('ISCC.exe') or Path(os.environ['ProgramFiles(x86)']) / 'Inno Setup 6/ISCC.exe'
   if not Path(compiler).is_file():
     raise ValueError('请先安装 Inno Setup 6，或用 --iscc 指定 ISCC.exe。')
+  output = root / 'release'
+  output.mkdir(exist_ok=True)
+  signer = root / 'scripts/sign_installer.ps1'
+  thumbprint = subprocess.check_output(['pwsh', '-NoProfile', '-File', str(signer),
+    '-ExportPath', str(output / 'Chat-to-image-signing.cer')], encoding='utf-8').strip()
+  if len(thumbprint) != 40 or any(c not in '0123456789ABCDEF' for c in thumbprint):
+    raise ValueError('签名证书准备失败。')
+  sign_command = f'pwsh.exe -NoProfile -File $q{signer}$q -CertificateThumbprint {thumbprint} -FilePath $f'
   subprocess.run([sys.executable, '-B', str(root / 'scripts/build_app.py')], check=True)
   if not (root / 'dist/index.html').is_file():
     raise ValueError('缺少前端构建，请先运行 build-app.cmd。')
@@ -76,8 +84,6 @@ def main():
     '--python-version', '3.13', '--implementation', 'cp', '--abi', 'cp313', '--find-links', str(wheels),
     '--dest', str(wheels), '-r', str(root / 'requirements-windows.txt')], check=True)
   version = json.loads((root / 'package.json').read_text(encoding='utf-8'))['version']
-  output = root / 'release'
-  output.mkdir(exist_ok=True)
   with tempfile.TemporaryDirectory(prefix='payload-', dir=cache) as directory:
     stage = Path(directory)
     stage_app(root, stage)
@@ -93,7 +99,7 @@ def main():
     subprocess.run([str(runtime / 'python.exe'), '-B', str(stage / 'scripts/chat_to_image.py'), '--version'], check=True)
     manifest = '\n'.join(sorted(p.relative_to(stage).as_posix() for p in stage.rglob('*') if p.is_file())) + '\n'
     (output / 'package-files.txt').write_text(manifest, encoding='utf-8')
-    subprocess.run([str(compiler), '/Qp', f'/DAppVersion={version}', f'/DPayloadDir={stage}',
+    subprocess.run([str(compiler), '/Qp', f'/Schattoimage={sign_command}', f'/DAppVersion={version}', f'/DPayloadDir={stage}',
       f'/DWebViewInstaller={webview}', f'/O{output}', str(root / 'installer/windows.iss')], check=True)
   installer = output / f'Chat-to-image-{version}-windows-x64-setup.exe'
   checksum = hashlib.sha256(installer.read_bytes()).hexdigest()

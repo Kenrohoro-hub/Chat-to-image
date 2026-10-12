@@ -294,6 +294,15 @@ Windows x64 用户可直接下载安装 `Chat-to-image-0.1.0-windows-x64-setup.e
 
 ### 维护者重新打包
 
-在已安装 Python、Node/npm、PowerShell 7 和 Inno Setup 6 的 Windows x64 电脑，运行项目根 `build-installer.cmd`。脚本重建前端，下载官方 Python 嵌入包和微软 WebView2 离线组件，锁定桌面依赖；Python 包校验 SHA-256，WebView2 验证微软数字签名。最终文件位于 `release/`，上传 GitHub Release 时使用 EXE 和同名 `.sha256`。`package-files.txt` 是包内程序文件清单，供排查资源使用。
+在已安装 Python、Node/npm、PowerShell 7 和 Inno Setup 6 的 Windows x64 电脑，运行项目根 `build-installer.cmd`。脚本重建前端，下载官方 Python 嵌入包和微软 WebView2 离线组件，锁定桌面依赖；Python 包校验 SHA-256，WebView2 验证微软数字签名。最终文件位于 `release/`，上传 GitHub Release 时使用 EXE、同名 `.sha256` 和 `Chat-to-image-signing.cer` 公钥证书。`package-files.txt` 是包内程序文件清单，供排查资源使用。
 
 每次打包都会重新构建前端，避免旧 dist 中混入手工添加的文件；完整发布前仍需运行前端测试。可用 `--iscc` 指定编译器，`--cache` 指定本机下载缓存。不要手工把整个项目目录压进安装器。构建缓存与安装器均不纳入 Git。
+
+
+### 安装器与卸载程序自签名
+
+`build-installer.cmd` 自动为安装器、安装过程使用的临时程序及卸载程序签名。首次打包在当前 Windows 用户的个人证书库创建 `Chat to image` 专用代码签名证书，RSA 3072 位、SHA-256，有效期三年，私钥不可导出；以后打包复用同一证书。私钥不进入项目、安装包或 Git。签名或校验失败会中止构建，SHA-256 文件在最终签名后生成。
+
+`release/Chat-to-image-signing.cer` 仅含公钥，可与安装器一起提供。构建不会自动把它加入受信任根或发布者证书库。自签名能用于核对文件来源及完整性，但其他电脑不会因此自动信任发布者，也不保证消除 SmartScreen 提示。Windows PowerShell 可能将“证书根未受信任”显示为 `UnknownError`；构建会核对签名者并用 Windows 原生校验精确区分此状态与文件被修改。只信任自己确认过来源和指纹的证书。
+
+证书绑定当前 Windows 用户和电脑。换电脑或重装系统后需要新的签名证书；现有证书过期时构建会提示处理，不会静默更换身份。当前自签名不带外部时间戳，证书到期后需用有效证书重新签署。已发布的 GitHub 附件不会因本地重新打包自动更新。
