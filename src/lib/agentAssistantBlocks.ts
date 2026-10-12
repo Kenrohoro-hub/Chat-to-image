@@ -1,7 +1,8 @@
+import { t } from './i18n'
 import type { AgentRound, ResponsesOutputItem, TaskRecord } from '../types'
 import { collectWebSearchCalls, getAgentRoundOutputItems, getWebSearchStatusForCalls, type AgentWebSearchStatus } from './agentWebSearch'
 
-const AGENT_STOPPED_MESSAGE = '已停止生成。'
+import { isAgentStoppedMessage } from './agentResponseState'
 
 export type AgentAssistantBlock =
   | { type: 'web-search'; status: AgentWebSearchStatus; key: string }
@@ -16,12 +17,12 @@ export interface AgentRoundTaskSlot {
 }
 
 function isAgentRoundInterrupted(round: AgentRound | null) {
-  return round?.status === 'error' && round.error === AGENT_STOPPED_MESSAGE
+  return round?.status === 'error' && isAgentStoppedMessage(round.error)
 }
 
 function markToolStatusStopped(status: AgentWebSearchStatus): AgentWebSearchStatus {
   if (status.completed) return status
-  return { text: status.text.replace(/^正在/, '已停止'), completed: true }
+  return { text: t(status.text.replace(/^正在/, '已停止'), 'Stopped'), completed: true }
 }
 
 function taskMatchesImageOutputItem(task: TaskRecord, item: ResponsesOutputItem) {
@@ -207,8 +208,8 @@ export function getAgentAssistantBlocks(round: AgentRound | null, taskSlots: Age
       blocks.push({
         type: 'batch-params',
         status: roundInterrupted
-          ? markToolStatusStopped({ text: '正在填写并发图像生成参数', completed: false })
-          : { text: '正在填写并发图像生成参数', completed: false },
+          ? markToolStatusStopped({ text: t('正在填写并发图像生成参数', 'Preparing batch image generation parameters'), completed: false })
+          : { text: t('正在填写并发图像生成参数', 'Preparing batch image generation parameters'), completed: false },
         key: `batch-params:${item.call_id ?? item.id ?? outputIndex}:${outputIndex}`,
       })
       continue

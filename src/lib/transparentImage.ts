@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import type { TaskParams } from '../types'
 import { loadImage } from './canvasImage'
 
@@ -53,7 +54,7 @@ export async function removeKeyedBackgroundFromDataUrl(
   canvas.width = image.naturalWidth
   canvas.height = image.naturalHeight
   const ctx = canvas.getContext('2d', { willReadFrequently: true })
-  if (!ctx) throw new Error('当前浏览器不支持 Canvas，无法执行透明背景后处理')
+  if (!ctx) throw new Error(t('当前浏览器不支持 Canvas，无法执行透明背景后处理', 'This browser does not support Canvas. Transparent background processing is unavailable.'))
 
   ctx.drawImage(image, 0, 0)
   const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height)
@@ -105,7 +106,7 @@ export function removeKeyedBackgroundFromPixels(
   height: number,
   keyColor: string,
 ) {
-  if (data.length < width * height * 4) throw new Error('透明背景像素数据尺寸不匹配')
+  if (data.length < width * height * 4) throw new Error(t('透明背景像素数据尺寸不匹配', 'Transparent background pixel dimensions do not match'))
   const keyRgb = getKeyColorRgb(keyColor)
   const mask = buildBackgroundMask(data, width, height, keyRgb)
   writeTransparentPixels(data, mask, width, height, keyRgb)
@@ -390,7 +391,7 @@ function removeColorSpill(
 
 function getKeyColorRgb(keyColor: string): Rgb {
   const rgb = KEY_COLOR_RGB[keyColor.toUpperCase() as keyof typeof KEY_COLOR_RGB]
-  if (!rgb) throw new Error('透明背景键色不支持')
+  if (!rgb) throw new Error(t('透明背景键色不支持', 'Unsupported transparent background key color'))
   return rgb
 }
 

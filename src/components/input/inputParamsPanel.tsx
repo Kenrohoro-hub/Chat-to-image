@@ -1,3 +1,4 @@
+import { t } from '../../lib/i18n'
 import type { ApiProfile, TaskParams } from '../../types'
 import { getImageModelCapabilities } from '../../lib/imageModelCapabilities'
 import { dismissAllTooltips } from '../../lib/tooltipDismiss'
@@ -99,8 +100,8 @@ export default function InputParamsPanel({
         onTouchCancel={sizeHint.hide}
         onClick={sizeHint.show}
       >
-        <span className="text-gray-400 dark:text-gray-500 ml-1">尺寸</span>
-        {rule?.sizes ? <Select value={params.size} onChange={(size) => setParams({ size })} options={rule.sizes.map((size) => ({ label: size === 'auto' ? '自动' : size, value: size }))} className={selectClass} /> : <button
+        <span className="text-gray-400 dark:text-gray-500 ml-1">{t('尺寸', 'Size')}</span>
+        {rule?.sizes ? <Select value={params.size} onChange={(size) => setParams({ size })} options={rule.sizes.map((size) => ({ label: size === 'auto' ? t('自动', 'Auto') : size, value: size }))} className={selectClass} /> : <button
           type="button"
           onClick={() => { dismissAllTooltips(); onOpenSizePicker() }}
           className="px-3 py-1.5 rounded-xl border border-gray-200/60 dark:border-white/[0.08] bg-white/50 dark:bg-white/[0.03] hover:bg-white dark:hover:bg-white/[0.06] focus:outline-none text-xs text-left transition-all duration-200 shadow-sm font-mono"
@@ -110,8 +111,8 @@ export default function InputParamsPanel({
         <ButtonTooltip
           visible={(isFalTextToImage || activeProfile.codexCli) && sizeHint.visible}
           text={isFalTextToImage
-            ? <>fal.ai 的文生图模式不支持 <code className="rounded bg-white/10 px-1 py-0.5 font-mono">auto</code> 参数</>
-            : 'Codex CLI 不支持尺寸参数，此处设置仅基于提示词工程'}
+            ? <>{t('fal.ai 的文生图模式不支持', 'fal.ai text-to-image does not support ')} <code className="rounded bg-white/10 px-1 py-0.5 font-mono">auto</code> {t('参数', ' parameters')}</>
+            : t('Codex CLI 不支持尺寸参数，此处设置仅基于提示词工程', 'Codex CLI does not support size parameters. This setting only affects the prompt.')}
         />
       </label>
       <label
@@ -123,7 +124,7 @@ export default function InputParamsPanel({
         onTouchCancel={qualityHint.hide}
         onClick={qualityHint.show}
       >
-        <span className="text-gray-400 dark:text-gray-500 ml-1">质量</span>
+        <span className="text-gray-400 dark:text-gray-500 ml-1">{t('质量', 'Quality')}</span>
         <Select
           value={activeProfile.codexCli ? 'auto' : isFalProvider && params.quality === 'auto' ? 'high' : params.quality}
           onChange={(val) => {
@@ -138,11 +139,11 @@ export default function InputParamsPanel({
         />
         <ButtonTooltip
           visible={(activeProfile.codexCli || isFalProvider) && qualityHint.visible}
-          text={isFalProvider ? <>fal.ai 不支持 <code className="rounded bg-white/10 px-1 py-0.5 font-mono">auto</code> 质量参数</> : 'Codex CLI 不支持质量参数'}
+          text={isFalProvider ? <>{t('fal.ai 不支持', 'fal.ai does not support ')} <code className="rounded bg-white/10 px-1 py-0.5 font-mono">auto</code> {t('质量参数', ' quality parameters')}</> : t('Codex CLI 不支持质量参数', 'Codex CLI does not support quality parameters')}
         />
       </label>
       <label className="flex flex-col gap-0.5">
-        <span className="text-gray-400 dark:text-gray-500 ml-1">格式</span>
+        <span className="text-gray-400 dark:text-gray-500 ml-1">{t('格式', 'Format')}</span>
         <Select
           value={params.output_format}
           onChange={(val) => {
@@ -171,7 +172,7 @@ export default function InputParamsPanel({
           onTouchCancel={transparentOutputHint.hide}
           onClick={transparentOutputHint.show}
         >
-          <span className="text-gray-400 dark:text-gray-500 ml-1">透明背景</span>
+          <span className="text-gray-400 dark:text-gray-500 ml-1">{t('透明背景', 'Transparent background')}</span>
           <Select
             value={transparentOutputEnabled ? 'on' : 'off'}
             onChange={(val) => {
@@ -191,7 +192,7 @@ export default function InputParamsPanel({
           />
           <ButtonTooltip
             visible={transparentOutputHint.visible}
-            text="实现方式可在设置的 API 配置中选择"
+            text={t('实现方式可在设置的 API 配置中选择', 'Choose the processing method in Settings & API')}
           />
         </label>
       )}
@@ -205,7 +206,7 @@ export default function InputParamsPanel({
           onTouchCancel={compressionHint.hide}
           onClick={compressionHint.show}
         >
-          <span className="text-gray-400 dark:text-gray-500 ml-1">压缩率</span>
+          <span className="text-gray-400 dark:text-gray-500 ml-1">{t('压缩率', 'Compression')}</span>
           <input
             value={outputCompressionInput}
             onChange={(e) => setOutputCompressionInput(e.target.value)}
@@ -223,7 +224,7 @@ export default function InputParamsPanel({
           />
           <ButtonTooltip
             visible={compressionHint.visible}
-            text={isFalProvider ? 'fal.ai 不支持压缩率参数' : '仅 JPEG 和 WebP 支持压缩率'}
+            text={isFalProvider ? t('fal.ai 不支持压缩率参数', 'fal.ai does not support compression parameters') : t('仅 JPEG 和 WebP 支持压缩率', 'Compression is available only for JPEG and WebP')}
           />
         </label>
       )}
@@ -236,7 +237,7 @@ export default function InputParamsPanel({
         onTouchCancel={moderationHint.hide}
         onClick={moderationHint.show}
       >
-        <span className="text-gray-400 dark:text-gray-500 ml-1">审核</span>
+        <span className="text-gray-400 dark:text-gray-500 ml-1">{t('审核', 'Moderation')}</span>
         <Select
           value={moderationDisabled ? 'auto' : params.moderation}
           onChange={(val) => {
@@ -254,7 +255,7 @@ export default function InputParamsPanel({
         />
         <ButtonTooltip
           visible={moderationDisabled && moderationHint.visible}
-          text="fal.ai 不支持审核参数"
+          text={t('fal.ai 不支持审核参数', 'fal.ai does not support moderation parameters')}
         />
       </label>
       <label
@@ -294,7 +295,7 @@ export default function InputParamsPanel({
           className="px-3 py-1.5 rounded-xl border border-gray-200/60 dark:border-white/[0.08] focus:outline-none text-xs transition-all duration-200 shadow-sm bg-white/50 dark:bg-white/[0.03]"
         />
         <ButtonTooltip visible={nLimitHint.visible} text={nLimitHintText} />
-        <ButtonTooltip visible={streamConcurrentByN && streamConcurrentHint.visible && !nLimitHint.visible} text="数量大于 1 时会将多图生成拆分为并发单图" />
+        <ButtonTooltip visible={streamConcurrentByN && streamConcurrentHint.visible && !nLimitHint.visible} text={t('数量大于 1 时会将多图生成拆分为并发单图', 'Counts above 1 are split into concurrent single-image requests')} />
       </label>
     </div>
   )

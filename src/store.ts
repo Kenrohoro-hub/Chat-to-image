@@ -1,3 +1,4 @@
+import { t } from './lib/i18n'
 import { savePersonalPromptChange } from './lib/promptStorage'
 import { recordBackupReceipt } from './lib/backupStatus'
 import { getApiProfileLimitError } from './lib/apiProfiles'
@@ -71,7 +72,7 @@ import { hasActiveDataOperations } from './lib/dataOperations'
 import { formatExportFileTime } from './lib/exportFileName'
 import { buildExportZip, createExportBlob, getExportImageEstimatedBytes, getExportZipPlan, MAX_EXPORT_ZIP_BYTES, readExportZip, readExportZipFileAsDataUrl, readExportZipManifest } from './lib/exportZip'
 import { appendDirectImageRound, deleteAgentRoundFromConversation, getActiveAgentRounds, getAgentConversationTaskIds, getAgentRoundPath, normalizeAgentConversations, remapAgentRoundMentionsForPathChange, uniqueIds } from './lib/agentConversationState'
-import { canonicalizeBatchFunctionCallArguments, countResponseToolCalls, createReadyAgentRecoveredToolState, getAgentFunctionOutputCallIds, getAgentRecoveredFailureError, getAgentRecoveredToolCallCount, getPersistableAgentConversations, getPersistableRawResponsePayload, mergeResponseOutputItems, scrubResponseOutputForDeletedAgentTasks, scrubTaskRawResponsePayloadForDeletedTasks } from './lib/agentResponseState'
+import { isAgentStoppedMessage, canonicalizeBatchFunctionCallArguments, countResponseToolCalls, createReadyAgentRecoveredToolState, getAgentFunctionOutputCallIds, getAgentRecoveredFailureError, getAgentRecoveredToolCallCount, getPersistableAgentConversations, getPersistableRawResponsePayload, mergeResponseOutputItems, scrubResponseOutputForDeletedAgentTasks, scrubTaskRawResponsePayloadForDeletedTasks } from './lib/agentResponseState'
 import { cleanStaleAgentInputDrafts, clearInputDraftState, isEmptyAgentInputDraft, normalizeAgentInputDrafts, remapAgentInputDraftMentionsForPathChange, restoreAgentInputDraftState, restoreGalleryInputDraftState, saveActiveAgentInputDrafts, saveGalleryInputDraft, syncActiveInputDraft, updateInputDraftImages } from './lib/inputDraftState'
 import { ALL_FAVORITES_COLLECTION_ID, DEFAULT_FAVORITE_COLLECTION_ID, createDefaultFavoriteCollection, deleteFavoriteCollectionState, ensureDefaultFavoriteCollection, getTaskFavoriteCollectionIds, mergeFavoriteCollections, normalizeFavoriteCollectionIds, normalizeFavoriteCollectionName, normalizeFavoriteCollections, normalizeFavoritePatch, normalizeLoadedFavoriteState, resolveDefaultFavoriteCollectionId, sameFavoriteCollectionIds } from './lib/favoriteState'
 import { createPersistedState, mergePersistedAgentConversations, migratePersistedState, normalizePersistedState } from './lib/persistedState'
@@ -91,7 +92,7 @@ const agentRecoveryContinuations = new Set<string>()
 const deletedActiveAgentTasks = new Map<string, { task: TaskRecord; controller: AbortController }>()
 let agentConversationPersistenceReady = false
 let agentConversationMigrationPending = false
-const AGENT_STOPPED_MESSAGE = '已停止生成。'
+const AGENT_STOPPED_MESSAGE = t('已停止生成。', 'Generation stopped.')
 const AGENT_RECOVERY_PAUSE_ERROR = 'AgentRecoveryPauseError'
 const AGENT_CONVERSATION_TITLE_MAX_LENGTH = 28
 const ERROR_TOAST_MAX_LENGTH = 80
@@ -100,7 +101,7 @@ type AgentDeletionResult = 'deleted' | 'deleted-with-warning' | 'running' | 'not
 
 export function getErrorToastMessage(message: string): string {
   const text = message.trim()
-  if (!text) return '操作失败'
+  if (!text) return t('操作失败', 'Operation failed')
 
   const firstLine = text.split(/\r?\n/)[0]?.trim() ?? ''
   const separatorIndex = firstLine.search(/[：:]/)
@@ -109,8 +110,8 @@ export function getErrorToastMessage(message: string): string {
     if (isErrorToastTitle(title)) return title
   }
 
-  if (firstLine.length > ERROR_TOAST_MAX_LENGTH) return '操作失败，请查看详情'
-  return firstLine || '操作失败'
+  if (firstLine.length > ERROR_TOAST_MAX_LENGTH) return t('操作失败，请查看详情', 'Operation failed. See details.')
+  return firstLine || t('操作失败', 'Operation failed')
 }
 
 function getToastMessage(message: string, type: ToastType): string {
@@ -118,19 +119,19 @@ function getToastMessage(message: string, type: ToastType): string {
 }
 
 function isErrorToastTitle(title: string): boolean {
-  return /(?:失败|错误|异常|报错|无法|不能|超时|中断|断开|请先|请输入|已达上限|不存在|已丢失)$/.test(title)
+  return /(?:失败|错误|异常|报错|无法|不能|超时|中断|断开|请先|请输入|已达上限|不存在|已丢失)$|failed|error|cannot|unable|timed out|interrupted|missing|not found/i.test(title)
 }
 
 export type SettingsTab = 'general' | 'agent-api' | 'api' | 'data' | 'connections' | 'features'
 
-const TIMEOUT_STREAMING_HINT = '也可尝试打开「流式传输」，并提高「请求中间步骤图像数」来维持连接。'
-const TIMEOUT_PARTIAL_IMAGES_ZERO_HINT = '官方流式接口不发送心跳，当前「请求中间步骤图像数」为 0，连接可能因无数据传输而断开。建议提高到 2 或 3。'
-const TIMEOUT_PARTIAL_IMAGES_LOW_HINT = '也可尝试提高「请求中间步骤图像数」来维持连接，避免长时间无数据传输导致断开。'
+const TIMEOUT_STREAMING_HINT = t('也可尝试打开「流式传输」，并提高「请求中间步骤图像数」来维持连接。', 'Try enabling streaming and increasing the number of intermediate images to keep the connection active.')
+const TIMEOUT_PARTIAL_IMAGES_ZERO_HINT = t('官方流式接口不发送心跳，当前「请求中间步骤图像数」为 0，连接可能因无数据传输而断开。建议提高到 2 或 3。', 'The official streaming API does not send heartbeats. With intermediate images set to 0, inactivity may disconnect the request. Try 2 or 3.')
+const TIMEOUT_PARTIAL_IMAGES_LOW_HINT = t('也可尝试提高「请求中间步骤图像数」来维持连接，避免长时间无数据传输导致断开。', 'Try increasing the number of intermediate images to prevent disconnection during long periods of inactivity.')
 
 type TimeoutStreamingHintProfile = Pick<ApiProfile, 'provider' | 'streamImages' | 'streamPartialImages'> & { apiMode?: string }
 
 function getTimeoutStreamingHint(profile?: TimeoutStreamingHintProfile | null) {
-  if (profile?.apiMode === 'responses') return profile.streamImages ? '' : '可尝试开启 Agent 流式传输。'
+  if (profile?.apiMode === 'responses') return profile.streamImages ? '' : t('可尝试开启 Agent 流式传输。', 'Try enabling Agent streaming.')
   if (profile?.provider !== 'openai') return ''
   const partialImages = profile.streamPartialImages ?? DEFAULT_SETTINGS.streamPartialImages ?? 0
   if (profile.streamImages !== true) return TIMEOUT_STREAMING_HINT
@@ -139,7 +140,7 @@ function getTimeoutStreamingHint(profile?: TimeoutStreamingHintProfile | null) {
 }
 
 function createOpenAITimeoutError(timeoutSeconds: number, profile?: TimeoutStreamingHintProfile | null) {
-  return `请求超时：超过 ${timeoutSeconds} 秒仍未完成，请稍后重试或提高超时时间。${getTimeoutStreamingHint(profile)}`
+  return t(`请求超时：超过 ${timeoutSeconds} 秒仍未完成，请稍后重试或提高超时时间。${getTimeoutStreamingHint(profile)}`, `Request timed out after ${timeoutSeconds} seconds. Try again later or increase the timeout. ${getTimeoutStreamingHint(profile)}`)
 }
 
 function orderImagesWithMaskFirst(images: InputImage[], maskTargetImageId: string | null | undefined) {
@@ -184,7 +185,7 @@ function createAgentConversation(now = Date.now()): AgentConversation {
     imageParams: { ...useStore.getState().params },
     preferences: getAgentPreferences(useStore.getState().settings),
     id: genId(),
-    title: '新对话',
+    title: t('新对话', 'New conversation'),
     activeRoundId: null,
     createdAt: now,
     updatedAt: now,
@@ -613,7 +614,7 @@ export const useStore = create<AppState>()(
       creationDraftUndo: null,
       promptTemplates: [],
       promptCategories: DEFAULT_PROMPT_CATEGORIES,
-      setPromptTemplates: (templates, categories) => savePersonalPromptChange(() => typeof templates === 'function' ? templates(get().promptTemplates) : templates, (promptTemplates, promptCategories) => set({ promptTemplates, promptCategories }), () => typeof categories === 'function' ? categories(get().promptCategories) : categories ?? get().promptCategories).catch((err) => { console.warn('Personal prompt save failed', err); get().showToast(err instanceof Error ? err.message : '个人提示词保存失败，原数据保留。', 'error'); return false }),
+      setPromptTemplates: (templates, categories) => savePersonalPromptChange(() => typeof templates === 'function' ? templates(get().promptTemplates) : templates, (promptTemplates, promptCategories) => set({ promptTemplates, promptCategories }), () => typeof categories === 'function' ? categories(get().promptCategories) : categories ?? get().promptCategories).catch((err) => { console.warn('Personal prompt save failed', err); get().showToast(err instanceof Error ? err.message : t('个人提示词保存失败，原数据保留。', 'Could not save personal prompts. The original data is preserved.'), 'error'); return false }),
       inputImages: [],
       addInputImage: (img) =>
         set((s) => {
@@ -1029,7 +1030,7 @@ function scheduleOpenAIWatchdog(taskId: string, timeoutSeconds: number, profile?
   const timer = setTimeout(() => {
     openAIWatchdogTimers.delete(taskId)
     const failed = failOpenAITaskIfStillRunning(taskId, createOpenAITimeoutError(timeoutSeconds, profile))
-    if (failed) useStore.getState().showToast('OpenAI 任务请求超时', 'error')
+    if (failed) useStore.getState().showToast(t('OpenAI 任务请求超时', 'OpenAI request timed out'), 'error')
   }, remainingMs)
   openAIWatchdogTimers.set(taskId, timer)
 }
@@ -1063,19 +1064,19 @@ export function taskMatchesSearchQuery(task: TaskRecord, query: string) {
   return prompt.includes(q) || paramStr.includes(q) || errorStr.includes(q)
 }
 
-export function showCodexCliPrompt(force = false, reason = '接口返回的提示词已被改写') {
+export function showCodexCliPrompt(force = false, reason = t('接口返回的提示词已被改写', 'The API rewrote the prompt')) {
   const state = useStore.getState()
   const settings = state.settings
   const promptKey = getCodexCliPromptKey(settings)
   if (!force && (settings.codexCli || state.dismissedCodexCliPrompts.includes(promptKey))) return
   const promptRewriteGuardMessage = settings.allowPromptRewrite
-    ? '当前已允许模型改写优化提示词，因此不会额外加入不改写要求。'
-    : '同时，提示词文本开头会加入简短的不改写要求，避免模型重写提示词，偏离原意。'
+    ? t('当前已允许模型改写优化提示词，因此不会额外加入不改写要求。', 'Prompt rewriting is enabled, so no additional instruction to preserve the wording will be added.')
+    : t('同时，提示词文本开头会加入简短的不改写要求，避免模型重写提示词，偏离原意。', 'A short instruction to preserve the wording will also be added at the start of the prompt to avoid changing its meaning.')
 
   state.setConfirmDialog({
-    title: '检测到 Codex CLI API',
-    message: `${reason}，当前 API 来源很可能是 Codex CLI。\n\n是否开启 Codex CLI 兼容模式？开启后会禁用在此处无效的质量参数，并在 Images API 多图生成时使用并发请求，解决该 API 数量参数无效的问题。${promptRewriteGuardMessage}`,
-    confirmText: '开启',
+    title: t('检测到 Codex CLI API', 'Codex CLI API detected'),
+    message: t(`${reason}，当前 API 来源很可能是 Codex CLI。\n\n是否开启 Codex CLI 兼容模式？开启后会禁用在此处无效的质量参数，并在 Images API 多图生成时使用并发请求，解决该 API 数量参数无效的问题。${promptRewriteGuardMessage}`, `${reason}. This API appears to come from Codex CLI.\n\nEnable Codex CLI compatibility mode? This disables unsupported quality settings and uses concurrent requests for multiple images through the Images API. ${promptRewriteGuardMessage}`),
+    confirmText: t('开启', 'Enable'),
     action: () => {
       const state = useStore.getState()
       state.dismissCodexCliPrompt(promptKey)
@@ -1125,10 +1126,10 @@ function getAgentProfileValidationError(settings: AppSettings): { profile: ApiPr
   const normalized = normalizeSettings(settings)
   const textProfile = getAgentTextApiProfile(normalized)
   if (!textProfile || textProfile.provider !== 'openai' || textProfile.apiMode !== 'responses') {
-    return { profile: textProfile, message: 'Agent 模式需要使用支持 Responses API 的 OpenAI 兼容文本模型配置。' }
+    return { profile: textProfile, message: t('Agent 模式需要使用支持 Responses API 的 OpenAI 兼容文本模型配置。', 'Agent mode requires an OpenAI-compatible text model profile that supports the Responses API.') }
   }
   const textProfileError = validateApiProfile(textProfile)
-  if (textProfileError) return { profile: textProfile, message: `文本模型 API 配置不完整：${textProfileError}` }
+  if (textProfileError) return { profile: textProfile, message: t(`文本模型 API 配置不完整：${textProfileError}`, `The chat model API profile is incomplete: ${textProfileError}`) }
 
 
   return null
@@ -1140,7 +1141,7 @@ function getReusedTaskApiProfile(settings: AppSettings, profileId: string | null
 }
 
 function getTaskApiProfileName(task: TaskRecord) {
-  return task.apiProfileName || task.apiModel || '未知配置'
+  return task.apiProfileName || task.apiModel || t('未知配置', 'Unknown profile')
 }
 
 function isNetworkRecoverableError(err: unknown) {
@@ -1173,23 +1174,23 @@ function getApiRequestNetworkErrorHint(
 
   if (elapsedSeconds <= 15) {
     if (usesApiProxy) {
-      return '提示：请求立即失败，请检查 API 代理服务是否正常运行。'
+      return t('提示：请求立即失败，请检查 API 代理服务是否正常运行。', 'The request failed immediately. Check that the API proxy is running.')
     }
     const unsupportedApiHint = profile?.provider === 'openai'
-      ? `\n· API 不支持 ${getApiModeApiName(profile.apiMode)}`
+      ? t(`\n· API 不支持 ${getApiModeApiName(profile.apiMode)}`, `\n· The API does not support ${getApiModeApiName(profile.apiMode)}`)
       : ''
-    return `提示：请求立即失败，可能原因：\n· API 服务器不可达或地址有误，请检查 API URL 是否正确、服务是否正常运行${unsupportedApiHint}\n· 接口不支持浏览器跨域请求，可使用 Docker 部署版或本地运行版并配置 API 代理解决`
+    return t(`提示：请求立即失败，可能原因：\n· API 服务器不可达或地址有误，请检查 API URL 是否正确、服务是否正常运行${unsupportedApiHint}\n· 接口不支持浏览器跨域请求，可使用 Docker 部署版或本地运行版并配置 API 代理解决`, `The request failed immediately. Possible causes:\n· The API server is unreachable or the URL is incorrect. Check the URL and service status.${unsupportedApiHint}\n· The API does not allow browser cross-origin requests. Use the Docker or local version with an API proxy.`)
   }
 
   if (elapsedSeconds >= 55 && elapsedSeconds <= 75) {
-    return `提示：请求等待约 60 秒后被断开，这通常是 Nginx 等反向代理的默认超时，而非接口本身报错。可调大代理的超时时间（如 proxy_read_timeout），或降低图片尺寸/质量后重试。${getTimeoutStreamingHint(profile)}`
+    return t(`提示：请求等待约 60 秒后被断开，这通常是 Nginx 等反向代理的默认超时，而非接口本身报错。可调大代理的超时时间（如 proxy_read_timeout），或降低图片尺寸/质量后重试。${getTimeoutStreamingHint(profile)}`, `The connection closed after about 60 seconds. This is often the default timeout of a reverse proxy such as Nginx. Increase its timeout (for example, proxy_read_timeout), or reduce image size or quality. ${getTimeoutStreamingHint(profile)}`)
   }
 
   if (elapsedSeconds >= 110 && elapsedSeconds <= 140) {
-    return `提示：请求等待约 120 秒后被断开，这通常是 Cloudflare 等 CDN/网关的超时限制，而非接口本身报错。如果使用 Cloudflare，可考虑升级套餐或使用不经过 CDN 的直连地址。${getTimeoutStreamingHint(profile)}`
+    return t(`提示：请求等待约 120 秒后被断开，这通常是 Cloudflare 等 CDN/网关的超时限制，而非接口本身报错。如果使用 Cloudflare，可考虑升级套餐或使用不经过 CDN 的直连地址。${getTimeoutStreamingHint(profile)}`, `The connection closed after about 120 seconds. This is often a CDN or gateway timeout, such as Cloudflare. Check the plan limits or use a direct URL that bypasses the CDN. ${getTimeoutStreamingHint(profile)}`)
   }
 
-  return `提示：请求等待较长时间后被断开，通常是反向代理或网关的超时限制，而非接口本身报错。可检查代理超时设置，或降低图片尺寸/质量后重试。${getTimeoutStreamingHint(profile)}`
+  return t(`提示：请求等待较长时间后被断开，通常是反向代理或网关的超时限制，而非接口本身报错。可检查代理超时设置，或降低图片尺寸/质量后重试。${getTimeoutStreamingHint(profile)}`, `The connection closed after a long wait. Check the reverse proxy or gateway timeout, or reduce image size or quality. ${getTimeoutStreamingHint(profile)}`)
 }
 
 function getRawErrorPayload(err: unknown): Pick<Partial<TaskRecord>, 'rawImageUrls' | 'rawResponsePayload'> {
@@ -1288,13 +1289,13 @@ async function resolveImageSizeParamsList(
 
 async function completeRecoveredFalTask(task: TaskRecord, result: Awaited<ReturnType<typeof getFalQueuedImageResult>>) {
   const latest = useStore.getState().tasks.find((item) => item.id === task.id)
-  if (!latest || latest.status === 'done' || latest.error === AGENT_STOPPED_MESSAGE) return
+  if (!latest || latest.status === 'done' || isAgentStoppedMessage(latest.error)) return
   if (latest.status !== 'running' && !latest.falRecoverable) return
 
   const { outputIds, outputDataUrls, outputImageSizes, transparentOriginalImageIds } = await storeTaskOutputImages(task, result.images)
   const actualParamsList = await resolveImageSizeParamsList(outputDataUrls, result.actualParamsList, outputImageSizes)
   const latestBeforeUpdate = useStore.getState().tasks.find((item) => item.id === task.id)
-  if (!latestBeforeUpdate || latestBeforeUpdate.status === 'done' || latestBeforeUpdate.error === AGENT_STOPPED_MESSAGE || (latestBeforeUpdate.status !== 'running' && !latestBeforeUpdate.falRecoverable)) {
+  if (!latestBeforeUpdate || latestBeforeUpdate.status === 'done' || isAgentStoppedMessage(latestBeforeUpdate.error) || (latestBeforeUpdate.status !== 'running' && !latestBeforeUpdate.falRecoverable)) {
     await deleteUnreferencedImageIds([...outputIds, ...(transparentOriginalImageIds ?? [])])
     return
   }
@@ -1308,8 +1309,8 @@ async function completeRecoveredFalTask(task: TaskRecord, result: Awaited<Return
     ...createTaskDonePatch(task, Date.now()),
     falRecoverable: false,
   })
-  useStore.getState().showToast(`fal.ai 任务已恢复，共 ${outputIds.length} 张图片`, 'success')
-  if (!isAgentTask(task)) showTaskCompletionNotification('图像生成完成', `fal.ai 任务已恢复，共 ${outputIds.length} 张图片。`)
+  useStore.getState().showToast(t(`fal.ai 任务已恢复，共 ${outputIds.length} 张图片`, `fal.ai task recovered: ${outputIds.length} images`), 'success')
+  if (!isAgentTask(task)) showTaskCompletionNotification(t('图像生成完成', 'Image generation complete'), t(`fal.ai 任务已恢复，共 ${outputIds.length} 张图片。`, `fal.ai task recovered: ${outputIds.length} images.`))
   else void continueRecoveredAgentRound(task.id)
 }
 
@@ -1552,7 +1553,7 @@ export async function submitTask(options: { allowFullMask?: boolean; useCurrentA
   const { settings, prompt, inputImages, maskDraft, reusedTaskApiProfileId, reusedTaskApiProfileName, reusedTaskApiProfileMissing, showToast, setConfirmDialog } =
     useStore.getState()
   const conversation = useStore.getState().appMode === 'agent' ? getActiveAgentConversation() : null
-  if (conversation?.rounds.some((round) => round.status === 'running')) { showToast('请等待当前任务完成，或先停止。', 'info'); return }
+  if (conversation?.rounds.some((round) => round.status === 'running')) { showToast(t('请等待当前任务完成，或先停止。', 'Wait for the current task to finish, or stop it first.'), 'info'); return }
   const params = getAgentImageParams(conversation ?? undefined, useStore.getState().params)
 
   const normalizedSettings = normalizeSettings(settings)
@@ -1565,10 +1566,10 @@ export async function submitTask(options: { allowFullMask?: boolean; useCurrentA
         useStore.getState().setReusedTaskApiProfile(null)
       } else {
         setConfirmDialog({
-          title: '找不到 API 配置',
-      message: `找不到复用任务所使用的 API 配置「${reusedTaskApiProfileName || '未知配置'}」，要使用当前的 API 配置「${activeProfile.name}」提交任务吗？`,
-      confirmText: '使用当前配置提交',
-      cancelText: '放弃提交',
+          title: t('找不到 API 配置', 'API profile not found'),
+      message: t(`找不到复用任务所使用的 API 配置「${reusedTaskApiProfileName || '未知配置'}」，要使用当前的 API 配置「${activeProfile.name}」提交任务吗？`, `The original API profile “${reusedTaskApiProfileName || t('未知配置', 'Unknown profile')}” was not found. Submit using the current profile “${activeProfile.name}”?`),
+      confirmText: t('使用当前配置提交', 'Submit with current profile'),
+      cancelText: t('放弃提交', 'Cancel submission'),
       action: () => {
         void submitTask({ ...options, useCurrentApiProfileWhenReusedMissing: true })
       },
@@ -1582,13 +1583,13 @@ export async function submitTask(options: { allowFullMask?: boolean; useCurrentA
   }
 
   if (!usesDesktopPool(normalizedSettings, activeProfile.id) && validateApiProfile(activeProfile)) {
-    showToast(`请先完善请求 API 配置：${validateApiProfile(activeProfile)}`, 'error')
+    showToast(t(`请先完善请求 API 配置：${validateApiProfile(activeProfile)}`, `Complete the API profile first: ${validateApiProfile(activeProfile)}`), 'error')
     useStore.getState().setShowSettings(true)
     return
   }
 
   if (!prompt.trim()) {
-    showToast('请输入提示词', 'error')
+    showToast(t('请输入提示词', 'Enter a prompt'), 'error')
     return
   }
 
@@ -1602,9 +1603,9 @@ export async function submitTask(options: { allowFullMask?: boolean; useCurrentA
       const coverage = await validateMaskMatchesImage(maskDraft.maskDataUrl, orderedInputImages[0].dataUrl)
       if (coverage === 'full' && !options.allowFullMask) {
         setConfirmDialog({
-          title: '确认编辑整张图片？',
-          message: '当前遮罩覆盖了整张图片，提交后可能会重绘全部内容。是否继续？',
-          confirmText: '继续提交',
+          title: t('确认编辑整张图片？', 'Edit the entire image?'),
+          message: t('当前遮罩覆盖了整张图片，提交后可能会重绘全部内容。是否继续？', 'The mask covers the entire image. Submitting may redraw everything. Continue?'),
+          confirmText: t('继续提交', 'Continue'),
           tone: 'warning',
           action: () => {
             void submitTask({ ...options, allowFullMask: true })
@@ -1684,7 +1685,7 @@ export async function submitTask(options: { allowFullMask?: boolean; useCurrentA
   const latestTasks = useStore.getState().tasks
   useStore.getState().setTasks([task, ...latestTasks])
   await startDirectImageTask(task, normalizedSettings, false, () => {
-    useStore.getState().showToast('任务已提交', 'success')
+    useStore.getState().showToast(t('任务已提交', 'Task submitted'), 'success')
     if ((!conversation || useStore.getState().activeAgentConversationId === conversation.id) && useStore.getState().prompt === prompt && useStore.getState().inputImages === inputImages && (conversation || settings.clearInputAfterSubmit)) {
       useStore.getState().setPrompt('')
       useStore.getState().clearInputImages()
@@ -1702,13 +1703,13 @@ async function startDirectImageTask(task: TaskRecord, settings: AppSettings, wai
     if (key) agentRoundControllers.delete(key)
     if (!task.agentConversationId || !task.agentRoundId) return
     const result = useStore.getState().tasks.find((item) => item.id === task.id)
-    updateAgentConversation(task.agentConversationId, (current) => ({ ...current, updatedAt: Date.now(), rounds: current.rounds.map((round) => round.id === task.agentRoundId ? { ...round, status: result?.status === 'done' ? 'done' : 'error', error: result?.status === 'done' ? null : result?.error || '本地图片任务已停止', finishedAt: Date.now() } : round) }))
+    updateAgentConversation(task.agentConversationId, (current) => ({ ...current, updatedAt: Date.now(), rounds: current.rounds.map((round) => round.id === task.agentRoundId ? { ...round, status: result?.status === 'done' ? 'done' : 'error', error: result?.status === 'done' ? null : result?.error || t('本地图片任务已停止', 'Local image task stopped'), finishedAt: Date.now() } : round) }))
   }
   try {
     await putTask(task)
   } catch (err) {
     console.warn('Failed to save image task', err)
-    const message = '任务保存失败，未发送图片请求；请重试。'
+    const message = t('任务保存失败，未发送图片请求；请重试。', 'Could not save the task. No image request was sent. Try again.')
     useStore.getState().setTasks(useStore.getState().tasks.map((item) => item.id === task.id ? { ...item, ...createTaskErrorPatch(item, message, Date.now()) } : item))
     useStore.getState().showToast(message, 'error')
     finish()
@@ -1771,7 +1772,7 @@ function getDeletedActiveAgentTasks(conversationId: string, roundId: string, con
 }
 
 function createAgentAbortError() {
-  return new DOMException('Agent 请求已停止', 'AbortError')
+  return new DOMException(t('Agent 请求已停止', 'Agent request stopped'), 'AbortError')
 }
 
 function createAgentRecoveryPauseError() {
@@ -1787,7 +1788,7 @@ function isAgentRecoveryPauseError(err: unknown) {
 function appendAgentStoppedMessage(content: string) {
   const trimmed = content.trimEnd()
   if (!trimmed) return AGENT_STOPPED_MESSAGE
-  if (trimmed.endsWith(AGENT_STOPPED_MESSAGE)) return trimmed
+  if (/(?:已停止生成。|Generation stopped\.)$/.test(trimmed)) return trimmed
   return `${trimmed}\n\n${AGENT_STOPPED_MESSAGE}`
 }
 
@@ -1948,13 +1949,13 @@ export function stopAgentResponse(conversationId = useStore.getState().activeAge
   if (controller) {
     controller.abort()
     if (markAgentRoundStopped(conversationId, runningRound.id)) {
-      useStore.getState().showToast('已停止生成', 'info')
+      useStore.getState().showToast(t('已停止生成', 'Generation stopped'), 'info')
     }
     return
   }
 
   markAgentRoundStopped(conversationId, runningRound.id)
-  useStore.getState().showToast('已停止生成', 'info')
+  useStore.getState().showToast(t('已停止生成', 'Generation stopped'), 'info')
 }
 
 function addAgentReferencedImageIds(target: Set<string>, conversations = useStore.getState().agentConversations, inputDrafts = useStore.getState().agentInputDrafts) {
@@ -2010,7 +2011,7 @@ async function storeTaskOutputImages(task: TaskRecord, images: string[]) {
             : await removeKeyedBackgroundFromDataUrl(dataUrl)
           transparentOriginalImageIds.push(original.id)
         } catch (err) {
-          console.warn('透明背景后处理失败，已回退为原始输出', err)
+          console.warn(t('透明背景后处理失败，已回退为原始输出', 'Transparent background processing failed. Using the original output.'), err)
           outputIds.push(original.id)
           outputDataUrls.push(dataUrl)
           outputImageSizes.push(original)
@@ -2203,7 +2204,7 @@ async function continueRecoveredAgentRound(taskId: string) {
     const latestState = useStore.getState()
     const conversation = latestState.agentConversations.find((item) => item.id === task.agentConversationId)
     const round = conversation?.rounds.find((item) => item.id === task.agentRoundId)
-    if (!conversation || !round || round.status === 'done' || round.error === AGENT_STOPPED_MESSAGE) return
+    if (!conversation || !round || round.status === 'done' || isAgentStoppedMessage(round.error)) return
 
     const failRound = (error: string) => {
       updateAgentConversation(conversation.id, (current) => ({
@@ -2234,13 +2235,13 @@ async function continueRecoveredAgentRound(taskId: string) {
     const normalizedSettings = normalizeSettings(withConversationPreferences(updatedState.settings, updatedConversation))
     const agentValidationError = getAgentProfileValidationError(normalizedSettings)
     if (agentValidationError) {
-      failRound(`无法继续恢复任务：${agentValidationError.message}`)
+      failRound(t(`无法继续恢复任务：${agentValidationError.message}`, `Cannot resume the task: ${agentValidationError.message}`))
       return
     }
     const activeProfile = getAgentTextApiProfile(normalizedSettings)
     const imageProfile = getAgentImageApiProfile(normalizedSettings)
     if (!activeProfile || !imageProfile) {
-      failRound('Agent API 配置不存在，无法继续恢复任务。')
+      failRound(t('Agent API 配置不存在，无法继续恢复任务。', 'The Agent API profile no longer exists. The task cannot resume.'))
       return
     }
     const roundTasks = updatedState.tasks.filter((item) => item.agentRoundId === round.id)
@@ -2289,7 +2290,7 @@ export async function submitAgentMessage(options: { optimizePrompt?: boolean } =
 
   const agentValidationError = getAgentProfileValidationError(normalizedSettings)
   if (agentValidationError) {
-    showToast(`请先完善 Agent API 配置：${agentValidationError.message}`, 'error')
+    showToast(t(`请先完善 Agent API 配置：${agentValidationError.message}`, `Complete the Agent API profile first: ${agentValidationError.message}`), 'error')
     state.setShowSettings(true, 'agent-api')
     return
   }
@@ -2299,12 +2300,12 @@ export async function submitAgentMessage(options: { optimizePrompt?: boolean } =
 
   const trimmedPrompt = options.optimizePrompt ? `请只优化下面的图像提示词，保留原意，输出可直接使用的完整提示词。不要生成或修改图片。\n\n${prompt.trim()}` : prompt.trim()
   if (!prompt.trim()) {
-    showToast('请输入消息', 'error')
+    showToast(t('请输入消息', 'Enter a message'), 'error')
     return
   }
 
   if (conversation.rounds.some((round) => round.status === 'running')) {
-    showToast('请等待生成完成，或先停止生成', 'info')
+    showToast(t('请等待生成完成，或先停止生成', 'Wait for generation to finish, or stop it first'), 'info')
     return
   }
 
@@ -2348,7 +2349,7 @@ export async function submitAgentMessage(options: { optimizePrompt?: boolean } =
     : conversation.messages.find((message) => message.roundId === editingRound?.id && message.role === 'assistant') ?? null
   const editingRoundHasAssistantMessage = Boolean(editingRoundAssistantMessage)
   const editingRoundHasErrorAssistantMessage = Boolean(
-    editingRound?.status === 'error' && editingRoundAssistantMessage?.content.startsWith('请求失败：'),
+    editingRound?.status === 'error' && Boolean(editingRoundAssistantMessage && /^(?:请求失败：|Request failed: )/.test(editingRoundAssistantMessage.content)),
   )
   const editingRoundHasChildren = editingRound
     ? conversation.rounds.some((round) => (round.parentRoundId ?? null) === editingRound.id)
@@ -2438,7 +2439,7 @@ export async function regenerateAgentAssistantMessage(conversationId: string, ro
 
   const agentValidationError = getAgentProfileValidationError(normalizedSettings)
   if (agentValidationError) {
-    showToast(`请先完善 Agent API 配置：${agentValidationError.message}`, 'error')
+    showToast(t(`请先完善 Agent API 配置：${agentValidationError.message}`, `Complete the Agent API profile first: ${agentValidationError.message}`), 'error')
     state.setShowSettings(true, 'agent-api')
     return
   }
@@ -2452,12 +2453,12 @@ export async function regenerateAgentAssistantMessage(conversationId: string, ro
     ? conversation?.messages.find((message) => message.id === sourceRound.userMessageId) ?? null
     : null
   if (!conversation || !sourceRound || !sourceUserMessage) {
-    showToast('找不到要重新生成的 Agent 消息', 'error')
+    showToast(t('找不到要重新生成的 Agent 消息', 'The Agent message to regenerate was not found'), 'error')
     return
   }
 
   if (conversation.rounds.some((round) => round.status === 'running')) {
-    showToast('请等待生成完成，或先停止生成', 'info')
+    showToast(t('请等待生成完成，或先停止生成', 'Wait for generation to finish, or stop it first'), 'info')
     return
   }
 
@@ -2561,7 +2562,7 @@ async function executeAgentRound(
     const userMessage = round ? conversation.messages.find((message) => message.id === round.userMessageId) : null
     if (!round || !userMessage) return
     const maskDataUrl = round.maskImageId ? await ensureImageCached(round.maskImageId) : undefined
-    if (round.maskImageId && !maskDataUrl) throw new Error('遮罩图片已不存在')
+    if (round.maskImageId && !maskDataUrl) throw new Error(t('遮罩图片已不存在', 'The mask image no longer exists'))
 
     const apiInput = await buildAgentApiInput({
       conversation,
@@ -2622,7 +2623,7 @@ async function executeAgentRound(
       inputImageIds = round.inputImageIds ?? [],
       options: { createdAt?: number; agentBatchCallId?: string; agentBatchItemId?: string; maskTargetImageId?: string | null; maskImageId?: string | null; taskParams?: TaskParams } = {},
     ) => {
-      if (requestSettings.agentImageTools === false) throw new Error('本轮仅处理文字，未启用图片生成。')
+      if (requestSettings.agentImageTools === false) throw new Error(t('本轮仅处理文字，未启用图片生成。', 'This round handles text only. Image generation is disabled.'))
       const existingTaskId = taskIdByToolCallId.get(toolCallId)
       if (existingTaskId) return existingTaskId
 
@@ -2729,7 +2730,7 @@ async function executeAgentRound(
       if (latestTask.apiProvider === 'fal' && latestTask.falRequestId && latestTask.falEndpoint) {
         useStore.getState().setTaskStreamPreview(taskId)
         updateTaskInStore(taskId, {
-          ...createTaskErrorPatch(latestTask, '与 fal.ai 的连接已断开，之后会继续查询任务结果。', Date.now()),
+          ...createTaskErrorPatch(latestTask, t('与 fal.ai 的连接已断开，之后会继续查询任务结果。', 'The fal.ai connection was lost. Task results will be checked again later.'), Date.now()),
           falRecoverable: true,
         })
         scheduleFalRecovery(taskId)
@@ -2739,7 +2740,7 @@ async function executeAgentRound(
       if (latestTask.customTaskId) {
         useStore.getState().setTaskStreamPreview(taskId)
         updateTaskInStore(taskId, {
-          ...createTaskErrorPatch(latestTask, '与自定义异步任务的连接已断开，之后会继续查询任务结果。', Date.now()),
+          ...createTaskErrorPatch(latestTask, t('与自定义异步任务的连接已断开，之后会继续查询任务结果。', 'The custom asynchronous task connection was lost. Task results will be checked again later.'), Date.now()),
           customRecoverable: true,
         })
         scheduleCustomRecovery(taskId)
@@ -2836,7 +2837,7 @@ async function executeAgentRound(
 
     const callGalleryImageApi = async (taskId: string) => {
       if (controller.signal.aborted) throw createAgentAbortError()
-      if (imageProfile.apiMode !== 'images') throw new Error('请在 API 配置 → 画廊中设置 Images 服务。')
+      if (imageProfile.apiMode !== 'images') throw new Error(t('请在 API 配置 → 画廊中设置 Images 服务。', 'Set up an Images service in Settings & API → API profiles → Image API profiles.'))
       await executeTask(taskId, { settings: imageRequestSettings, signal: controller.signal })
       if (controller.signal.aborted) throw createAgentAbortError()
       const task = useStore.getState().tasks.find((item) => item.id === taskId)
@@ -2850,11 +2851,11 @@ async function executeAgentRound(
         imageIds: [...round.inputImageIds],
         dataUrls: await Promise.all(round.inputImageIds.map(async (id) => await ensureImageCached(id) ?? '')),
       }
-      if (ids.length && !references.imageIds.length) throw new Error('引用图片不存在，请重新附加图片。')
-      if (references.dataUrls.some((url) => !url) || references.dataUrls.length !== references.imageIds.length) throw new Error('引用图片已不存在。')
+      if (ids.length && !references.imageIds.length) throw new Error(t('引用图片不存在，请重新附加图片。', 'The referenced image is missing. Attach it again.'))
+      if (references.dataUrls.some((url) => !url) || references.dataUrls.length !== references.imageIds.length) throw new Error(t('引用图片已不存在。', 'The referenced image no longer exists.'))
       if (round.maskTargetImageId && !references.imageIds.includes(round.maskTargetImageId)) {
         const url = await ensureImageCached(round.maskTargetImageId)
-        if (!url) throw new Error('蒙版对应的原图已不存在。')
+        if (!url) throw new Error(t('蒙版对应的原图已不存在。', 'The original image for the mask no longer exists.'))
         references.imageIds.unshift(round.maskTargetImageId)
         references.dataUrls.unshift(url)
       }
@@ -2896,7 +2897,7 @@ async function executeAgentRound(
         if (controller.signal.aborted) throw createAgentAbortError()
         if (!result) return null
         if (result.status === 'done' && result.outputImages.length && !result.outputErrors?.length) return JSON.stringify({ id: item.id, status: 'done', count: result.outputImages.length })
-        const error = result.error ?? result.outputErrors?.map((item) => item.error).join('\n') ?? '接口未返回图片数据'
+        const error = result.error ?? result.outputErrors?.map((item) => item.error).join('\n') ?? t('接口未返回图片数据', 'The API returned no image data')
         failAgentImageTask(toolCallId, error, result.rawResponsePayload)
         return JSON.stringify({ id: item.id, status: result.outputImages.length ? 'partial' : 'error', count: result.outputImages.length, error })
       } catch (err) {
@@ -2925,7 +2926,7 @@ async function executeAgentRound(
       const storageFailure = results.find((result) => result.status === 'rejected' && result.reason instanceof Error && result.reason.name === 'ImageOutputStorageError')
       if (storageFailure?.status === 'rejected') throw storageFailure.reason
       if (results.some((result) => result.status === 'rejected' && isAgentRecoveryPauseError(result.reason))) throw createAgentRecoveryPauseError()
-      const images = results.flatMap((result, index) => result.status === 'fulfilled' ? result.value ? [result.value] : [] : [{ id: items[index].id, status: 'error', error: result.reason instanceof Error ? result.reason.message : '图像任务失败' }])
+      const images = results.flatMap((result, index) => result.status === 'fulfilled' ? result.value ? [result.value] : [] : [{ id: items[index].id, status: 'error', error: result.reason instanceof Error ? result.reason.message : t('图像任务失败', 'Image task failed') }])
       return JSON.stringify({ images })
     }
 
@@ -3025,7 +3026,7 @@ async function executeAgentRound(
       if (newTextInThisResponse) textSegments.push(newTextInThisResponse)
 
       // Process built-in image_generation_call results (single images)
-      if (requestSettings.agentImageTools === false && result.images.length) throw new Error('本轮仅处理文字，未接收接口返回的图片。')
+      if (requestSettings.agentImageTools === false && result.images.length) throw new Error(t('本轮仅处理文字，未接收接口返回的图片。', 'This round handles text only. Images returned by the API were not accepted.'))
       for (const image of result.images) {
         if (image.toolCallId && taskIdByToolCallId.has(image.toolCallId)) {
           const completed = await completeAgentImageTask(image, result.rawResponsePayload)
@@ -3106,7 +3107,7 @@ async function executeAgentRound(
       )
 
       if ((requestSettings.agentImageTools === false || activeProfile.modelCapabilities?.[activeProfile.model]?.tools === false) && (imageFunctionCalls.length || batchFunctionCalls.length || continueFunctionCalls.length)) {
-        throw new Error('图像工具当前已关闭，未执行接口返回的图像调用。需要生图时请先开启图像工具。')
+        throw new Error(t('图像工具当前已关闭，未执行接口返回的图像调用。需要生图时请先开启图像工具。', 'Image tools are disabled. The image call returned by the API was not run. Enable image tools to generate images.'))
       }
 
       // Count built-in tool calls (image_generation, web_search) for budget tracking
@@ -3211,7 +3212,7 @@ async function executeAgentRound(
     markAgentRoundTasksFailed(
       conversationId,
       roundId,
-      '画廊图像工具未返回图片',
+      t('画廊图像工具未返回图片', 'The image tool returned no images'),
       undefined,
       (task) => Boolean(task.agentToolCallId && !task.agentBatchCallId),
     )
@@ -3226,12 +3227,12 @@ async function executeAgentRound(
     const responseOutput = latestRound
       ? scrubResponseOutputForDeletedAgentTasks(latestRound, accumulatedOutputItems, deletedTasks, [...latestTasks, ...deletedTasks])
       : accumulatedOutputItems
-    const limitNotice = reachedToolLimit ? `已达到最大工具调用次数（${maxToolCalls}），已停止自动续跑。` : ''
+    const limitNotice = reachedToolLimit ? t(`已达到最大工具调用次数（${maxToolCalls}），已停止自动续跑。`, `The tool call limit (${maxToolCalls}) was reached. Automatic continuation stopped.`) : ''
     const joinedText = textSegments.join('\n\n').trim()
     const finalContent = [joinedText, limitNotice]
       .filter(Boolean)
       .join(joinedText ? '\n\n' : '')
-      || (taskIds.length > 0 || outputIds.length > 0 ? '图像已生成。' : '')
+      || (taskIds.length > 0 || outputIds.length > 0 ? t('图像已生成。', 'Image generated.') : '')
 
     const assistantMessage: AgentMessage = {
       id: assistantMessageId,
@@ -3264,16 +3265,16 @@ async function executeAgentRound(
         : [...current.messages, assistantMessage],
     }))
 
-    useStore.getState().showToast(outputIds.length > 0 ? 'Agent 已生成图片' : 'Agent 已回复', 'success')
+    useStore.getState().showToast(outputIds.length > 0 ? t('Agent 已生成图片', 'Agent generated images') : t('Agent 已回复', 'Agent replied'), 'success')
     showTaskCompletionNotification(
-      outputIds.length > 0 ? 'Agent 已生成图片' : 'Agent 已回复',
-      outputIds.length > 0 ? `Agent 回复已结束，共生成 ${outputIds.length} 张图片。` : 'Agent 回复已结束。',
+      outputIds.length > 0 ? t('Agent 已生成图片', 'Agent generated images') : t('Agent 已回复', 'Agent replied'),
+      outputIds.length > 0 ? t(`Agent 回复已结束，共生成 ${outputIds.length} 张图片。`, `Agent response complete: ${outputIds.length} images generated.`) : t('Agent 回复已结束。', 'Agent response complete.'),
     )
   } catch (err) {
     if (agentRoundControllers.get(controllerKey) !== controller) return
     if (controller.signal.aborted) {
       if (markAgentRoundStopped(conversationId, roundId)) {
-        useStore.getState().showToast('已停止生成', 'info')
+        useStore.getState().showToast(t('已停止生成', 'Generation stopped'), 'info')
       }
       return
     }
@@ -3294,11 +3295,11 @@ async function executeAgentRound(
       const existingAssistantMessage = failedRound?.assistantMessageId
         ? current.messages.find((item) => item.id === failedRound.assistantMessageId)
         : current.messages.find((item) => item.roundId === roundId && item.role === 'assistant')
-      const errorContent = `请求失败：${message}`
+      const errorContent = t(`请求失败：${message}`, `Request failed: ${message}`)
 
       return {
         ...current,
-        title: current.rounds.length === 1 && current.rounds[0].id === roundId ? '新对话' : current.title,
+        title: current.rounds.length === 1 && current.rounds[0].id === roundId ? t('新对话', 'New conversation') : current.title,
         updatedAt: Date.now(),
         rounds: current.rounds.map((round) =>
           round.id === roundId
@@ -3325,7 +3326,7 @@ async function executeAgentRound(
             ],
       }
     })
-    useStore.getState().showToast(`Agent 请求失败：${message}`, 'error')
+    useStore.getState().showToast(t(`Agent 请求失败：${message}`, `Agent request failed: ${message}`), 'error')
   } finally {
     if (agentRoundControllers.get(controllerKey) === controller) {
       agentRoundControllers.delete(controllerKey)
@@ -3352,7 +3353,7 @@ export async function generateImageFromAgentMessage(conversationId: string, roun
   const round = conversation?.rounds.find((item) => item.id === roundId)
   if (!round || !conversation || !conversation.messages.some((message) => message.id === messageId) || !prompt.trim() || conversation.rounds.some((item) => item.status === 'running')) return
   const imageProfile = getAgentImageApiProfile(state.settings)
-  if (!imageProfile) { state.showToast('请先配置画廊 Images API。', 'error'); state.setShowSettings(true, 'api'); return }
+  if (!imageProfile) { state.showToast(t('请先配置画廊 Images API。', 'Configure an Images API profile first.'), 'error'); state.setShowSettings(true, 'api'); return }
   const settings = createSettingsForApiProfile(state.settings, imageProfile)
   const requestedParams = normalizeParamsForSettings(getAgentImageParams(conversation, state.params), settings, { hasInputImages: round.inputImageIds.length > 0 })
   const params = requestedParams.transparent_output ? getTransparentRequestParams(requestedParams) : requestedParams
@@ -3380,7 +3381,7 @@ async function executeTask(taskId: string, options?: { settings: AppSettings; si
   const taskProfile = getTaskApiProfile(settings, task)
   if (!taskProfile && task.apiProfileId) {
     updateTaskInStore(taskId, {
-      ...createTaskErrorPatch(task, '找不到此任务所使用的 API 配置。', Date.now()),
+      ...createTaskErrorPatch(task, t('找不到此任务所使用的 API 配置。', 'The API profile used by this task was not found.'), Date.now()),
       falRecoverable: false,
       customRecoverable: false,
     })
@@ -3406,13 +3407,13 @@ async function executeTask(taskId: string, options?: { settings: AppSettings; si
     const inputDataUrls: string[] = []
     for (const imgId of task.inputImageIds) {
       const dataUrl = await ensureImageCached(imgId)
-      if (!dataUrl) throw new Error('输入图片已不存在')
+      if (!dataUrl) throw new Error(t('输入图片已不存在', 'The input image no longer exists'))
       inputDataUrls.push(dataUrl)
     }
     let maskDataUrl: string | undefined
     if (task.maskImageId) {
       maskDataUrl = await ensureImageCached(task.maskImageId)
-      if (!maskDataUrl) throw new Error('遮罩图片已不存在')
+      if (!maskDataUrl) throw new Error(t('遮罩图片已不存在', 'The mask image no longer exists'))
     }
 
     const requestPrompt = task.transparentOutput && task.transparentPrompt
@@ -3453,9 +3454,9 @@ async function executeTask(taskId: string, options?: { settings: AppSettings; si
               return profile ? [[id, profile]] : []
             }))),
           })
-          if (!saved) throw new Error('图片已生成，任务信息保存失败；已停止后续生成，请导出作品备份。')
+          if (!saved) throw new Error(t('图片已生成，任务信息保存失败；已停止后续生成，请导出作品备份。', 'Images were generated, but task details could not be saved. Further generation stopped. Export a backup of your artwork.'))
         } catch (error) {
-          const message = error instanceof Error ? error.message : '图片保存失败，已停止后续生成。'
+          const message = error instanceof Error ? error.message : t('图片保存失败，已停止后续生成。', 'Could not save the image. Further generation stopped.')
           await updateTaskInStore(taskId, createTaskErrorPatch(task, message, Date.now()))
           throw Object.assign(new Error(message), { name: 'ImageOutputStorageError' })
         }
@@ -3518,7 +3519,7 @@ async function executeTask(taskId: string, options?: { settings: AppSettings; si
       if (promptWasRevised) {
         showCodexCliPrompt()
       } else if (!hasRevisedPromptValue) {
-        showCodexCliPrompt(false, '接口没有返回官方 API 会返回的部分信息')
+        showCodexCliPrompt(false, t('接口没有返回官方 API 会返回的部分信息', 'The API omitted information normally returned by the official API'))
       }
     }
 
@@ -3549,14 +3550,14 @@ async function executeTask(taskId: string, options?: { settings: AppSettings; si
       customRecoverable: false,
     })
     void deleteUnreferencedImageIds(partialImageIdsToClean)
-    if (!saved) throw Object.assign(new Error('图片已生成，任务信息保存失败；已停止后续生成，请导出作品备份。'), { name: 'ImageOutputStorageError' })
+    if (!saved) throw Object.assign(new Error(t('图片已生成，任务信息保存失败；已停止后续生成，请导出作品备份。', 'Images were generated, but task details could not be saved. Further generation stopped. Export a backup of your artwork.')), { name: 'ImageOutputStorageError' })
 
     const failedCount = result.failedRequests?.length ?? 0
     const completionMessage = failedCount > 0
-      ? `生成完成：成功 ${outputIds.length} 张，失败 ${failedCount} 张`
-      : `生成完成，共 ${outputIds.length} 张图片`
+      ? t(`生成完成：成功 ${outputIds.length} 张，失败 ${failedCount} 张`, `Generation complete: ${outputIds.length} succeeded, ${failedCount} failed`)
+      : t(`生成完成，共 ${outputIds.length} 张图片`, `Generation complete: ${outputIds.length} images`)
     useStore.getState().showToast(completionMessage, failedCount > 0 ? 'error' : 'success')
-    if (!isAgentTask(task)) showTaskCompletionNotification('图像生成完成', `${completionMessage}。`)
+    if (!isAgentTask(task)) showTaskCompletionNotification(t('图像生成完成', 'Image generation complete'), `${completionMessage}。`)
     const currentMask = useStore.getState().maskDraft
     if (
       maskDataUrl &&
@@ -3573,7 +3574,7 @@ async function executeTask(taskId: string, options?: { settings: AppSettings; si
     if (!latestTask || latestTask.status !== 'running') return
     useStore.getState().setTaskStreamPreview(taskId)
     if (receivedOutput) {
-      const message = '图片服务已返回结果，但本机处理或保存失败；已停止后续生成，请检查存储后手动处理。'
+      const message = t('图片服务已返回结果，但本机处理或保存失败；已停止后续生成，请检查存储后手动处理。', 'The image service returned results, but local processing or saving failed. Further generation stopped. Check storage and handle the results manually.')
       await updateTaskInStore(taskId, { ...createTaskErrorPatch(task, message, Date.now()), falRecoverable: false, customRecoverable: false })
       console.warn('Failed to store generated image output', err)
       throw Object.assign(new Error(message), { name: 'ImageOutputStorageError' })
@@ -3584,7 +3585,7 @@ async function executeTask(taskId: string, options?: { settings: AppSettings; si
     const latestCustomTaskInfo = customTaskInfo ?? (latestTask.customTaskId ? { taskId: latestTask.customTaskId } : null)
     if (latestTask.apiProvider === 'fal' && latestFalRequestInfo && isNetworkRecoverableError(err)) {
       updateTaskInStore(taskId, {
-        ...createTaskErrorPatch(task, '与 fal.ai 的连接已断开，之后会继续查询任务结果。', Date.now()),
+        ...createTaskErrorPatch(task, t('与 fal.ai 的连接已断开，之后会继续查询任务结果。', 'The fal.ai connection was lost. Task results will be checked again later.'), Date.now()),
         falRequestId: latestFalRequestInfo.requestId,
         falEndpoint: latestFalRequestInfo.endpoint,
         falRecoverable: true,
@@ -3592,7 +3593,7 @@ async function executeTask(taskId: string, options?: { settings: AppSettings; si
       scheduleFalRecovery(taskId)
     } else if (latestCustomTaskInfo && isNetworkRecoverableError(err)) {
       updateTaskInStore(taskId, {
-        ...createTaskErrorPatch(task, '与自定义异步任务的连接已断开，之后会继续查询任务结果。', Date.now()),
+        ...createTaskErrorPatch(task, t('与自定义异步任务的连接已断开，之后会继续查询任务结果。', 'The custom asynchronous task connection was lost. Task results will be checked again later.'), Date.now()),
         customTaskId: latestCustomTaskInfo.taskId,
         customRecoverable: true,
       })
@@ -3639,7 +3640,7 @@ export function updateTaskInStore(taskId: string, patch: Partial<TaskRecord>) {
   if (!task) return Promise.resolve(false)
   return putTask(task).then(() => true).catch((err) => {
     console.warn('Failed to save task update', err)
-    const message = task.outputImages.length ? '图片已生成，任务信息保存失败；请导出作品备份。' : '任务信息保存失败，请重试保存。'
+    const message = task.outputImages.length ? t('图片已生成，任务信息保存失败；请导出作品备份。', 'Images were generated, but task details could not be saved. Export a backup of your artwork.') : t('任务信息保存失败，请重试保存。', 'Could not save task details. Try saving again.')
     if (task.status === 'done') useStore.getState().setTasks(useStore.getState().tasks.map((item) => item === task ? { ...item, error: message } : item))
     useStore.getState().showToast(message, 'error')
     return false
@@ -3650,7 +3651,7 @@ export function createFavoriteCollection(name: string) {
   const normalizedName = normalizeFavoriteCollectionName(name)
   if (!normalizedName) return null
   if (Array.from(normalizedName).length > 60) {
-    useStore.getState().showToast('收藏夹名称最多 60 个字符', 'error')
+    useStore.getState().showToast(t('收藏夹名称最多 60 个字符', 'Collection names can contain up to 60 characters'), 'error')
     return null
   }
   const state = useStore.getState()
@@ -3659,7 +3660,7 @@ export function createFavoriteCollection(name: string) {
   const now = Date.now()
   const collection: FavoriteCollection = { id: genId(), name: normalizedName, createdAt: now, updatedAt: now }
   state.setFavoriteCollections([...state.favoriteCollections, collection])
-  state.showToast(`已创建收藏夹「${normalizedName}」`, 'success')
+  state.showToast(t(`已创建收藏夹「${normalizedName}」`, `Created collection “${normalizedName}”`), 'success')
   return collection
 }
 
@@ -3667,14 +3668,14 @@ export function renameFavoriteCollection(collectionId: string, name: string) {
   const normalizedName = normalizeFavoriteCollectionName(name)
   if (!normalizedName || collectionId === ALL_FAVORITES_COLLECTION_ID) return
   if (Array.from(normalizedName).length > 60) {
-    useStore.getState().showToast('收藏夹名称最多 60 个字符', 'error')
+    useStore.getState().showToast(t('收藏夹名称最多 60 个字符', 'Collection names can contain up to 60 characters'), 'error')
     return
   }
   const { favoriteCollections, setFavoriteCollections, showToast } = useStore.getState()
   setFavoriteCollections(favoriteCollections.map((collection) =>
     collection.id === collectionId ? { ...collection, name: normalizedName, updatedAt: Date.now() } : collection,
   ))
-  showToast('收藏夹名称已更新', 'success')
+  showToast(t('收藏夹名称已更新', 'Collection name updated'), 'success')
 }
 
 export async function updateTasksFavoriteCollections(taskIds: string[], collectionIds: string[]) {
@@ -3697,7 +3698,7 @@ export async function updateTasksFavoriteCollections(taskIds: string[], collecti
   setTasks(updated)
   await Promise.all(updated.filter((task) => changedTaskIds.has(task.id)).map((task) => putTask(task)))
   clearSelection()
-  showToast(ids.length ? '收藏夹已更新' : '已取消收藏', 'success')
+  showToast(ids.length ? t('收藏夹已更新', 'Collections updated') : t('已取消收藏', 'Removed from favorites'), 'success')
 }
 
 export async function deleteFavoriteCollection(collectionId: string, deleteTasks = false) {
@@ -3732,14 +3733,14 @@ export async function deleteFavoriteCollection(collectionId: string, deleteTasks
     await Promise.all(updated.filter((task) => patches.has(task.id)).map((task) => putTask(task)))
   }
   if (result.taskIdsToDelete.length) await removeMultipleTasks(result.taskIdsToDelete)
-  useStore.getState().showToast(`已删除收藏夹「${collection.name}」`, 'success')
+  useStore.getState().showToast(t(`已删除收藏夹「${collection.name}」`, `Deleted collection “${collection.name}”`), 'success')
 }
 
 /** 重试失败的任务：创建新任务并执行 */
 export async function retryTask(task: TaskRecord) {
   useStore.getState().setAppMode('agent')
   const conversation = getActiveAgentConversation()
-  if (conversation.rounds.some((round) => round.status === 'running')) { useStore.getState().showToast('请等待当前任务完成，或先停止。', 'info'); return }
+  if (conversation.rounds.some((round) => round.status === 'running')) { useStore.getState().showToast(t('请等待当前任务完成，或先停止。', 'Wait for the current task to finish, or stop it first.'), 'info'); return }
   const { settings } = useStore.getState()
   const activeProfile = getActiveApiProfile(settings)
   const normalizedParams = normalizeParamsForSettings(task.params, settings, { hasInputImages: task.inputImageIds.length > 0 })
@@ -3788,14 +3789,14 @@ export async function reuseConfig(task: TaskRecord) {
   useStore.getState().setAppMode('agent')
   const { settings, showToast, setReusedTaskApiProfile } = useStore.getState()
   const conversation = getActiveAgentConversation()
-  if (conversation.rounds.some((round) => round.status === 'running')) { showToast('请先完成或停止当前任务，再复用提示词。', 'info'); return }
+  if (conversation.rounds.some((round) => round.status === 'running')) { showToast(t('请先完成或停止当前任务，再复用提示词。', 'Finish or stop the current task before reusing a prompt.'), 'info'); return }
   const before = captureCreationDraft()
 
   // 恢复输入图片
   const imgs: InputImage[] = []
   for (const imgId of task.inputImageIds) {
     const dataUrl = await ensureImageCached(imgId)
-    if (!dataUrl) throw new Error('参考图片已不存在，原草稿已保留。')
+    if (!dataUrl) throw new Error(t('参考图片已不存在，原草稿已保留。', 'The reference image no longer exists. Your draft is preserved.'))
     imgs.push({ id: imgId, dataUrl })
   }
   let maskDraft: MaskDraft | null = null
@@ -3808,18 +3809,18 @@ export async function reuseConfig(task: TaskRecord) {
         maskDataUrl,
         updatedAt: Date.now(),
       }
-    } else throw new Error('蒙版已不存在，原草稿已保留。')
+    } else throw new Error(t('蒙版已不存在，原草稿已保留。', 'The mask no longer exists. Your draft is preserved.'))
   }
   if (!applyCreationDraft(before, { prompt: task.prompt, inputImages: imgs, maskDraft, maskEditorImageId: null, params: normalizeParamsForSettings(task.params, settings, { hasInputImages: imgs.length > 0 }) })) return
   setReusedTaskApiProfile(null)
-  showToast('已复用提示词与参数到输入框', 'success')
+  showToast(t('已复用提示词与参数到输入框', 'Prompt and parameters copied to the composer'), 'success')
 }
 
 /** 编辑输出：将输出图加入输入 */
 export async function editOutputs(task: TaskRecord) {
   useStore.getState().setAppMode('agent')
   const conversation = getActiveAgentConversation()
-  if (conversation.rounds.some((round) => round.status === 'running')) { useStore.getState().showToast('请先完成或停止当前任务。', 'info'); return }
+  if (conversation.rounds.some((round) => round.status === 'running')) { useStore.getState().showToast(t('请先完成或停止当前任务。', 'Finish or stop the current task first.'), 'info'); return }
   const before = captureCreationDraft()
   const images = [...before.inputImages]
   if (!task.outputImages?.length) return
@@ -3828,13 +3829,13 @@ export async function editOutputs(task: TaskRecord) {
   for (const imgId of task.outputImages) {
     if (images.find((i) => i.id === imgId)) continue
     const dataUrl = await ensureImageCached(imgId)
-    if (!dataUrl) throw new Error('图片已不存在，原草稿已保留。')
+    if (!dataUrl) throw new Error(t('图片已不存在，原草稿已保留。', 'The image no longer exists. Your draft is preserved.'))
     images.push({ id: imgId, dataUrl })
     added++
   }
-  if (images.length > API_MAX_IMAGES) { useStore.getState().showToast(`参考图最多 ${API_MAX_IMAGES} 张，请移除部分参考图后重试。`, 'info'); return }
+  if (images.length > API_MAX_IMAGES) { useStore.getState().showToast(t(`参考图最多 ${API_MAX_IMAGES} 张，请移除部分参考图后重试。`, `Up to ${API_MAX_IMAGES} reference images are allowed. Remove some and try again.`), 'info'); return }
   if (!applyCreationDraft(before, { inputImages: images }, false)) return
-  useStore.getState().showToast(`已添加 ${added} 张输出图到输入`, 'success')
+  useStore.getState().showToast(t(`已添加 ${added} 张输出图到输入`, `Added ${added} output images to the composer`), 'success')
 }
 
 function getAgentRoundDeletionTaskIds(conversation: AgentConversation, round: AgentRound, tasks: TaskRecord[]) {
@@ -3861,7 +3862,7 @@ function hasRunningAgentDeletionWork(conversationId: string, roundIds: Set<strin
     const round = conversation?.rounds.find((item) => item.id === roundId)
     const controller = agentRoundControllers.get(key)
     if (controller && !controller.signal.aborted) return true
-    if (agentRecoveryContinuations.has(key) && round?.status !== 'done' && round?.error !== AGENT_STOPPED_MESSAGE) return true
+    if (agentRecoveryContinuations.has(key) && round?.status !== 'done' && !isAgentStoppedMessage(round?.error)) return true
   }
   return false
 }
@@ -4048,7 +4049,7 @@ export async function removeMultipleTasks(taskIds: string[]) {
 
   const deletedCount = await removeTasks(taskIds)
   if (deletedCount === 0) return
-  useStore.getState().showToast(`已删除 ${deletedCount} 个任务`, 'success')
+  useStore.getState().showToast(t(`已删除 ${deletedCount} 个任务`, `Deleted ${deletedCount} tasks`), 'success')
 }
 
 /** 删除所有失败任务 */
@@ -4073,7 +4074,7 @@ export async function clearFailedTasks(taskIds?: string[]) {
     const nextSelectedTaskIds = selectedTaskIds.filter((id) => !partialFailedTaskIds.has(id))
     if (nextSelectedTaskIds.length !== selectedTaskIds.length) setSelectedTaskIds(nextSelectedTaskIds)
     await Promise.all(updated.filter((task) => partialFailedTaskIds.has(task.id)).map((task) => putTask(task)))
-    showToast(`已清除 ${partialFailedTaskIds.size} 条部分失败记录`, 'success')
+    showToast(t(`已清除 ${partialFailedTaskIds.size} 条部分失败记录`, `Cleared ${partialFailedTaskIds.size} partial failure records`), 'success')
   }
 }
 
@@ -4081,7 +4082,7 @@ export async function clearFailedTasks(taskIds?: string[]) {
 export async function removeTask(task: TaskRecord) {
   const deletedCount = await removeTasks([task.id])
   if (deletedCount === 0) return
-  useStore.getState().showToast('任务已删除', 'success')
+  useStore.getState().showToast(t('任务已删除', 'Task deleted'), 'success')
 }
 
 /** 清空数据选项 */
@@ -4130,18 +4131,18 @@ export async function clearData(options: ClearOptions = { clearConfig: true, cle
     setParams({ ...DEFAULT_PARAMS })
   }
 
-  showToast('所选数据已清空', 'success')
+  showToast(t('所选数据已清空', 'Selected data cleared'), 'success')
 }
 
 async function completeRecoveredCustomTask(task: TaskRecord, result: Awaited<ReturnType<typeof getCustomQueuedImageResult>>) {
   const latest = useStore.getState().tasks.find((item) => item.id === task.id)
-  if (!latest || latest.status === 'done' || latest.error === AGENT_STOPPED_MESSAGE) return
+  if (!latest || latest.status === 'done' || isAgentStoppedMessage(latest.error)) return
   if (latest.status !== 'running' && !latest.customRecoverable) return
 
   const { outputIds, outputDataUrls, outputImageSizes, transparentOriginalImageIds } = await storeTaskOutputImages(task, result.images)
   const actualParamsList = await resolveImageSizeParamsList(outputDataUrls, undefined, outputImageSizes)
   const latestBeforeUpdate = useStore.getState().tasks.find((item) => item.id === task.id)
-  if (!latestBeforeUpdate || latestBeforeUpdate.status === 'done' || latestBeforeUpdate.error === AGENT_STOPPED_MESSAGE || (latestBeforeUpdate.status !== 'running' && !latestBeforeUpdate.customRecoverable)) {
+  if (!latestBeforeUpdate || latestBeforeUpdate.status === 'done' || isAgentStoppedMessage(latestBeforeUpdate.error) || (latestBeforeUpdate.status !== 'running' && !latestBeforeUpdate.customRecoverable)) {
     await deleteUnreferencedImageIds([...outputIds, ...(transparentOriginalImageIds ?? [])])
     return
   }
@@ -4155,8 +4156,8 @@ async function completeRecoveredCustomTask(task: TaskRecord, result: Awaited<Ret
     ...createTaskDonePatch(task, Date.now()),
     customRecoverable: false,
   })
-  useStore.getState().showToast(`自定义异步任务已恢复，共 ${outputIds.length} 张图片`, 'success')
-  if (!isAgentTask(task)) showTaskCompletionNotification('图像生成完成', `自定义异步任务已恢复，共 ${outputIds.length} 张图片。`)
+  useStore.getState().showToast(t(`自定义异步任务已恢复，共 ${outputIds.length} 张图片`, `Custom asynchronous task recovered: ${outputIds.length} images`), 'success')
+  if (!isAgentTask(task)) showTaskCompletionNotification(t('图像生成完成', 'Image generation complete'), t(`自定义异步任务已恢复，共 ${outputIds.length} 张图片。`, `Custom asynchronous task recovered: ${outputIds.length} images.`))
   else void continueRecoveredAgentRound(task.id)
 }
 
@@ -4198,7 +4199,7 @@ export interface ExportOptions {
 export async function exportData(options: ExportOptions = { exportConfig: true, exportTasks: true }) {
   try {
     const state = useStore.getState()
-    if (options.exportTasks && hasActiveDataOperations(state.tasks, state.agentConversations)) throw new Error('当前有任务正在进行，请完成或停止后再导出。')
+    if (options.exportTasks && hasActiveDataOperations(state.tasks, state.agentConversations)) throw new Error(t('当前有任务正在进行，请完成或停止后再导出。', 'A task is running. Finish or stop it before exporting.'))
     const tasks = options.exportTasks ? await getAllTasks() : []
     const imageIds = options.exportTasks ? await getAllImageIds() : []
     const { settings, agentConversations, favoriteCollections, defaultFavoriteCollectionId, promptTemplates, promptCategories } = state
@@ -4266,11 +4267,11 @@ export async function exportData(options: ExportOptions = { exportConfig: true, 
       if (partNumber < plan.length) await new Promise((resolve) => setTimeout(resolve, 150))
     }
     const recorded = recordBackupReceipt({ requestedAt: exportedAt, parts: plan.length, config: Boolean(options.exportConfig), works: Boolean(options.exportTasks) })
-    useStore.getState().showToast(`已请求下载 ${plan.length} 个 ZIP，请在下载目录确认文件${recorded ? '' : '；导出时间记录未能保存'}`, 'success')
+    useStore.getState().showToast(t(`已请求下载 ${plan.length} 个 ZIP，请在下载目录确认文件${recorded ? '' : '；导出时间记录未能保存'}`, `Requested ${plan.length} ZIP downloads. Check your downloads folder.${recorded ? '' : ' The export timestamp could not be saved.'}`), 'success')
   } catch (e) {
     console.error('exportData failed', e)
     const detail = e instanceof Error ? e.message.trim() : String(e).trim()
-    useStore.getState().showToast(detail ? `导出失败，${detail}` : '导出失败，未知错误', 'error')
+    useStore.getState().showToast(detail ? t(`导出失败，${detail}`, `Export failed: ${detail}`) : t('导出失败，未知错误', 'Export failed: unknown error'), 'error')
   }
 }
 
@@ -4299,11 +4300,11 @@ export async function restoreExplicitPresetConfig(ids: { providerIds: string[], 
 export async function importData(input: File | File[], options: ImportOptions = { importConfig: true, importTasks: true }): Promise<boolean> {
   try {
     const state = useStore.getState()
-    if (options.importTasks && hasActiveDataOperations(state.tasks, state.agentConversations)) throw new Error('当前有任务正在进行，请完成或停止后再导入。')
+    if (options.importTasks && hasActiveDataOperations(state.tasks, state.agentConversations)) throw new Error(t('当前有任务正在进行，请完成或停止后再导入。', 'A task is running. Finish or stop it before importing.'))
     const files = Array.isArray(input) ? input : [input]
-    if (!files.length) throw new Error('没有选择备份文件。')
+    if (!files.length) throw new Error(t('没有选择备份文件。', 'No backup files selected.'))
     if (files.some((file) => file.size >= MAX_EXPORT_ZIP_BYTES)) {
-      throw new Error('单个 ZIP 不能达到或超过 2 GB，请选择分片备份。')
+      throw new Error(t('单个 ZIP 不能达到或超过 2 GB，请选择分片备份。', 'Each ZIP must be smaller than 2 GB. Select a split backup.'))
     }
 
     const selected = [] as Array<{ file: File; manifest: Awaited<ReturnType<typeof readExportZipManifest>> }>
@@ -4313,22 +4314,22 @@ export async function importData(input: File | File[], options: ImportOptions = 
     }
     const multipart = selected.some((part) => part.manifest.backupPart != null)
     if (multipart) {
-      if (selected.some((part) => !part.manifest.backupPart)) throw new Error('不能混合选择分片备份和普通备份。')
+      if (selected.some((part) => !part.manifest.backupPart)) throw new Error(t('不能混合选择分片备份和普通备份。', 'Split and regular backups cannot be selected together.'))
       const first = selected[0].manifest.backupPart!
       const indexes = new Set(selected.map((part) => part.manifest.backupPart!.index))
       const validSet = selected.every((part) => {
         const backupPart = part.manifest.backupPart!
         return backupPart.id === first.id && backupPart.total === first.total && backupPart.index >= 1 && backupPart.index <= first.total
       })
-      if (!validSet || indexes.size !== selected.length) throw new Error('所选分片不属于同一批备份或包含重复分片。')
+      if (!validSet || indexes.size !== selected.length) throw new Error(t('所选分片不属于同一批备份或包含重复分片。', 'The selected parts belong to different backups or contain duplicate parts.'))
       if (options.importTasks && (selected.length !== first.total || indexes.size !== first.total)) {
-        throw new Error(`分片备份不完整，请一次选择同一备份的全部 ${first.total} 个 ZIP。`)
+        throw new Error(t(`分片备份不完整，请一次选择同一备份的全部 ${first.total} 个 ZIP。`, `The split backup is incomplete. Select all ${first.total} ZIP parts of the same backup together.`))
       }
       selected.sort((a, b) => a.manifest.backupPart!.index - b.manifest.backupPart!.index)
     }
 
     const settingsManifests = selected.filter((part) => part.manifest.settings)
-    if (options.importConfig && !options.importTasks && !settingsManifests.length) throw new Error('所选备份不包含配置数据。')
+    if (options.importConfig && !options.importTasks && !settingsManifests.length) throw new Error(t('所选备份不包含配置数据。', 'The selected backup contains no settings.'))
     if (options.importConfig && settingsManifests.length) {
       const merged = settingsManifests.reduce((current, part) => mergeImportedSettings(current, part.manifest.settings, { preserveInternalIds: true }), useStore.getState().settings)
       const limitError = getApiProfileLimitError(merged.profiles)
@@ -4392,7 +4393,7 @@ export async function importData(input: File | File[], options: ImportOptions = 
         ? resolveDefaultFavoriteCollectionId(favoriteCollections, importedDefaultFavoriteCollectionId)
         : state.defaultFavoriteCollectionId
       const normalizedFavorites = normalizeLoadedFavoriteState(tasks, favoriteCollections, defaultFavoriteCollectionId)
-      if (!await state.setPromptTemplates((current) => mergePromptTemplates(current, selected.flatMap((part) => part.manifest.promptTemplates ?? [])), (current) => [...current, ...selected.flatMap((part) => Array.isArray(part.manifest.promptCategories) ? part.manifest.promptCategories : [])])) throw new Error('个人提示词未能保存，原个人库保留。')
+      if (!await state.setPromptTemplates((current) => mergePromptTemplates(current, selected.flatMap((part) => part.manifest.promptTemplates ?? [])), (current) => [...current, ...selected.flatMap((part) => Array.isArray(part.manifest.promptCategories) ? part.manifest.promptCategories : [])])) throw new Error(t('个人提示词未能保存，原个人库保留。', 'Could not save personal prompts. The original library is preserved.'))
       useStore.setState({
         tasks: normalizedFavorites.tasks,
         favoriteCollections: normalizedFavorites.collections,
@@ -4411,7 +4412,7 @@ export async function importData(input: File | File[], options: ImportOptions = 
           activeAgentConversationId,
         }
       })
-      if (!await flushAgentConversationsToIndexedDB()) throw new Error('导入的对话尚未保存，请重试保存。')
+      if (!await flushAgentConversationsToIndexedDB()) throw new Error(t('导入的对话尚未保存，请重试保存。', 'Imported conversations have not been saved. Try saving again.'))
       scheduleThumbnailBackfill(importedImageIds)
     }
 
@@ -4439,11 +4440,11 @@ export async function importData(input: File | File[], options: ImportOptions = 
       current.setSettings(settings)
     }
 
-    let msg = '数据已成功导入'
+    let msg = t('数据已成功导入', 'Data imported successfully')
     if (options.importTasks && hasTaskData) {
-      msg = `已导入 ${importedTasks.length} 个任务`
+      msg = t(`已导入 ${importedTasks.length} 个任务`, `Imported ${importedTasks.length} tasks`)
     } else if (options.importConfig && settingsManifests.length) {
-      msg = '配置已成功导入'
+      msg = t('配置已成功导入', 'Settings imported successfully')
     }
 
     useStore.getState().showToast(msg, 'success')
@@ -4451,7 +4452,7 @@ export async function importData(input: File | File[], options: ImportOptions = 
   } catch (e) {
     console.error('importData failed', e)
     const detail = e instanceof Error ? e.message.trim() : String(e).trim()
-    useStore.getState().showToast(detail ? `导入失败，${detail}` : '导入失败，未知错误', 'error')
+    useStore.getState().showToast(detail ? t(`导入失败，${detail}`, `Import failed: ${detail}`) : t('导入失败，未知错误', 'Import failed: unknown error'), 'error')
     return false
   }
 }
@@ -4475,7 +4476,7 @@ export async function createInputImageFromFile(file: File): Promise<InputImage |
 export async function addImageFromUrl(src: string): Promise<void> {
   const res = await fetch(src)
   const blob = await res.blob()
-  if (!blob.type.startsWith('image/')) throw new Error('不是有效的图片')
+  if (!blob.type.startsWith('image/')) throw new Error(t('不是有效的图片', 'Not a valid image'))
   const dataUrl = await blobToDataUrl(blob)
   const id = await storeImage(dataUrl, 'upload')
   cacheImage(id, dataUrl)

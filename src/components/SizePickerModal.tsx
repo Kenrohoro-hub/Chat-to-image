@@ -1,12 +1,13 @@
+import { t } from '../lib/i18n'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { calculateImageSize, normalizeCodexCliImageSize, normalizeImageSize, parseRatio, type SizeTier } from '../lib/size'
 import { usePreventBackgroundScroll } from '../hooks/usePreventBackgroundScroll'
 import ViewportTooltip from './ViewportTooltip'
 
 const TIERS: SizeTier[] = ['1K', '2K', '4K']
-const SIZE_LIMIT_TEXT = '由于模型限制，不符合要求的分辨率会被自动规整：\n宽高均为 16 的倍数，最大边长 3840px，宽高比不超过 3:1，总像素限制为 655360-8294400。'
-const CODEX_CLI_SIZE_LIMIT_TEXT = '由于模型和 Codex CLI 限制，不符合要求的分辨率会被自动规整：\n宽高均为 16 的倍数，宽高比不超过 3:1，分辨率不超过 1K。'
-const CLAMPED_SIZE_TEXT = '由于模型限制，原始分辨率已被自动规整'
+const SIZE_LIMIT_TEXT = t('由于模型限制，不符合要求的分辨率会被自动规整：\n宽高均为 16 的倍数，最大边长 3840px，宽高比不超过 3:1，总像素限制为 655360-8294400。', 'Sizes outside the model\'s limits are adjusted automatically:\nWidth and height must be multiples of 16, the longest side at most 3840 px, aspect ratio at most 3:1, and total pixels 655360–8294400.')
+const CODEX_CLI_SIZE_LIMIT_TEXT = t('由于模型和 Codex CLI 限制，不符合要求的分辨率会被自动规整：\n宽高均为 16 的倍数，宽高比不超过 3:1，分辨率不超过 1K。', 'Sizes outside the model and Codex CLI limits are adjusted automatically:\nWidth and height must be multiples of 16, aspect ratio at most 3:1, and resolution at most 1K.')
+const CLAMPED_SIZE_TEXT = t('由于模型限制，原始分辨率已被自动规整', 'The original resolution was adjusted to the model\'s limits')
 const RATIOS = [
   { label: '1:1', value: '1:1' },
   { label: '3:2', value: '3:2' },
@@ -189,13 +190,13 @@ export default function SizePickerModal({ currentSize, onSelect, onClose, allowA
       >
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">设置图像尺寸</h3>
-            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">当前：{currentSize || 'auto'}</p>
+            <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">{t('设置图像尺寸', 'Set image size')}</h3>
+            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">{t('当前：', 'Current:')}{currentSize || 'auto'}</p>
           </div>
           <button
             onClick={onClose}
             className="rounded-full p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-200"
-            aria-label="关闭"
+            aria-label={t('关闭', 'Close')}
           >
             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -210,20 +211,20 @@ export default function SizePickerModal({ currentSize, onSelect, onClose, allowA
                 onClick={() => setMode('auto')}
                 className={`flex-1 rounded-lg py-1.5 text-sm font-medium transition ${mode === 'auto' ? 'bg-white text-gray-800 shadow-sm dark:bg-gray-700 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
               >
-                自动
+                {t('自动', 'Auto')}
               </button>
             )}
             <button
               onClick={() => setMode('ratio')}
               className={`flex-1 rounded-lg py-1.5 text-sm font-medium transition ${mode === 'ratio' ? 'bg-white text-gray-800 shadow-sm dark:bg-gray-700 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
             >
-              按比例
+              {t('按比例', 'By aspect ratio')}
             </button>
             <button
               onClick={() => setMode('resolution')}
               className={`flex-1 rounded-lg py-1.5 text-sm font-medium transition ${mode === 'resolution' ? 'bg-white text-gray-800 shadow-sm dark:bg-gray-700 dark:text-gray-100' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
             >
-              自定义宽高
+              {t('自定义宽高', 'Custom dimensions')}
             </button>
           </div>
 
@@ -236,11 +237,11 @@ export default function SizePickerModal({ currentSize, onSelect, onClose, allowA
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
                   </div>
-                  <h4 className="text-sm font-medium text-gray-800 dark:text-gray-200">自动尺寸</h4>
+                  <h4 className="text-sm font-medium text-gray-800 dark:text-gray-200">{t('自动尺寸', 'Automatic size')}</h4>
                   <p className="mt-2 text-xs text-gray-400 leading-relaxed dark:text-gray-500">
-                    不向模型传递具体的分辨率参数
+                    {t('不向模型传递具体的分辨率参数', 'No specific resolution is sent to the model')}
                     <br />
-                    由模型自己决定生成尺寸
+                    {t('由模型自己决定生成尺寸', 'The model chooses the output size')}
                   </p>
                 </div>
               </div>
@@ -249,7 +250,7 @@ export default function SizePickerModal({ currentSize, onSelect, onClose, allowA
             {mode === 'ratio' && (
               <div className="space-y-5 animate-fade-in">
                 <section>
-                  <div className="mb-2 text-xs font-medium text-gray-400 dark:text-gray-500">基准分辨率</div>
+                  <div className="mb-2 text-xs font-medium text-gray-400 dark:text-gray-500">{t('基准分辨率', 'Base resolution')}</div>
                   <div className="grid grid-cols-3 gap-2">
                     {TIERS.map((item) => {
                       const disabled = codexCli && item !== '1K'
@@ -291,7 +292,7 @@ export default function SizePickerModal({ currentSize, onSelect, onClose, allowA
                             {item}
                           </button>
                           <ViewportTooltip visible={tierHint === item} className="w-52 text-center">
-                            Codex CLI 不支持 1K 以上的分辨率
+                            {t('Codex CLI 不支持 1K 以上的分辨率', 'Codex CLI does not support resolutions above 1K')}
                           </ViewportTooltip>
                         </div>
                       )
@@ -300,7 +301,7 @@ export default function SizePickerModal({ currentSize, onSelect, onClose, allowA
                 </section>
 
                 <section>
-                  <div className="mb-2 text-xs font-medium text-gray-400 dark:text-gray-500">图像比例</div>
+                  <div className="mb-2 text-xs font-medium text-gray-400 dark:text-gray-500">{t('图像比例', 'Aspect ratio')}</div>
                   <div className="grid grid-cols-4 gap-2">
                     {RATIOS.map((item) => {
                       const [w, h] = item.value.split(':').map(Number)
@@ -326,18 +327,18 @@ export default function SizePickerModal({ currentSize, onSelect, onClose, allowA
                       )
                     })}
                     <button className={`${buttonClass(ratio === 'custom')} col-span-4`} onClick={() => setRatio('custom')}>
-                      自定义比例
+                      {t('自定义比例', 'Custom ratio')}
                     </button>
                   </div>
                 </section>
 
                 {ratio === 'custom' && (
                   <label className="block animate-fade-in">
-                    <span className="mb-2 block text-xs font-medium text-gray-400 dark:text-gray-500">输入自定义比例</span>
+                    <span className="mb-2 block text-xs font-medium text-gray-400 dark:text-gray-500">{t('输入自定义比例', 'Enter a custom ratio')}</span>
                     <input
                       value={customRatio}
                       onChange={(e) => setCustomRatio(e.target.value)}
-                      placeholder="例如 5:4 / 2.39:1"
+                      placeholder={t('例如 5:4 / 2.39:1', 'For example, 5:4 / 2.39:1')}
                       className={`w-full rounded-xl border px-3 py-2 text-sm outline-none transition ${
                         customRatioValid
                           ? 'border-gray-200/70 bg-white/60 text-gray-700 focus:border-blue-300 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-200 dark:focus:border-blue-500/50'
@@ -352,16 +353,16 @@ export default function SizePickerModal({ currentSize, onSelect, onClose, allowA
             {mode === 'resolution' && (
               <div className="space-y-5 animate-fade-in">
                 <section>
-                  <div className="mb-4 text-xs font-medium text-gray-400 dark:text-gray-500">输入具体像素值</div>
+                  <div className="mb-4 text-xs font-medium text-gray-400 dark:text-gray-500">{t('输入具体像素值', 'Enter dimensions in pixels')}</div>
                   <div className="flex items-center gap-4">
                     <label className="flex-1">
-                      <span className="mb-1.5 block text-xs text-gray-500 dark:text-gray-400">宽度 (Width)</span>
+                      <span className="mb-1.5 block text-xs text-gray-500 dark:text-gray-400">{t('宽度 (Width)', 'Width')}</span>
                       <input
                         type="number"
                         value={customW}
                         onChange={(e) => setCustomW(e.target.value)}
                         className="w-full rounded-xl border border-gray-200/70 bg-white/60 px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-blue-300 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-200 dark:focus:border-blue-500/50"
-                        placeholder="例如 1024"
+                        placeholder={t('例如 1024', 'For example, 1024')}
                       />
                     </label>
                     <div className="mt-5 text-gray-300 dark:text-gray-600">
@@ -370,13 +371,13 @@ export default function SizePickerModal({ currentSize, onSelect, onClose, allowA
                       </svg>
                     </div>
                     <label className="flex-1">
-                      <span className="mb-1.5 block text-xs text-gray-500 dark:text-gray-400">高度 (Height)</span>
+                      <span className="mb-1.5 block text-xs text-gray-500 dark:text-gray-400">{t('高度 (Height)', 'Height')}</span>
                       <input
                         type="number"
                         value={customH}
                         onChange={(e) => setCustomH(e.target.value)}
                         className="w-full rounded-xl border border-gray-200/70 bg-white/60 px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-blue-300 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-200 dark:focus:border-blue-500/50"
-                        placeholder="例如 1024"
+                        placeholder={t('例如 1024', 'For example, 1024')}
                       />
                     </label>
                   </div>
@@ -394,10 +395,10 @@ export default function SizePickerModal({ currentSize, onSelect, onClose, allowA
           </div>
 
           <div className="rounded-2xl bg-gray-50 px-4 py-3 dark:bg-white/[0.03]">
-            <div className="text-xs text-gray-400 dark:text-gray-500">将使用</div>
+            <div className="text-xs text-gray-400 dark:text-gray-500">{t('将使用', 'Will use ')}</div>
             <div className="mt-1 flex items-center gap-2">
               <span className="font-mono text-lg font-semibold text-gray-800 dark:text-gray-100">
-                {previewSize || '尺寸无效'}
+                {previewSize || t('尺寸无效', 'Invalid size')}
               </span>
               {isClamped && (
                 <div
@@ -426,14 +427,14 @@ export default function SizePickerModal({ currentSize, onSelect, onClose, allowA
             onClick={onClose}
             className="flex-1 rounded-xl bg-gray-100 px-4 py-2.5 text-sm text-gray-600 transition hover:bg-gray-200 dark:bg-white/[0.06] dark:text-gray-300 dark:hover:bg-white/[0.1]"
           >
-            取消
+            {t('取消', 'Cancel')}
           </button>
           <button
             onClick={applySize}
             disabled={!previewSize}
             className="flex-1 rounded-xl bg-blue-500 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            确定
+            {t('确定', 'Confirm')}
           </button>
         </div>
       </div>

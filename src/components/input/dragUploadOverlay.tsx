@@ -1,3 +1,4 @@
+import { t } from '../../lib/i18n'
 export default function DragUploadOverlay({
   visible,
   atImageLimit,
@@ -28,13 +29,13 @@ export default function DragUploadOverlay({
         <div className="text-center">
           {atImageLimit ? (
             <>
-              <p className="text-lg font-semibold text-red-500">已达上限 {maxImages} 张</p>
-              <p className="text-sm text-gray-400 mt-1">请先移除部分参考图后再添加</p>
+              <p className="text-lg font-semibold text-red-500">{t('已达上限', 'Limit reached: ')} {maxImages} {t('张', ' images')}</p>
+              <p className="text-sm text-gray-400 mt-1">{t('请先移除部分参考图后再添加', 'Remove some reference images before adding more')}</p>
             </>
           ) : (
             <>
-              <p className="text-lg font-semibold text-gray-700 dark:text-gray-200">释放以上传图片</p>
-              <p className="text-sm text-gray-400 mt-1">支持 JPG、PNG、WebP 等格式</p>
+              <p className="text-lg font-semibold text-gray-700 dark:text-gray-200">{t('释放以上传图片', 'Drop to upload images')}</p>
+              <p className="text-sm text-gray-400 mt-1">{t('支持 JPG、PNG、WebP 等格式', 'Supports JPG, PNG, WebP and other formats')}</p>
             </>
           )}
         </div>

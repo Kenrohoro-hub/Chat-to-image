@@ -1,3 +1,4 @@
+import { t } from '../lib/i18n'
 import { useEffect, useState, useRef, type ReactNode } from 'react'
 import type { TaskRecord } from '../types'
 import { useStore, retryTask } from '../store'
@@ -326,7 +327,7 @@ export default function TaskCard({
 
   const defaultModelForProvider = task.apiProvider === 'fal' ? DEFAULT_FAL_MODEL : DEFAULT_IMAGES_MODEL
   const showModel = task.apiModel && task.apiModel !== defaultModelForProvider
-  const isInterrupted = task.status === 'error' && task.error === '已停止生成。'
+  const isInterrupted = task.status === 'error' && task.error === t('已停止生成。', 'Generation stopped.')
 
   return (
     <div className="relative rounded-xl">
@@ -414,7 +415,7 @@ export default function TaskCard({
               />
               {streamPreviewLoaded && (
                 <span className="absolute top-1.5 right-1.5 flex items-center gap-1 rounded bg-blue-500 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm sm:text-xs">
-                  预览
+                  {t('预览', 'Preview')}
                 </span>
               )}
             </>
@@ -440,7 +441,7 @@ export default function TaskCard({
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                 />
               </svg>
-              <span className="text-xs text-gray-400 dark:text-gray-500">生成中...</span>
+              <span className="text-xs text-gray-400 dark:text-gray-500">{t('生成中...', 'Generating…')}</span>
             </div>
           )}
           {task.status === 'error' && !thumbSrc && isFalReconnecting && (
@@ -459,7 +460,7 @@ export default function TaskCard({
                 />
               </svg>
               <span className="text-xs text-yellow-500 text-center leading-tight">
-                重连中
+                {t('重连中', 'Reconnecting')}
               </span>
             </div>
           )}
@@ -479,7 +480,7 @@ export default function TaskCard({
                 />
               </svg>
               <span className={`text-xs text-center leading-tight ${isInterrupted ? 'text-yellow-500' : 'text-red-400'}`}>
-                {isInterrupted ? '已停止' : '失败'}
+                {isInterrupted ? t('已停止', 'Stopped') : t('失败', 'Failed')}
               </span>
             </div>
           )}
@@ -495,7 +496,7 @@ export default function TaskCard({
               />
               {(task.status !== 'done' || hasPartialOutputFailure || task.outputImages.length > 1) && (
                 <span className="absolute bottom-1 right-1 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded">
-                  {task.status !== 'done' ? `已保存 ${outputSuccessCount} / ${requestedOutputCount}` : hasPartialOutputFailure ? <>{requestedOutputCount} | <span className="font-semibold text-yellow-300">{outputSuccessCount}</span></> : task.outputImages.length}
+                  {task.status !== 'done' ? t(`已保存 ${outputSuccessCount} / ${requestedOutputCount}`, `Saved ${outputSuccessCount} / ${requestedOutputCount}`) : hasPartialOutputFailure ? <>{requestedOutputCount} | <span className="font-semibold text-yellow-300">{outputSuccessCount}</span></> : task.outputImages.length}
                 </span>
               )}
             </>
@@ -540,15 +541,15 @@ export default function TaskCard({
         {/* 右侧信息区域 */}
         <div className="flex-1 p-3 flex flex-col min-w-0">
           <div className="flex-1 min-h-0 mb-2 overflow-hidden">
-            {task.isExample && <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">内置示例</p>}
+            {task.isExample && <p className="mb-1 text-xs text-gray-500 dark:text-gray-400">{t('内置示例', 'Built-in sample')}</p>}
             {showPendingPrompt ? (
               <div className="leading-relaxed">
-                <p className="text-sm text-gray-700 dark:text-gray-300">正在生成……</p>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">输入内容将在响应完成时接收</p>
+                <p className="text-sm text-gray-700 dark:text-gray-300">{t('正在生成……', 'Generating…')}</p>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('输入内容将在响应完成时接收', 'Input will be available when the response finishes')}</p>
               </div>
             ) : (
               <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed line-clamp-3">
-                {task.prompt || '(无提示词)'}
+                {task.prompt || t('(无提示词)', '(No prompt)')}
               </p>
             )}
           </div>
@@ -566,11 +567,11 @@ export default function TaskCard({
               {(task.apiProfileName || task.apiProvider) && (
                 <span 
                   className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-100 dark:bg-white/[0.04] text-gray-600 dark:text-gray-300 text-xs flex-shrink-0"
-                  title={task.apiProfileName || task.apiProvider}
+                  title={task.isExample ? t('内置示例', 'Built-in sample') : task.apiProfileName || task.apiProvider}
                 >
                   <CodeIcon className="w-3 h-3 flex-shrink-0 text-gray-400" />
                   <span className="truncate max-w-[8rem]">
-                    {task.apiProfileName || task.apiProvider}
+                    {task.isExample ? t('内置示例', 'Built-in sample') : task.apiProfileName || task.apiProvider}
                   </span>
                 </span>
               )}
@@ -594,38 +595,38 @@ export default function TaskCard({
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                   </svg>
-                  局部重绘
+                  {t('局部重绘', 'Inpainting')}
                 </span>
               )}
               {/* Transparent background */}
               {showTransparentOutput && (
                 <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs flex-shrink-0">
                   <TransparentBgIcon className="w-3 h-3 flex-shrink-0" />
-                  透明背景
+                  {t('透明背景', 'Transparent background')}
                 </span>
               )}
               {/* Params: only show if not default or mismatch */}
               {showQuality && (
                 <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-100 dark:bg-white/[0.04] text-xs flex-shrink-0">
-                  <span className="text-gray-400 dark:text-gray-500">质量</span>
+                  <span className="text-gray-400 dark:text-gray-500">{t('质量', 'Quality')}</span>
                   {qualityDisplay.isMismatch ? <ActualValueBadge value={qualityDisplay.displayValue} className="px-1 rounded-sm" /> : <span className="text-gray-600 dark:text-gray-300">{qualityDisplay.displayValue}</span>}
                 </span>
               )}
               {showSize && (
                 <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-100 dark:bg-white/[0.04] text-xs flex-shrink-0">
-                  <span className="text-gray-400 dark:text-gray-500">尺寸</span>
+                  <span className="text-gray-400 dark:text-gray-500">{t('尺寸', 'Size')}</span>
                   {sizeDisplay.isMismatch ? <ActualValueBadge value={sizeDisplay.displayValue} className="px-1 rounded-sm" /> : <span className="text-gray-600 dark:text-gray-300">{sizeDisplay.displayValue}</span>}
                 </span>
               )}
               {showFormat && (
                 <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-100 dark:bg-white/[0.04] text-xs flex-shrink-0">
-                  <span className="text-gray-400 dark:text-gray-500">格式</span>
+                  <span className="text-gray-400 dark:text-gray-500">{t('格式', 'Format')}</span>
                   {formatDisplay.isMismatch ? <ActualValueBadge value={formatDisplay.displayValue} className="px-1 rounded-sm" /> : <span className="text-gray-600 dark:text-gray-300">{formatDisplay.displayValue}</span>}
                 </span>
               )}
               {showN && (
                 <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-gray-100 dark:bg-white/[0.04] text-xs flex-shrink-0">
-                  <span className="text-gray-400 dark:text-gray-500">数量</span>
+                  <span className="text-gray-400 dark:text-gray-500">{t('数量', 'Count')}</span>
                   {nDisplay.isMismatch ? <ActualValueBadge value={nDisplay.displayValue} className="px-1 rounded-sm" /> : <span className="text-gray-600 dark:text-gray-300">{nDisplay.displayValue}</span>}
                 </span>
               )}
@@ -642,7 +643,7 @@ export default function TaskCard({
             >
               {((task.status === 'error' && !isFalReconnecting) || settings.alwaysShowRetryButton) && (
                 <TaskActionButton
-                  tooltip="重试任务"
+                  tooltip={t('重试任务', 'Retry task')}
                   onClick={() => retryTask(task)}
                   className="p-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-blue-950/30 text-gray-400 hover:text-blue-500 transition"
                 >
@@ -652,7 +653,7 @@ export default function TaskCard({
                 </TaskActionButton>
               )}
               <TaskActionButton
-                tooltip={task.isFavorite ? '编辑收藏夹' : '收藏任务'}
+                tooltip={task.isFavorite ? t('编辑收藏夹', 'Edit favorites') : t('收藏任务', 'Favorite task')}
                 onClick={() => openFavoritePicker([task.id])}
                 className={`p-1.5 rounded-md transition ${
                   task.isFavorite
@@ -675,7 +676,7 @@ export default function TaskCard({
                 </svg>
               </TaskActionButton>
               <TaskActionButton
-                tooltip="复用配置"
+                tooltip={t('复用配置', 'Reuse settings')}
                 onClick={onReuse}
                 className="p-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-blue-950/30 text-gray-400 hover:text-blue-500 transition"
               >
@@ -694,7 +695,7 @@ export default function TaskCard({
                 </svg>
               </TaskActionButton>
               <TaskActionButton
-                tooltip="编辑输出"
+                tooltip={t('编辑输出', 'Edit output')}
                 onClick={onEditOutputs}
                 className="p-1.5 rounded-md hover:bg-green-50 dark:hover:bg-green-950/30 text-gray-400 hover:text-green-500 transition disabled:opacity-30"
                 disabled={!task.outputImages?.length}
@@ -714,7 +715,7 @@ export default function TaskCard({
                 </svg>
               </TaskActionButton>
               <TaskActionButton
-                tooltip="删除任务"
+                tooltip={t('删除任务', 'Delete task')}
                 onClick={onDelete}
                 className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-950/30 text-gray-400 hover:text-red-500 transition"
               >

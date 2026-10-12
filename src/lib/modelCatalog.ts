@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import { REASONING_EFFORT_VALUES, type ReasoningEffort, type ApiProfile } from '../types'
 import { buildApiUrl, readClientDevProxyConfig, shouldUseApiProxy } from './devProxy'
 import { desktopApi, isLocalService } from './desktop'
@@ -22,28 +23,28 @@ export async function fetchModelCatalog(profile: ApiProfile): Promise<NonNullabl
   const address = profile.baseUrl.trim()
   let url: URL
   try { url = new URL(address.includes('://') ? address : `https://${address}`) }
-  catch { throw new Error('请填写有效的 API 地址。') }
-  if (!['https:', 'http:'].includes(url.protocol) || !url.hostname || url.username || url.password || url.search || url.hash) throw new Error('API 地址必须是 HTTP(S) 地址，不能包含凭据或查询参数。')
+  catch { throw new Error(t('请填写有效的 API 地址。', 'Enter a valid API URL.')) }
+  if (!['https:', 'http:'].includes(url.protocol) || !url.hostname || url.username || url.password || url.search || url.hash) throw new Error(t('API 地址必须是 HTTP(S) 地址，不能包含凭据或查询参数。', 'The API URL must use HTTP(S) and cannot contain credentials or query parameters.'))
   const key = profile.apiKey.trim()
-  if (!key || /[\r\n]/.test(key)) throw new Error('请填写有效的 API Key。')
+  if (!key || /[\r\n]/.test(key)) throw new Error(t('请填写有效的 API Key。', 'Enter a valid API key.'))
   try {
     if (isLocalService()) return await (await desktopApi()).list_models({ baseUrl: address, apiKey: key })
     const response = await fetch(buildApiUrl(address, '/models', readClientDevProxyConfig(), shouldUseApiProxy(profile.apiProxy)), {
       headers: { Authorization: `Bearer ${key}` }, redirect: 'error', signal: AbortSignal.timeout(20000),
     })
-    if (!response.ok) throw new Error(`模型目录访问失败（HTTP ${response.status}）。`)
+    if (!response.ok) throw new Error(t(`模型目录访问失败（HTTP ${response.status}）。`, `Cannot access the model catalog (HTTP ${response.status}).`))
     const result = await response.json()
-    if (!Array.isArray(result?.data)) throw new Error('服务未返回兼容的模型目录，可手动添加。')
+    if (!Array.isArray(result?.data)) throw new Error(t('服务未返回兼容的模型目录，可手动添加。', 'The service returned an incompatible model catalog. Add models manually.'))
     return { ids: [...new Set<string>(result.data.flatMap((item: { id?: unknown }) => typeof item?.id === 'string' && item.id.trim() ? [item.id.trim()] : []))], fetchedAt: Date.now() }
   } catch (error) {
     const message = error instanceof Error ? error.message : ''
-    if (/401|403/.test(message)) throw new Error('鉴权或访问被拒绝（HTTP 401/403），请核对 Key、账户权限与接口地址。')
-    if (/404|405/.test(message)) throw new Error('该地址未提供模型目录（HTTP 404/405）。请核对地址，或按服务商说明手动添加模型。')
-    if (/429/.test(message)) throw new Error('请求受限（HTTP 429），请稍后再试并检查服务商额度。')
-    if (/HTTP 5\d\d/.test(message)) throw new Error('服务商暂时不可用（HTTP 5xx），请稍后重试。')
-    if (/HTTP 3\d\d/.test(message)) throw new Error('接口发生重定向，已停止请求。请直接填写服务商提供的最终接口地址。')
-    if (error instanceof Error && /TimeoutError|AbortError/.test(error.name) || /超时/.test(message)) throw new Error('模型目录请求超时，请检查网络后重试；未发送生图或对话请求。')
-    if (error instanceof SyntaxError || /格式|兼容|大小限制/.test(message)) throw new Error('服务未返回兼容的模型目录，可按服务商说明手动添加模型。')
-    throw new Error('无法访问模型目录，请检查地址与网络。普通网页还需服务商允许跨域；原有模型选择已保留。')
+    if (/401|403/.test(message)) throw new Error(t('鉴权或访问被拒绝（HTTP 401/403），请核对 Key、账户权限与接口地址。', 'Authentication or access denied (HTTP 401/403). Check the key, account permissions and API URL.'))
+    if (/404|405/.test(message)) throw new Error(t('该地址未提供模型目录（HTTP 404/405）。请核对地址，或按服务商说明手动添加模型。', 'This URL has no model catalog (HTTP 404/405). Check the URL or add models manually using the provider documentation.'))
+    if (/429/.test(message)) throw new Error(t('请求受限（HTTP 429），请稍后再试并检查服务商额度。', 'Rate limit reached (HTTP 429). Try again later and check the provider quota.'))
+    if (/HTTP 5\d\d/.test(message)) throw new Error(t('服务商暂时不可用（HTTP 5xx），请稍后重试。', 'The provider is temporarily unavailable (HTTP 5xx). Try again later.'))
+    if (/HTTP 3\d\d/.test(message)) throw new Error(t('接口发生重定向，已停止请求。请直接填写服务商提供的最终接口地址。', 'The API redirected the request, so it was stopped. Enter the final API URL provided by the service.'))
+    if (error instanceof Error && /TimeoutError|AbortError/.test(error.name) || /超时/.test(message)) throw new Error(t('模型目录请求超时，请检查网络后重试；未发送生图或对话请求。', 'The model catalog request timed out. Check the network and try again. No image or chat request was sent.'))
+    if (error instanceof SyntaxError || /格式|兼容|大小限制/.test(message)) throw new Error(t('服务未返回兼容的模型目录，可按服务商说明手动添加模型。', 'The service returned an incompatible model catalog. Add models manually using the provider documentation.'))
+    throw new Error(t('无法访问模型目录，请检查地址与网络。普通网页还需服务商允许跨域；原有模型选择已保留。', 'Cannot access the model catalog. Check the URL and network. Browser access also requires cross-origin permission. Your existing model selection is preserved.'))
   }
 }

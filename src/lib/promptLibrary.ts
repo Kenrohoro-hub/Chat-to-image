@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import { initPromptStorage, getPromptStorageStatus, promptStorageCall, diskPrompts, savePromptSourcePreferences, type StoredPromptCatalog } from './promptStorage'
 import { desktopApi, isLocalService } from './desktop'
 import { fetchPromptSource, normalizePromptSource, PROMPT_SOURCES, promptImageUrl, type LibraryPrompt, type PromptSourceId } from './promptSources'
@@ -23,13 +24,13 @@ function createLibrary(source: typeof PROMPT_SOURCES[number]) {
     listeners.forEach((listener) => listener())
   }
   async function openCache() {
-    if (typeof caches === 'undefined') throw new Error('当前环境不支持本地缓存，请从桌面或本机网页打开。')
+    if (typeof caches === 'undefined') throw new Error(t('当前环境不支持本地缓存，请从桌面或本机网页打开。', 'Local caching is unavailable here. Open the desktop app or local browser entry.'))
     return caches.open(CACHE_NAME)
   }
 
   function load(refresh = false): Promise<LibraryPrompt[]> {
-    if (getPromptStorageStatus().busy) return Promise.reject(new Error('正在更换提示词保存位置，请等待复制完成。'))
-    if (status.busy === 'clearing' || (refresh && preloadTask)) return Promise.reject(new Error('请先结束当前缓存操作。'))
+    if (getPromptStorageStatus().busy) return Promise.reject(new Error(t('正在更换提示词保存位置，请等待复制完成。', 'The prompt save location is changing. Wait for copying to finish.')))
+    if (status.busy === 'clearing' || (refresh && preloadTask)) return Promise.reject(new Error(t('请先结束当前缓存操作。', 'Finish the current cache operation first.')))
     if (pending) return pending
     if (!refresh && cached) return Promise.resolve(cached)
     updateStatus({ busy: 'loading', message: '' })
@@ -39,13 +40,13 @@ function createLibrary(source: typeof PROMPT_SOURCES[number]) {
         if (refresh || !result.catalog) {
           const raw = await fetchPromptSource(source.id, (message) => updateStatus({ message }))
           const items = [...new Map(normalizePromptSource(source.id, raw).map((item) => [item.id, item])).values()]
-          if (!items.length) throw new Error('未读取到提示词，原文件已保留。')
+          if (!items.length) throw new Error(t('未读取到提示词，原文件已保留。', 'No prompts were read. The original files are preserved.'))
           result = await promptStorageCall<StoredPromptCatalog>('catalog_write', { source: source.id, items, updatedAt: Date.now() })
         }
         const saved = result.catalog!
         const items = diskPrompts(saved)
         cached = items
-        updateStatus({ updatedAt: saved.updatedAt, imageCount: result.images.length, itemCount: items.length, cleared: saved.cleared, message: saved.cleared ? `${source.name} 的本地缓存已清除，点击刷新可重新载入。` : refresh ? '目录已刷新，已有图片保留。' : '' })
+        updateStatus({ updatedAt: saved.updatedAt, imageCount: result.images.length, itemCount: items.length, cleared: saved.cleared, message: saved.cleared ? t(`${source.name} 的本地缓存已清除，点击刷新可重新载入。`, `Local cache for ${source.name} cleared. Refresh to load it again.`) : refresh ? t('目录已刷新，已有图片保留。', 'Catalog refreshed. Existing images are preserved.') : '' })
         return items
       }
       const cache = await openCache()
@@ -54,7 +55,7 @@ function createLibrary(source: typeof PROMPT_SOURCES[number]) {
       let updatedAt: number
       if (stored) {
         const snapshot = await stored.json()
-        if (!snapshot || snapshot.items === undefined || !Number.isFinite(snapshot.updatedAt)) throw new Error(`${source.name} 的本地目录无法读取，请点击刷新。`)
+        if (!snapshot || snapshot.items === undefined || !Number.isFinite(snapshot.updatedAt)) throw new Error(t(`${source.name} 的本地目录无法读取，请点击刷新。`, `Cannot read the local catalog for ${source.name}. Refresh it.`))
         data = snapshot.items
         updatedAt = snapshot.updatedAt
         if (snapshot.cleared === true) {
@@ -67,26 +68,26 @@ function createLibrary(source: typeof PROMPT_SOURCES[number]) {
         updatedAt = Date.now()
       }
       const items = [...new Map(normalizePromptSource(source.id, data).map((item) => [item.id, item])).values()]
-      if (!items.length) throw new Error('未读取到提示词，请点击刷新。')
+      if (!items.length) throw new Error(t('未读取到提示词，请点击刷新。', 'No prompts were read. Refresh the catalog.'))
       if (!stored) await cache.put(CATALOG_URL, new Response(JSON.stringify({ items: data, updatedAt }), { headers: { 'Content-Type': 'application/json' } }))
       cached = items
       const imageCount = (await cache.keys()).filter((key) => key.url !== CATALOG_URL).length
-      updateStatus({ updatedAt, imageCount, itemCount: items.length, cleared: false, message: refresh ? '目录已刷新，原有预载图片保留。' : '' })
+      updateStatus({ updatedAt, imageCount, itemCount: items.length, cleared: false, message: refresh ? t('目录已刷新，原有预载图片保留。', 'Catalog refreshed. Preloaded images are preserved.') : '' })
       return items
-    })().catch((err) => { updateStatus({ message: err instanceof Error ? err.message : `${source.name} 加载失败，请重试。` }); throw err }).finally(() => { pending = undefined; updateStatus({ busy: '' }) })
+    })().catch((err) => { updateStatus({ message: err instanceof Error ? err.message : t(`${source.name} 加载失败，请重试。`, `Could not load ${source.name}. Try again.`) }); throw err }).finally(() => { pending = undefined; updateStatus({ busy: '' }) })
     return pending
   }
 
   function preload(category = ''): Promise<void> {
-    if (getPromptStorageStatus().busy) return Promise.reject(new Error('正在更换提示词保存位置，请等待复制完成。'))
+    if (getPromptStorageStatus().busy) return Promise.reject(new Error(t('正在更换提示词保存位置，请等待复制完成。', 'The prompt save location is changing. Wait for copying to finish.')))
     if (preloadTask) return preloadTask
-    if (pending || status.busy) return Promise.reject(new Error('请等待当前缓存操作完成。'))
-    if (!isLocalService()) return Promise.reject(new Error('图片预载请使用桌面或本机网页入口。'))
-    if (!cached?.length) return Promise.reject(new Error('请先刷新并载入提示词目录。'))
+    if (pending || status.busy) return Promise.reject(new Error(t('请等待当前缓存操作完成。', 'Wait for the current cache operation to finish.')))
+    if (!isLocalService()) return Promise.reject(new Error(t('图片预载请使用桌面或本机网页入口。', 'Use the desktop app or local browser entry to preload images.')))
+    if (!cached?.length) return Promise.reject(new Error(t('请先刷新并载入提示词目录。', 'Refresh and load the prompt catalog first.')))
     const urls = [...new Set(cached.filter((item) => !category || (item.categories ?? [item.category]).includes(category)).flatMap((item) => item.previewUrl ? [item.previewUrl] : []))]
     const abort = new AbortController()
     controller = abort
-    updateStatus({ busy: 'preloading', scope: category || '全部分类', done: 0, total: urls.length, failed: 0, message: '' })
+    updateStatus({ busy: 'preloading', scope: category || t('全部分类', 'All categories'), done: 0, total: urls.length, failed: 0, message: '' })
     preloadTask = (async () => {
       const fileStorage = !!(await initPromptStorage()).directory
       const cache = fileStorage ? null : await openCache()
@@ -117,13 +118,13 @@ function createLibrary(source: typeof PROMPT_SOURCES[number]) {
             updateStatus({ failed: status.failed + 1, done: status.done + 1 })
             if (err instanceof DOMException && err.name === 'QuotaExceededError') {
               abort.abort()
-              updateStatus({ message: '本地存储空间不足，已保存的图片保留；请清理空间后继续。' })
+              updateStatus({ message: t('本地存储空间不足，已保存的图片保留；请清理空间后继续。', 'Local storage is full. Saved images are preserved. Free up space to continue.') })
             }
           }
         }
       }))
-      if (!status.message || status.message.startsWith('正在停止')) updateStatus({ message: abort.signal.aborted ? '预载已取消，已保存的数据保留。' : status.failed ? `预载结束，${status.failed} 张未完成；再次预载会补齐缺失图片。` : `“${status.scope}”预载完成，可离线查看。` })
-    })().catch((err) => { updateStatus({ message: err instanceof Error ? err.message : '预载失败，请重试。' }); throw err }).finally(() => {
+      if (!status.message || status.message.startsWith(t('正在停止', 'Stopping'))) updateStatus({ message: abort.signal.aborted ? t('预载已取消，已保存的数据保留。', 'Preloading canceled. Saved data is preserved.') : status.failed ? t(`预载结束，${status.failed} 张未完成；再次预载会补齐缺失图片。`, `Preloading finished with ${status.failed} images incomplete. Preload again to fill the gaps.`) : t(`“${status.scope}”预载完成，可离线查看。`, `Preloading “${status.scope}” complete. It is available offline.`) })
+    })().catch((err) => { updateStatus({ message: err instanceof Error ? err.message : t('预载失败，请重试。', 'Preloading failed. Try again.') }); throw err }).finally(() => {
       controller = undefined
       preloadTask = undefined
       imageRevision++
@@ -135,30 +136,30 @@ function createLibrary(source: typeof PROMPT_SOURCES[number]) {
 
   function cancel() {
     controller?.abort()
-    updateStatus({ message: '正在停止预载，已保存的数据会保留。' })
+    updateStatus({ message: t('正在停止预载，已保存的数据会保留。', 'Stopping preloading. Saved data will be preserved.') })
   }
 
   async function clear() {
-    if (getPromptStorageStatus().busy) throw new Error('正在更换提示词保存位置，请等待复制完成。')
-    if (pending || preloadTask || status.busy) throw new Error('请先结束当前缓存操作。')
+    if (getPromptStorageStatus().busy) throw new Error(t('正在更换提示词保存位置，请等待复制完成。', 'The prompt save location is changing. Wait for copying to finish.'))
+    if (pending || preloadTask || status.busy) throw new Error(t('请先结束当前缓存操作。', 'Finish the current cache operation first.'))
     updateStatus({ busy: 'clearing', message: '' })
     try {
       if ((await initPromptStorage()).directory) {
         await promptStorageCall('clear', { source: source.id })
         cached = []
-        updateStatus({ updatedAt: 0, imageCount: 0, itemCount: 0, done: 0, total: 0, failed: 0, cleared: true, message: `${source.name} 的本地数据已清除，点击刷新可重新载入。` })
+        updateStatus({ updatedAt: 0, imageCount: 0, itemCount: 0, done: 0, total: 0, failed: 0, cleared: true, message: t(`${source.name} 的本地数据已清除，点击刷新可重新载入。`, `Local data for ${source.name} cleared. Refresh to load it again.`) })
         return
       }
       const cache = await openCache()
       const results = await Promise.allSettled((await cache.keys()).filter((key) => key.url !== CATALOG_URL).map((key) => cache.delete(key)))
       const imageCount = (await cache.keys()).filter((key) => key.url !== CATALOG_URL).length
       updateStatus({ imageCount })
-      if (results.some((result) => result.status === 'rejected')) throw new Error('部分预载图片清除失败，请重试。')
+      if (results.some((result) => result.status === 'rejected')) throw new Error(t('部分预载图片清除失败，请重试。', 'Some preloaded images could not be cleared. Try again.'))
       await cache.put(CATALOG_URL, new Response(JSON.stringify({ items: [], updatedAt: 0, cleared: true }), { headers: { 'Content-Type': 'application/json' } }))
       cached = []
-      updateStatus({ updatedAt: 0, imageCount: 0, itemCount: 0, done: 0, total: 0, failed: 0, cleared: true, message: `${source.name} 的本地缓存已清除，点击刷新可重新载入。` })
+      updateStatus({ updatedAt: 0, imageCount: 0, itemCount: 0, done: 0, total: 0, failed: 0, cleared: true, message: t(`${source.name} 的本地缓存已清除，点击刷新可重新载入。`, `Local cache for ${source.name} cleared. Refresh to load it again.`) })
     } catch (err) {
-      updateStatus({ message: err instanceof Error ? err.message : '清除失败，请重试。' })
+      updateStatus({ message: err instanceof Error ? err.message : t('清除失败，请重试。', 'Could not clear the cache. Try again.') })
       throw err
     } finally { imageRevision++; imageListeners.forEach((listener) => listener()); updateStatus({ busy: '', revision: status.revision + 1 }) }
   }

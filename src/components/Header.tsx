@@ -1,3 +1,4 @@
+import { getConversationLabel, t } from '../lib/i18n'
 import { isLocalService } from '../lib/desktop'
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
@@ -79,19 +80,19 @@ export default function Header() {
       const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
       if (isIos) {
         setConfirmDialog({
-          title: '安装为应用',
-          message: '在 Safari 浏览器中，点击底部「分享」按钮，选择「添加到主屏幕」即可安装此应用。',
+          title: t('安装为应用', 'Install app'),
+          message: t('在 Safari 浏览器中，点击底部「分享」按钮，选择「添加到主屏幕」即可安装此应用。', 'In Safari, tap Share at the bottom, then Add to Home Screen to install this app.'),
           showCancel: false,
-          confirmText: '我知道了',
+          confirmText: t('我知道了', 'Got it'),
           icon: 'info',
           action: () => {},
         })
       } else {
         setConfirmDialog({
-          title: '安装为应用',
-          message: '请在浏览器的菜单中选择「添加到主屏幕」或「安装应用」。\n\n（如果在微信等内置浏览器中，请先在外部浏览器打开）',
+          title: t('安装为应用', 'Install app'),
+          message: t('请在浏览器的菜单中选择「添加到主屏幕」或「安装应用」。\n\n（如果在微信等内置浏览器中，请先在外部浏览器打开）', 'Choose Add to Home Screen or Install App in your browser menu.\n\nIf using an in-app browser such as WeChat, open this page in an external browser first.'),
           showCancel: false,
-          confirmText: '我知道了',
+          confirmText: t('我知道了', 'Got it'),
           icon: 'info',
           action: () => {},
         })
@@ -128,13 +129,13 @@ export default function Header() {
                 type="button"
                 onClick={() => setShowHistoryModal((visible) => !visible)}
                 className="header-history-button inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-[13px] font-medium text-gray-700 transition-colors hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#708b81] dark:border-white/15 dark:text-gray-200 dark:hover:bg-white/[0.08]"
-                aria-label="对话历史"
+                aria-label={t('对话历史', 'Chat history')}
                 aria-haspopup="dialog"
                 aria-expanded={showHistoryModal}
                 aria-controls="conversation-history"
               >
                 <HistoryIcon className="h-4 w-4 shrink-0" />
-                <span>对话历史</span>
+                <span>{t('对话历史', 'Chat history')}</span>
               </button>
               <button
                 type="button"
@@ -143,10 +144,10 @@ export default function Header() {
                   createConversation()
                 }}
                 className="header-new-conversation inline-flex items-center justify-center gap-2 rounded-lg bg-[#587267] px-3 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-[#4b6258] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#708b81]"
-                aria-label="新建对话"
+                aria-label={t('新建对话', 'New chat')}
               >
                 <PlusIcon className="h-4 w-4 shrink-0" />
-                <span>新建对话</span>
+                <span>{t('新建对话', 'New chat')}</span>
               </button>
               {showHistoryModal && (
                 <HistoryModal onClose={() => setShowHistoryModal(false)} ignoreOutsideClickRef={historyButtonRef} />
@@ -165,9 +166,9 @@ export default function Header() {
                   }, 0)
                 }}
                 className="max-w-full truncate rounded px-2 py-1 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#708b81] dark:text-gray-300 dark:hover:bg-white/[0.04]"
-                aria-label="重命名当前对话"
+                aria-label={t('重命名当前对话', 'Rename current chat')}
               >
-                {activeConversation.title || 'Agent'}
+                {getConversationLabel(activeConversation) || 'Agent'}
               </button>
             </div>
           )}
@@ -190,12 +191,12 @@ export default function Header() {
                     handleInstallClick()
                   }}
                   className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
-                  aria-label="安装为应用"
+                  aria-label={t('安装为应用', 'Install app')}
                 >
                   <InstallIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                 </button>
                 <ViewportTooltip visible={installTooltip.visible} className="whitespace-nowrap">
-                  安装为应用
+                  {t('安装为应用', 'Install app')}
                 </ViewportTooltip>
               </div>
             )}
@@ -209,12 +210,12 @@ export default function Header() {
                   setShowHelp(true)
                 }}
                 className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
-                aria-label="操作指南"
+                aria-label={t('操作指南', 'User guide')}
               >
                 <HelpCircleIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
               </button>
               <ViewportTooltip visible={helpTooltip.visible} className="whitespace-nowrap">
-                操作指南
+                {t('操作指南', 'User guide')}
               </ViewportTooltip>
             </div>
           </div>

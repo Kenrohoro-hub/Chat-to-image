@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import type { AgentConversation, AgentRound, ResponsesApiResponse, ResponsesOutputItem, TaskRecord } from '../types'
 import { parseBatchImageCallArguments } from './agentApi'
 import { normalizeResponsesOutputItems } from './responsesOutputState'
@@ -349,7 +350,7 @@ function createAgentRecoveredToolOutputs(round: AgentRound, tasks: TaskRecord[])
         output: JSON.stringify({
           id: imageId,
           status: ok ? 'done' : 'error',
-          ...(ok ? {} : { error: task.error || '图像生成失败' }),
+          ...(ok ? {} : { error: task.error || t('图像生成失败', 'Image generation failed') }),
         }),
       })
       continue
@@ -375,7 +376,7 @@ function createAgentRecoveredToolOutputs(round: AgentRound, tasks: TaskRecord[])
         return {
           id: batchItem.id,
           status: ok ? 'done' : 'error',
-          ...(ok ? {} : { error: task?.error || '图像生成失败' }),
+          ...(ok ? {} : { error: task?.error || t('图像生成失败', 'Image generation failed') }),
         }
       })
       additions.push({
@@ -438,7 +439,11 @@ export function getAgentRecoveredFailureError(round: AgentRound, tasks: TaskReco
     .map((taskId) => tasks.find((item) => item.id === taskId))
     .filter((task): task is TaskRecord => Boolean(task && task.status === 'error' && !task.falRecoverable && !task.customRecoverable))
 
-  if (failedTasks.length === 0) return '图像生成失败'
-  if (failedTasks.length === 1) return failedTasks[0].error || '图像生成失败'
-  return '部分图像生成任务失败。'
+  if (failedTasks.length === 0) return t('图像生成失败', 'Image generation failed')
+  if (failedTasks.length === 1) return failedTasks[0].error || t('图像生成失败', 'Image generation failed')
+  return t('部分图像生成任务失败。', 'Some image generation tasks failed.')
+}
+
+export function isAgentStoppedMessage(message?: string | null): boolean {
+  return message === '已停止生成。' || message === 'Generation stopped.'
 }

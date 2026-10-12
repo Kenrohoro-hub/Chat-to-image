@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import { strFromU8, strToU8, type AsyncUnzipOptions, unzip, zip } from 'fflate'
 
 import type { AgentConversation, AppSettings, ExportData, FavoriteCollection, StoredImage, StoredImageThumbnail, TaskRecord } from '../types'
@@ -181,20 +182,20 @@ export function getExportZipPlan(
   }
 
   for (let index = 0; index < plannedTasks.length; index++) {
-    addItem(taskBytes[index], '单条任务或 Agent 对话超过 2 GB，无法生成备份。', (part) => part.tasks.push(plannedTasks[index]))
+    addItem(taskBytes[index], t('单条任务或 Agent 对话超过 2 GB，无法生成备份。', 'A single task or Agent conversation exceeds 2 GB and cannot be backed up.'), (part) => part.tasks.push(plannedTasks[index]))
   }
   for (let index = 0; index < plannedConversations.length; index++) {
-    addItem(conversationBytes[index], '单条任务或 Agent 对话超过 2 GB，无法生成备份。', (part) => part.agentConversations.push(plannedConversations[index]))
+    addItem(conversationBytes[index], t('单条任务或 Agent 对话超过 2 GB，无法生成备份。', 'A single task or Agent conversation exceeds 2 GB and cannot be backed up.'), (part) => part.agentConversations.push(plannedConversations[index]))
   }
   for (const image of plannedImages) {
-    addItem(image.bytes, `图片 ${image.id} 过大，无法放入小于 2 GB 的备份分片。`, (part) => part.imageIds.push(image.id))
+    addItem(image.bytes, t(`图片 ${image.id} 过大，无法放入小于 2 GB 的备份分片。`, `Image ${image.id} is too large for a backup part smaller than 2 GB.`), (part) => part.imageIds.push(image.id))
   }
   return parts
 }
 
 export function createExportBlob(bytes: Uint8Array): Blob {
   if (bytes.byteLength >= MAX_EXPORT_ZIP_BYTES) {
-    throw new Error('生成的备份文件超过浏览器支持的大小，请重试。')
+    throw new Error(t('生成的备份文件超过浏览器支持的大小，请重试。', 'The backup exceeds the size supported by this browser. Try again.'))
   }
   const parts: BlobPart[] = []
   const chunkBytes = 256 * 1024 * 1024
@@ -211,7 +212,7 @@ export async function readExportZipManifest(bytes: Uint8Array, validateFiles = t
     return file.name === 'manifest.json'
   } })
   const manifestBytes = files['manifest.json']
-  if (!manifestBytes) throw new Error('ZIP 中缺少 manifest.json')
+  if (!manifestBytes) throw new Error(t('ZIP 中缺少 manifest.json', 'The ZIP is missing manifest.json'))
   const manifest = JSON.parse(strFromU8(manifestBytes)) as ExportData
   if (validateFiles) assertExportZipFiles(manifest, (path) => entryNames.has(path))
   return manifest
@@ -220,7 +221,7 @@ export async function readExportZipManifest(bytes: Uint8Array, validateFiles = t
 export async function readExportZip(bytes: Uint8Array): Promise<ExportZipContents> {
   const files = await unzipFiles(bytes)
   const manifestBytes = files['manifest.json']
-  if (!manifestBytes) throw new Error('ZIP 中缺少 manifest.json')
+  if (!manifestBytes) throw new Error(t('ZIP 中缺少 manifest.json', 'The ZIP is missing manifest.json'))
   const manifest = JSON.parse(strFromU8(manifestBytes)) as ExportData
   assertExportZipFiles(manifest, (path) => files[path] != null)
 
@@ -248,7 +249,7 @@ function assertExportZipFiles(manifest: ExportData, hasFile: (path: string) => b
     ...Object.values(manifest.thumbnailFiles ?? {}).map((file) => file.path),
   ]
   const missingPath = paths.find((path) => !hasFile(path))
-  if (missingPath) throw new Error(`ZIP 中缺少 ${missingPath}`)
+  if (missingPath) throw new Error(t(`ZIP 中缺少 ${missingPath}`, `The ZIP is missing ${missingPath}`))
 }
 
 function getBaseManifestEstimatedBytes(params: Omit<BuildExportZipParams, 'images' | 'thumbnailsByImageId'>) {

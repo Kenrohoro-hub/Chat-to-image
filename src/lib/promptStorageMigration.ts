@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import { useStore } from '../store'
 import { normalizePersonalPromptLibrary } from './promptTemplates'
 import { desktopApi } from './desktop'
@@ -8,10 +9,10 @@ import { activatePromptDirectory, hasPersonalPromptWrites, initPromptStorage, up
 
 export async function changePromptDirectory(directory: string, cleanPrevious = false) {
   await initPromptStorage()
-  if (getPromptStorageStatus().busy || hasPersonalPromptWrites() || Object.values(promptLibraries).some((library) => library.getStatus().busy)) throw new Error('请等待提示词保存、刷新或预载完成后再更换位置。')
+  if (getPromptStorageStatus().busy || hasPersonalPromptWrites() || Object.values(promptLibraries).some((library) => library.getStatus().busy)) throw new Error(t('请等待提示词保存、刷新或预载完成后再更换位置。', 'Wait for prompt saving, refresh or preloading to finish before changing the location.'))
   const previous = getPromptStorageStatus().directory
   const api = await desktopApi()
-  updatePromptStorage({ busy: true, message: '正在复制已有提示词文件，请勿关闭工具…' })
+  updatePromptStorage({ busy: true, message: t('正在复制已有提示词文件，请勿关闭工具…', 'Copying existing prompt files. Keep the app open…') })
   let pending: { migration: string; directory: string; temporaryDirectory: string } | undefined
   try {
     pending = await api.prompt_storage('prepare', { directory }) as typeof pending
@@ -23,26 +24,26 @@ export async function changePromptDirectory(directory: string, cleanPrevious = f
         const response = await cache.match(catalogUrl)
         if (!response) continue
         const snapshot = await response.json()
-        if (!snapshot || snapshot.items === undefined || !Number.isFinite(snapshot.updatedAt)) throw new Error(`${source.name} 的旧目录格式错误，未切换保存位置。`)
+        if (!snapshot || snapshot.items === undefined || !Number.isFinite(snapshot.updatedAt)) throw new Error(t(`${source.name} 的旧目录格式错误，未切换保存位置。`, `The old ${source.name} catalog is invalid. The save location was not changed.`))
         const items = snapshot.cleared === true ? [] : [...new Map(normalizePromptSource(source.id, snapshot.items).map((item) => [item.id, item])).values()]
-        updatePromptStorage({ message: `正在复制 ${source.name}：${items.length} 条提示词…` })
+        updatePromptStorage({ message: t(`正在复制 ${source.name}：${items.length} 条提示词…`, `Copying ${source.name}: ${items.length} prompts…`) })
         await api.prompt_storage('catalog_write', { migration, source: source.id, items, updatedAt: snapshot.updatedAt, cleared: snapshot.cleared === true })
         const images = (await cache.keys()).filter((key) => key.url !== catalogUrl && promptImageUrl(key.url))
         for (let index = 0; index < images.length; index++) {
           const key = images[index]
           const saved = await cache.match(key)
-          if (!saved) throw new Error(`${source.name} 的旧图片在复制时变化，请重试。`)
-          updatePromptStorage({ message: `正在复制 ${source.name} 图片：${index + 1} / ${images.length}` })
+          if (!saved) throw new Error(t(`${source.name} 的旧图片在复制时变化，请重试。`, `Old ${source.name} images changed during copying. Try again.`))
+          updatePromptStorage({ message: t(`正在复制 ${source.name} 图片：${index + 1} / ${images.length}`, `Copying ${source.name} images: ${index + 1} / ${images.length}`) })
           await api.prompt_storage('image_write', { migration, source: source.id, url: key.url, category: items.find((item) => item.previewUrl === key.url)?.category || '未分类', dataUrl: await blobToDataUrl(await saved.blob()) })
         }
       }
     }
     const copied = previous ? await api.prompt_storage('catalog_read', { migration, source: 'personal' }) as StoredPromptCatalog : null
-    if (copied && !copied.catalog) throw new Error('复制后的个人提示词文件缺失，未切换保存位置。')
+    if (copied && !copied.catalog) throw new Error(t('复制后的个人提示词文件缺失，未切换保存位置。', 'The copied personal prompt file is missing. The save location was not changed.'))
     const personal = copied ? copied.catalog!.items : useStore.getState().promptTemplates
     const personalLibrary = normalizePersonalPromptLibrary(personal, copied ? copied.catalog!.promptCategories : useStore.getState().promptCategories)
-    if (personalLibrary.promptTemplates.length !== personal.length) throw new Error('个人提示词文件中有无效条目，未切换保存位置。')
-    updatePromptStorage({ message: '正在保存个人提示词、收藏和目录偏好…' })
+    if (personalLibrary.promptTemplates.length !== personal.length) throw new Error(t('个人提示词文件中有无效条目，未切换保存位置。', 'The personal prompt file contains invalid entries. The save location was not changed.'))
+    updatePromptStorage({ message: t('正在保存个人提示词、收藏和目录偏好…', 'Saving personal prompts, favorites and catalog preferences…') })
     const examplesAdded = localStorage.getItem('prompt-examples-added-v1') === '1'
     const examplesVersion = copied?.catalog?.examplesVersion ?? (Number(localStorage.getItem('prompt-examples-version')) || 0)
     const saved = copied ?? await api.prompt_storage('catalog_write', { migration, source: 'personal', items: personalLibrary.promptTemplates, promptCategories: personalLibrary.promptCategories, updatedAt: Date.now(), examplesAdded, examplesVersion }) as StoredPromptCatalog
@@ -54,10 +55,10 @@ export async function changePromptDirectory(directory: string, cleanPrevious = f
   } catch (err) {
     if (pending) {
       try { await api.prompt_storage('abort', { migration: pending.migration }) }
-      catch (cleanup) { throw new Error(`${err instanceof Error ? err.message : '复制失败'}；临时副本未能清理：${pending.temporaryDirectory}。${cleanup instanceof Error ? cleanup.message : ''}`) }
+      catch (cleanup) { throw new Error(t(`${err instanceof Error ? err.message : '复制失败'}；临时副本未能清理：${pending.temporaryDirectory}。${cleanup instanceof Error ? cleanup.message : ''}`, `${err instanceof Error ? err.message : 'Copy failed'}; could not remove the temporary copy: ${pending.temporaryDirectory}. ${cleanup instanceof Error ? cleanup.message : ''}`)) }
     }
     throw err
   } finally {
-    updatePromptStorage({ busy: false, message: getPromptStorageStatus().directory === previous ? '位置未切换，原数据保留。' : getPromptStorageStatus().message })
+    updatePromptStorage({ busy: false, message: getPromptStorageStatus().directory === previous ? t('位置未切换，原数据保留。', 'The location was not changed. Original data is preserved.') : getPromptStorageStatus().message })
   }
 }

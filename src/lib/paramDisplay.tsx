@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import { useEffect, useRef, useState } from 'react'
 import type { TaskParams, TaskRecord } from '../types'
 import ViewportTooltip from '../components/ViewportTooltip'
@@ -57,8 +58,7 @@ export function ActualValueBadge({ value, className = '', variant = 'highlight' 
     >
       {value}
       <ViewportTooltip visible={tooltipVisible} className="whitespace-nowrap">
-        API 实际响应值
-      </ViewportTooltip>
+        {t('API 实际响应值', 'Actual API response value')}</ViewportTooltip>
     </span>
   )
 }
@@ -85,7 +85,7 @@ export function getParamDisplay(task: TaskRecord, paramKey: ParamKey, actualPara
 
 export function DetailParamValue({ task, paramKey, className = '', actualParams }: ParamValueProps) {
   const { displayValue, isMismatch, requestedValue, isAutoResolved } = getParamDisplay(task, paramKey, actualParams)
-  const labels: Record<string, string> = { auto: '自动', low: '低', medium: '中', high: '高', xhigh: '极高', max: '最高' }
+  const labels: Record<string, string> = { auto: t('自动', 'Auto'), low: t('低', 'Low'), medium: t('中', 'Medium'), high: t('高', 'High'), xhigh: t('极高', 'Extra high'), max: t('最高', 'Maximum') }
   const requestedText = paramKey === 'output_format' ? requestedValue.toUpperCase() : labels[requestedValue] ?? requestedValue
   const displayText = paramKey === 'output_format' ? displayValue.toUpperCase() : labels[displayValue] ?? displayValue
 

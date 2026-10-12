@@ -13,6 +13,7 @@ import uuid
 
 from desktop_config import write_json
 from playground_config import config_path, local_data_dir
+from ui_language import t
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -26,12 +27,12 @@ def check_path(path):
       continue
     info = item.lstat()
     if stat.S_ISLNK(info.st_mode) or getattr(info, 'st_file_attributes', 0) & 0x400:
-      raise ValueError('接入路径含符号链接或重解析点，请使用普通用户目录。')
+      raise ValueError(t('接入路径含符号链接或重解析点，请使用普通用户目录。', 'The integration path contains a symbolic link or reparse point. Choose a regular user folder.'))
 
 
 def target_path(target):
   if target not in TARGETS:
-    raise ValueError('请选择 Codex、Claude Code、Cursor 或 DeepSeek Harness。')
+    raise ValueError(t('请选择 Codex、Claude Code、Cursor 或 DeepSeek Harness。', 'Choose Codex, Claude Code, Cursor, or DeepSeek Harness.'))
   home = Path(os.environ.get('CHAT_TO_IMAGE_AGENT_HOME') or Path.home()).expanduser()
   root = Path(os.environ['CLAUDE_CONFIG_DIR']).expanduser() if target == 'claude' and os.environ.get('CLAUDE_CONFIG_DIR') else home / TARGETS[target][1]
   if target == 'claude' and os.environ.get('CLAUDE_CONFIG_DIR'):
@@ -39,7 +40,7 @@ def target_path(target):
   if target == 'deepseek-harness' and os.environ.get('DSH_HOME', '').strip():
     root = Path(os.environ['DSH_HOME'].strip()).expanduser() / 'skills'
   if not root.is_absolute():
-    raise ValueError('Agent 用户目录必须是绝对路径。')
+    raise ValueError(t('Agent 用户目录必须是绝对路径。', 'The agent home directory must be an absolute path.'))
   path = root / 'chat-to-image-cli'
   check_path(path)
   return path
@@ -63,7 +64,7 @@ def skill_content(command):
 
 
 def describe(target, command):
-  row = {'id': target, 'label': TARGETS[target][0], 'path': '', 'status': 'missing', 'message': '尚未连接。', 'invocation': command}
+  row = {'id': target, 'label': TARGETS[target][0], 'path': '', 'status': 'missing', 'message': t('尚未连接。', 'Not connected.'), 'invocation': command}
   try:
     folder = target_path(target)
     row['path'] = str(folder)
@@ -74,21 +75,21 @@ def describe(target, command):
     receipt_path = folder / '.connection.json'
     skill = folder / 'SKILL.md'
     if not receipt_path.is_file() or receipt_path.stat().st_size > 65536:
-      row.update(status='conflict', message='存在未知接入文件，未接管。')
+      row.update(status='conflict', message=t('存在未知接入文件，未接管。', 'An unrecognized integration file exists. It was left untouched.'))
       return row
     receipt = json.loads(receipt_path.read_text(encoding='utf-8'))
     if not isinstance(receipt, dict) or receipt.get('schema_version') != 1 or receipt.get('target') != target or receipt.get('project') != str(ROOT):
-      row.update(status='conflict', message='接入属于其他项目或归属信息无效，未接管。')
+      row.update(status='conflict', message=t('接入属于其他项目或归属信息无效，未接管。', 'This integration belongs to another project or has invalid ownership data. It was left untouched.'))
       return row
     if not skill.is_file() or skill.stat().st_size > 65536 or hashlib.sha256(skill.read_bytes()).hexdigest() != receipt.get('skill_sha256'):
-      row.update(status='modified', message='接入文件已被修改或缺失，请先保留个人修改，未自动覆盖。')
+      row.update(status='modified', message=t('接入文件已被修改或缺失，请先保留个人修改，未自动覆盖。', 'The integration file was changed or is missing. Preserve your edits before updating; it was not overwritten.'))
       return row
     if skill.read_bytes() != skill_content(command):
-      row.update(status='stale', message='本机路径或接入说明已变化，可更新连接。')
+      row.update(status='stale', message=t('本机路径或接入说明已变化，可更新连接。', 'The local path or integration guide changed. You can update the connection.'))
       return row
-    row.update(status='connected', message='接入文件已就绪；Agent 是否加载仍需在新会话确认。')
+    row.update(status='connected', message=t('接入文件已就绪；Agent 是否加载仍需在新会话确认。', 'The integration file is ready. Reopen the agent session to confirm it has loaded.'))
   except (OSError, ValueError, TypeError):
-    row.update(status='error', message='接入路径或文件无法读取，请检查目录权限及格式。')
+    row.update(status='error', message=t('接入路径或文件无法读取，请检查目录权限及格式。', 'The integration path or file could not be read. Check folder permissions and file format.'))
   return row
 
 
@@ -120,7 +121,7 @@ def connection_lock(folder):
     try:
       msvcrt.locking(file.fileno(), msvcrt.LK_NBLCK, 1)
     except OSError:
-      raise ValueError('该 Agent 连接正忙，请稍后重试。') from None
+      raise ValueError(t('该 Agent 连接正忙，请稍后重试。', 'This agent connection is busy. Try again shortly.')) from None
     try:
       yield
     finally:
@@ -142,17 +143,17 @@ def replace_bytes(path, content):
 
 def change(action, target):
   if action not in ('connect', 'update', 'disconnect'):
-    raise ValueError('连接操作不支持。')
+    raise ValueError(t('连接操作不支持。', 'Unsupported connection operation.'))
   folder = target_path(target)
   command = invocation()
   if action != 'disconnect' and not status()['runtime_ready']:
-    raise ValueError('CLI 运行环境未通过检查，请检查 Python 和项目路径。')
+    raise ValueError(t('CLI 运行环境未通过检查，请检查 Python 和项目路径。', 'The CLI runtime check failed. Check Python and the project path.'))
   with connection_lock(folder):
     row = describe(target, command)
     if row['status'] not in ('missing', 'connected', 'stale'):
       raise ValueError(row['message'])
     if action == 'update' and row['status'] == 'missing':
-      raise ValueError('尚未连接，请先点击连接。')
+      raise ValueError(t('尚未连接，请先点击连接。', 'Not connected. Select Connect first.'))
     if (action == 'disconnect' and row['status'] == 'missing') or (action != 'disconnect' and row['status'] == 'connected'):
       return {'ok': True, 'changed': False, 'backup': '', 'target': target}
     original = {name: (folder / name).read_bytes() if (folder / name).exists() else None for name in FILES}
@@ -187,6 +188,6 @@ def change(action, target):
           else:
             replace_bytes(path, value)
       except (OSError, ValueError):
-        raise ValueError(f'连接操作失败，恢复未完成。原文件备份：{backup or "本次无原接入文件"}。') from None
-      raise ValueError(f'连接操作未完成，已恢复原文件。备份：{backup or "本次无原接入文件"}。') from None
+        raise ValueError(t(f'连接操作失败，恢复未完成。原文件备份：{backup or "本次无原接入文件"}。', f'Connection failed and rollback was incomplete. Original files were backed up to: {backup or "No original integration files"}.')) from None
+      raise ValueError(t(f'连接操作未完成，已恢复原文件。备份：{backup or "本次无原接入文件"}。', f'Connection did not complete; the original files were restored. Backup: {backup or "No original integration files"}.')) from None
     return {'ok': True, 'changed': True, 'backup': str(backup) if backup else '', 'target': target}

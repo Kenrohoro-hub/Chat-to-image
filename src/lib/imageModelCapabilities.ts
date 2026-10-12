@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import { API_MAX_IMAGES, type ApiProfile, type ImageModelCapabilities, type TaskParams } from '../types'
 import { getImageGenerationModel } from './imageModels'
 
@@ -30,10 +31,10 @@ export function getImageModelCapabilities(profile: ApiProfile) {
 export function validateImageModelParams(profile: ApiProfile, params: TaskParams, inputCount: number, nativeTransparent: boolean) {
   const rule = getImageModelCapabilities(profile)
   if (!rule) return
-  const prefix = `模型 ${getImageGenerationModel(profile)}：`
-  if (rule.sizes && !rule.sizes.includes(params.size)) throw new Error(`${prefix}尺寸仅支持 ${rule.sizes.join('、')}。`)
-  if (rule.qualities && !rule.qualities.includes(params.quality)) throw new Error(`${prefix}质量仅支持 ${rule.qualities.join('、')}。`)
-  if (rule.formats && !rule.formats.includes(params.output_format)) throw new Error(`${prefix}格式仅支持 ${rule.formats.join('、')}。`)
-  if (rule.transparent === false && nativeTransparent) throw new Error(`${prefix}不支持原生透明背景，请关闭透明背景或在设置中选择本地处理。`)
-  if (rule.maxInputImages !== undefined && inputCount > rule.maxInputImages) throw new Error(`${prefix}最多支持 ${rule.maxInputImages} 张参考图，当前为 ${inputCount} 张。`)
+  const prefix = t(`模型 ${getImageGenerationModel(profile)}：`, `Model ${getImageGenerationModel(profile)}: `)
+  if (rule.sizes && !rule.sizes.includes(params.size)) throw new Error(t(`${prefix}尺寸仅支持 ${rule.sizes.join('、')}。`, `${prefix}Supported sizes: ${rule.sizes.join(', ')}.`))
+  if (rule.qualities && !rule.qualities.includes(params.quality)) throw new Error(t(`${prefix}质量仅支持 ${rule.qualities.join('、')}。`, `${prefix}Supported quality levels: ${rule.qualities.join(', ')}.`))
+  if (rule.formats && !rule.formats.includes(params.output_format)) throw new Error(t(`${prefix}格式仅支持 ${rule.formats.join('、')}。`, `${prefix}Supported formats: ${rule.formats.join(', ')}.`))
+  if (rule.transparent === false && nativeTransparent) throw new Error(t(`${prefix}不支持原生透明背景，请关闭透明背景或在设置中选择本地处理。`, `${prefix}Native transparent backgrounds are not supported. Disable transparency or select local processing in settings.`))
+  if (rule.maxInputImages !== undefined && inputCount > rule.maxInputImages) throw new Error(t(`${prefix}最多支持 ${rule.maxInputImages} 张参考图，当前为 ${inputCount} 张。`, `${prefix}Up to ${rule.maxInputImages} reference images are supported; ${inputCount} are attached.`))
 }

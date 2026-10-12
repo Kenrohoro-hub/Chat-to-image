@@ -1,3 +1,4 @@
+import { t } from '../../lib/i18n'
 import { useEffect, useRef, useState, type SVGProps } from 'react'
 import type { TaskRecord, FavoriteCollection } from '../../types'
 import { ensureImageThumbnailCached, subscribeImageThumbnail } from '../../lib/imageCache'
@@ -250,13 +251,13 @@ export function FavoriteCollectionOverviewCard({
                   <span className="truncate" title={card.name}>{card.name}</span>
                 )}
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{card.tasks.length} 条任务</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{card.tasks.length} {t('条任务', ' tasks')}</p>
             </div>
             <div className="mt-auto flex items-center justify-end gap-0 sm:gap-1">
               {!isVirtualAll && card.collection && (
                 <>
                   <FavoriteActionButton
-                    tooltip={isDefault ? '取消默认收藏夹' : '设为默认收藏夹'}
+                    tooltip={isDefault ? t('取消默认收藏夹', 'Unset default collection') : t('设为默认收藏夹', 'Set as default collection')}
                     onClick={(e) => {
                       e.stopPropagation()
                       handleSetDefault(card.collection!)
@@ -267,7 +268,7 @@ export function FavoriteCollectionOverviewCard({
                   </FavoriteActionButton>
                   {editingId === card.id ? (
                     <FavoriteActionButton
-                      tooltip="确认"
+                      tooltip={t('确认', 'Confirm')}
                       onMouseDown={(e) => {
                         e.preventDefault()
                         e.stopPropagation()
@@ -281,7 +282,7 @@ export function FavoriteCollectionOverviewCard({
                     </FavoriteActionButton>
                   ) : (
                     <FavoriteActionButton
-                      tooltip="编辑名称"
+                      tooltip={t('编辑名称', 'Edit name')}
                       onClick={(e) => startRename(e, card.collection!)}
                       className="p-1.5 rounded-md hover:bg-green-50 dark:hover:bg-green-950/30 text-gray-400 hover:text-green-500 transition"
                     >
@@ -289,7 +290,7 @@ export function FavoriteCollectionOverviewCard({
                     </FavoriteActionButton>
                   )}
                   <FavoriteActionButton
-                    tooltip={canDelete ? '删除收藏夹' : '至少保留一个收藏夹'}
+                    tooltip={canDelete ? t('删除收藏夹', 'Delete collection') : t('至少保留一个收藏夹', 'Keep at least one collection')}
                     disabled={!canDelete}
                     onClick={(e) => {
                       e.stopPropagation()

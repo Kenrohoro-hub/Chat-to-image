@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import type { PromptTemplate } from '../types'
 import { promptExampleVersion } from './promptExamples'
 import { desktopApi, isLocalService } from './desktop'
@@ -25,7 +26,7 @@ export function initPromptStorage(): Promise<PromptStorageStatus> {
     if (location.preferences) localStorage.setItem('prompt-library-removed-v1', JSON.stringify(location.preferences.removed))
     updatePromptStorage({ directory: location.directory, ready: true, error: '' })
     return status
-  })().catch((err) => { updatePromptStorage({ ready: true, error: err instanceof Error ? err.message : '提示词保存位置无法读取。' }); throw err })
+  })().catch((err) => { updatePromptStorage({ ready: true, error: err instanceof Error ? err.message : t('提示词保存位置无法读取。', 'Cannot read the prompt save location.') }); throw err })
   return initializing
 }
 
@@ -36,12 +37,12 @@ export async function promptStorageCall<T>(action: string, payload: Record<strin
 }
 
 export function ensurePromptStorageIdle() {
-  if (status.busy) throw new Error('正在更换提示词保存位置，请等待复制完成。')
+  if (status.busy) throw new Error(t('正在更换提示词保存位置，请等待复制完成。', 'The prompt save location is changing. Wait for copying to finish.'))
 }
 
 export function diskPrompts(catalog: PromptCatalog): LibraryPrompt[] {
   const items = normalizePromptTemplates(catalog.items)
-  if (items.length !== catalog.items.length) throw new Error('提示词文件中有无效条目，原文件已保留。')
+  if (items.length !== catalog.items.length) throw new Error(t('提示词文件中有无效条目，原文件已保留。', 'The prompt file contains invalid entries. The original file is preserved.'))
   return items.map((item) => ({ ...item, category: item.category || '未分类' }))
 }
 
@@ -49,9 +50,9 @@ export async function loadPersonalPromptStorage() {
   const current = await initPromptStorage()
   if (!current.directory) return null
   const result = await promptStorageCall<StoredPromptCatalog>('catalog_read', { source: 'personal' })
-  if (!result.catalog) throw new Error('个人提示词文件缺失，已保留当前入口的数据，请检查保存位置。')
+  if (!result.catalog) throw new Error(t('个人提示词文件缺失，已保留当前入口的数据，请检查保存位置。', 'The personal prompt file is missing. Current data is preserved. Check the save location.'))
   const items = normalizePromptTemplates(result.catalog.items)
-  if (items.length !== result.catalog.items.length) throw new Error('个人提示词文件格式错误，未覆盖当前入口数据。')
+  if (items.length !== result.catalog.items.length) throw new Error(t('个人提示词文件格式错误，未覆盖当前入口数据。', 'The personal prompt file is invalid. Current data was not overwritten.'))
   personalRevision = result.catalog.revision
   if (result.catalog.examplesVersion) localStorage.setItem('prompt-examples-version', String(result.catalog.examplesVersion))
   else localStorage.removeItem('prompt-examples-version')
@@ -92,6 +93,6 @@ export function activatePromptDirectory(location: PromptStorageLocation, revisio
   if (location.preferences?.examplesAdded) localStorage.setItem('prompt-examples-added-v1', '1')
   else localStorage.removeItem('prompt-examples-added-v1')
   if (location.preferences) localStorage.setItem('prompt-library-removed-v1', JSON.stringify(location.preferences.removed))
-  updatePromptStorage({ directory: location.directory, ready: true, busy: false, error: '', message: location.message || '保存位置已切换，旧位置的数据保留。' })
+  updatePromptStorage({ directory: location.directory, ready: true, busy: false, error: '', message: location.message || t('保存位置已切换，旧位置的数据保留。', 'Save location changed. Data in the previous location is preserved.') })
   initializing = Promise.resolve(status)
 }

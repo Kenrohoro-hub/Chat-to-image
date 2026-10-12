@@ -1,3 +1,4 @@
+import { t } from '../../lib/i18n'
 import { useEffect, useState } from 'react'
 import { ensureImageThumbnailCached, subscribeImageThumbnail } from '../../lib/imageCache'
 
@@ -14,5 +15,5 @@ export default function GalleryImage({ id, alt }: { id: string; alt: string }) {
     }).catch(() => { if (!cancelled) setSrc('') })
     return () => { cancelled = true; unsubscribe() }
   }, [id])
-  return src ? <img src={src} alt={alt} loading="lazy" /> : <span className="gallery-image-placeholder">正在读取图片…</span>
+  return src ? <img src={src} alt={alt} loading="lazy" /> : <span className="gallery-image-placeholder">{t('正在读取图片…', 'Loading image…')}</span>
 }

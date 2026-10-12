@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import type { AgentConversation, InputImage, TaskRecord } from '../types'
 import { getActiveAgentRounds } from './agentConversationState'
 import { captureCreationDraft, isCurrentCreationDraft } from './creationDraft'
@@ -21,19 +22,19 @@ export function getCreationContext(conversation: AgentConversation | undefined, 
 export async function startConversationWithImages(imageIds: string[]) {
   const before = captureCreationDraft()
   const original = useStore.getState().agentConversations.find((item) => item.id === before.conversationId)
-  if (original?.rounds.some((round) => round.status === 'running')) throw new Error('请先停止当前对话。')
+  if (original?.rounds.some((round) => round.status === 'running')) throw new Error(t('请先停止当前对话。', 'Stop the current conversation first.'))
   const inputImages = await Promise.all([...new Set(imageIds)].map(async (id) => {
     const dataUrl = await ensureImageCached(id)
-    if (!dataUrl) throw new Error('所选图片已不存在，请重新选择；原对话保持不变。')
+    if (!dataUrl) throw new Error(t('所选图片已不存在，请重新选择；原对话保持不变。', 'The selected image no longer exists. Choose another image. The original conversation is preserved.'))
     return { id, dataUrl }
   }))
   const state = useStore.getState()
-  if (!isCurrentCreationDraft(before) || state.agentConversations.find((item) => item.id === before.conversationId) !== original) throw new Error('对话或草稿已改变，请重新选择。')
+  if (!isCurrentCreationDraft(before) || state.agentConversations.find((item) => item.id === before.conversationId) !== original) throw new Error(t('对话或草稿已改变，请重新选择。', 'The conversation or draft changed. Select the image again.'))
   const id = crypto.randomUUID()
   const now = Date.now()
   useStore.setState({
     agentInputDrafts: { ...saveActiveAgentInputDrafts(state), [id]: { prompt: '', inputImages, maskDraft: null, maskEditorImageId: null } },
-    agentConversations: [...state.agentConversations, { id, title: '新对话', createdAt: now, updatedAt: now, rounds: [], messages: [], activeRoundId: null, imageParams: { ...before.params }, preferences: original?.preferences ? { ...original.preferences } : undefined }],
+    agentConversations: [...state.agentConversations, { id, title: t('新对话', 'New conversation'), createdAt: now, updatedAt: now, rounds: [], messages: [], activeRoundId: null, imageParams: { ...before.params }, preferences: original?.preferences ? { ...original.preferences } : undefined }],
     activeAgentConversationId: id, prompt: '', inputImages, maskDraft: null, maskEditorImageId: null,
     agentEditingRoundId: null, agentEditingConversationId: null, creationDraftUndo: null, agentSidebarCollapsed: true,
   })

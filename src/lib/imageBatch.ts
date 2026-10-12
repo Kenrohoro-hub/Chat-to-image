@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import type { CallApiResult } from './imageApiShared'
 
 let active = 0
@@ -10,7 +11,7 @@ async function acquireImageSlot(signal?: AbortSignal) {
     const cancel = () => {
       const index = waiting.indexOf(start)
       if (index >= 0) waiting.splice(index, 1)
-      reject(signal?.reason ?? new DOMException('已停止生成', 'AbortError'))
+      reject(signal?.reason ?? new DOMException(t('已停止生成', 'Generation stopped'), 'AbortError'))
     }
     if (active < 2) start()
     else { waiting.push(start); signal?.addEventListener('abort', cancel, { once: true }) }
@@ -30,7 +31,7 @@ export async function runImageBatch(count: number, run: (index: number) => Promi
       // 已收到的完整图片即使恰好取消也要保存，预览帧仍走原来的流式回调。
       if (onCompleted && result.images.length) {
         save = save.catch(() => undefined).then(() => onCompleted(result, index)).catch((error) => {
-          saveError = Object.assign(new Error(error instanceof Error ? error.message : '图片保存失败'), { name: 'ImageOutputStorageError' })
+          saveError = Object.assign(new Error(error instanceof Error ? error.message : t('图片保存失败', 'Could not save the image')), { name: 'ImageOutputStorageError' })
           throw saveError
         })
         await save

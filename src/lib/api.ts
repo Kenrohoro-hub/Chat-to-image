@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import { validateImageModelParams } from './imageModelCapabilities'
 import { runImageBatch } from './imageBatch'
 import { getActiveApiProfile, getCustomProviderDefinition } from './apiProfiles'
@@ -44,10 +45,10 @@ async function callImageApiSingle(opts: CallApiOptions): Promise<CallApiResult> 
         nativeTransparentBackground: opts.nativeTransparentBackground,
       })
       if (!result.images.length) opts.signal?.throwIfAborted()
-      if (!result.ok && !result.images.length) throw new Error([result.error?.message ?? '生成失败，请查看 API 配置。', ...result.warnings].join('\n'))
+      if (!result.ok && !result.images.length) throw new Error([result.error?.message ?? t('生成失败，请查看 API 配置。', 'Generation failed. Check your API profiles.'), ...result.warnings].join('\n'))
       return {
         ...result,
-        failedRequests: !result.ok ? Array.from({ length: Math.max(1, opts.params.n - result.images.length) }, (_, i) => ({ requestIndex: result.images.length + i, error: result.error?.message ?? '任务未完成' })) : undefined,
+        failedRequests: !result.ok ? Array.from({ length: Math.max(1, opts.params.n - result.images.length) }, (_, i) => ({ requestIndex: result.images.length + i, error: result.error?.message ?? t('任务未完成', 'Task incomplete') })) : undefined,
       }
     } finally { opts.signal?.removeEventListener('abort', cancel) }
   }

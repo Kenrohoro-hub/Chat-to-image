@@ -1,3 +1,4 @@
+import { t } from './i18n'
 export async function copyTextToClipboard(text: string) {
   let asyncClipboardError: unknown = null
 
@@ -33,11 +34,11 @@ export function canCopyImageToClipboard() {
 
 export function getClipboardFailureMessage(fallback: string, err: unknown) {
   if (isEmbeddedPage() && isClipboardPermissionError(err)) {
-    return '复制失败：内嵌页面未授予剪贴板权限'
+    return t('复制失败：内嵌页面未授予剪贴板权限', 'Copy failed: this embedded page has no clipboard permission')
   }
 
-  if (err instanceof Error && err.message.startsWith('当前浏览器不支持')) {
-    return `复制失败：${err.message}`
+  if (err instanceof Error && err.message.startsWith(t('当前浏览器不支持', 'Not supported by this browser'))) {
+    return t(`复制失败：${err.message}`, `Copy failed: ${err.message}`)
   }
 
   return fallback
@@ -81,7 +82,7 @@ async function writeImageBlobToClipboard(blob: Blob) {
   }
 
   if (Object.keys(clipboardItems).length === 0) {
-    throw new Error('当前浏览器不支持图像剪贴板写入')
+    throw new Error(t('当前浏览器不支持图像剪贴板写入', 'This browser does not support copying images to the clipboard'))
   }
 
   await navigator.clipboard.write([

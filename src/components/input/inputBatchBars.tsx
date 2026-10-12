@@ -1,3 +1,4 @@
+import { t } from '../../lib/i18n'
 import type { ReactNode } from 'react'
 
 import type { TaskRecord } from '../../types'
@@ -77,7 +78,7 @@ export default function InputBatchBars({
           <BatchActionButton
             onClick={clearFavoriteCollectionSelection}
             className="p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
-            tooltip="取消选择"
+            tooltip={t('取消选择', 'Deselect')}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -87,7 +88,7 @@ export default function InputBatchBars({
           <BatchActionButton
             onClick={onSelectAllVisibleFavoriteCollections}
             className="p-2 text-blue-500 dark:text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 transition-colors"
-            tooltip="全选收藏夹"
+            tooltip={t('全选收藏夹', 'Select all collections')}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
@@ -97,7 +98,7 @@ export default function InputBatchBars({
           <BatchActionButton
             onClick={onInvertVisibleFavoriteCollections}
             className="p-2 text-purple-500 dark:text-purple-400 hover:text-purple-600 dark:hover:text-purple-300 transition-colors"
-            tooltip="反选收藏夹"
+            tooltip={t('反选收藏夹', 'Invert collection selection')}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
               <path strokeDasharray="4 4" d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z" />
@@ -108,7 +109,7 @@ export default function InputBatchBars({
           <BatchActionButton
             onClick={onDownloadSelectedFavoriteCollections}
             className="p-2 text-green-500 dark:text-green-400 hover:text-green-600 dark:hover:text-green-300 transition-colors"
-            tooltip="下载选中"
+            tooltip={t('下载选中', 'Download selected')}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -118,7 +119,7 @@ export default function InputBatchBars({
           <BatchActionButton
             onClick={onDeleteSelectedFavoriteCollections}
             className="p-2 text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors"
-            tooltip="删除选中"
+            tooltip={t('删除选中', 'Delete selected')}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -137,7 +138,7 @@ export default function InputBatchBars({
         <BatchActionButton
           onClick={clearSelection}
           className="p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
-          tooltip="取消选择"
+          tooltip={t('取消选择', 'Deselect')}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -147,7 +148,7 @@ export default function InputBatchBars({
         <BatchActionButton
           onClick={onSelectAllVisibleTasks}
           className="p-2 text-blue-500 dark:text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 transition-colors"
-          tooltip="全选任务"
+          tooltip={t('全选任务', 'Select all tasks')}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
             <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
@@ -157,7 +158,7 @@ export default function InputBatchBars({
         <BatchActionButton
           onClick={onInvertVisibleTasks}
           className="p-2 text-purple-500 dark:text-purple-400 hover:text-purple-600 dark:hover:text-purple-300 transition-colors"
-          tooltip="反选任务"
+          tooltip={t('反选任务', 'Invert task selection')}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
             <path strokeDasharray="4 4" d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z" />
@@ -168,7 +169,7 @@ export default function InputBatchBars({
         <BatchActionButton
           onClick={onToggleFavorite}
           className="p-2 text-yellow-500 dark:text-yellow-400 hover:text-yellow-600 dark:hover:text-yellow-300 transition-colors"
-          tooltip="编辑收藏夹"
+          tooltip={t('编辑收藏夹', 'Edit favorites')}
         >
           {selectedTaskIds.length > 0 && selectedTaskIds.every((id) => tasks.find((t) => t.id === id)?.isFavorite) ? (
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -184,7 +185,7 @@ export default function InputBatchBars({
         <BatchActionButton
           onClick={onDownloadSelected}
           className="p-2 text-green-500 dark:text-green-400 hover:text-green-600 dark:hover:text-green-300 transition-colors"
-          tooltip="下载选中"
+          tooltip={t('下载选中', 'Download selected')}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -194,7 +195,7 @@ export default function InputBatchBars({
         <BatchActionButton
           onClick={onDeleteSelected}
           className="p-2 text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors"
-          tooltip="删除选中"
+          tooltip={t('删除选中', 'Delete selected')}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import { REASONING_EFFORT_VALUES, type ReasoningEffort } from '../types'
 import type {
   ApiMode,
@@ -70,7 +71,7 @@ const DEFAULT_EDIT_FILES: CustomProviderFileMapping[] = [
 
 const SUB2API_PROVIDER: CustomProviderDefinition = {
   id: 'sb2api-async',
-  name: 'sub2api（异步）',
+  name: t('sub2api（异步）', 'sub2api (async)'),
   template: 'http-image',
   submit: {
     path: 'images/generations/async',
@@ -365,7 +366,7 @@ export function createDefaultOpenAIProfile(overrides: Partial<ApiProfile> = {}):
 
   return {
     id: DEFAULT_OPENAI_PROFILE_ID,
-    name: DEFAULT_API_URL_PATCH?.name ?? '默认',
+    name: DEFAULT_API_URL_PATCH?.name ?? t('默认', 'Default'),
     provider: 'openai',
     baseUrl: DEFAULT_BASE_URL,
     apiKey: DEFAULT_API_URL_PATCH?.apiKey ?? '',
@@ -386,7 +387,7 @@ export function createDefaultOpenAIProfile(overrides: Partial<ApiProfile> = {}):
 export function createDefaultFalProfile(overrides: Partial<ApiProfile> = {}): ApiProfile {
   return {
     id: `fal-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
-    name: '新配置',
+    name: t('新配置', 'New profile'),
     provider: 'fal',
     baseUrl: DEFAULT_FAL_BASE_URL,
     apiKey: '',
@@ -600,11 +601,11 @@ function validateImportedProfileRecord(input: unknown) {
 
   const baseUrl = typeof input.baseUrl === 'string' ? input.baseUrl.trim() : ''
   if (baseUrl && (baseUrl.startsWith('[') || baseUrl.includes(']('))) {
-    throw new Error('JSON 包含 Markdown 链接，请粘贴纯文本')
+    throw new Error(t('JSON 包含 Markdown 链接，请粘贴纯文本', 'JSON contains a Markdown link. Paste plain text.'))
   }
 
   if (typeof input.apiMode === 'string' && input.apiMode !== 'images' && input.apiMode !== 'responses') {
-    throw new Error('apiMode 格式无效，应为 images 或 responses')
+    throw new Error(t('apiMode 格式无效，应为 images 或 responses', 'Invalid apiMode. Use images or responses.'))
   }
 }
 
@@ -613,14 +614,14 @@ function validateDeploymentProviderIds(input: unknown) {
   const usedIds = new Set<string>()
 
   for (const item of input) {
-    if (!isRecord(item)) throw new Error('部署文件中的服务商配置必须是对象')
+    if (!isRecord(item)) throw new Error(t('部署文件中的服务商配置必须是对象', 'Provider settings in the deployment file must be objects'))
     const name = typeof item.name === 'string' ? item.name.trim() : ''
     const label = name ? `「${name}」` : ''
     const id = typeof item.id === 'string' ? item.id.trim() : ''
-    if (!id) throw new Error(`部署服务商${label}缺少 id`)
-    if (BUILT_IN_PROVIDER_IDS.has(id)) throw new Error(`部署服务商${label}的 id「${id}」与内置服务商冲突`)
-    if (usedIds.has(id)) throw new Error(`部署服务商${label}的 id「${id}」重复`)
-    if (!normalizeCustomProviderDefinition(item)) throw new Error(`部署服务商${label}的 Manifest 无效`)
+    if (!id) throw new Error(t(`部署服务商${label}缺少 id`, `Deployment provider ${label} has no id`))
+    if (BUILT_IN_PROVIDER_IDS.has(id)) throw new Error(t(`部署服务商${label}的 id「${id}」与内置服务商冲突`, `Deployment provider ${label} id “${id}” conflicts with a built-in provider`))
+    if (usedIds.has(id)) throw new Error(t(`部署服务商${label}的 id「${id}」重复`, `Deployment provider ${label} has duplicate id “${id}”`))
+    if (!normalizeCustomProviderDefinition(item)) throw new Error(t(`部署服务商${label}的 Manifest 无效`, `Deployment provider ${label} has an invalid manifest`))
     usedIds.add(id)
   }
 }
@@ -629,12 +630,12 @@ function normalizeDeploymentProfileEntries(input: unknown, customProviderIds: Se
   const records = Array.isArray(input)
     ? input.flatMap((item) => {
         validateImportedProfileRecord(item)
-        if (!isRecord(item)) throw new Error('API 配置必须是对象')
+        if (!isRecord(item)) throw new Error(t('API 配置必须是对象', 'API profile must be an object'))
         if (typeof item.provider !== 'string' || (!BUILT_IN_PROVIDER_IDS.has(item.provider) && !customProviderIds.has(item.provider))) {
           const name = typeof item.name === 'string' ? item.name.trim() : ''
           const id = typeof item.id === 'string' ? item.id.trim() : ''
           const label = name || id ? `「${name || id}」` : ''
-          throw new Error(`API 配置${label}引用了不存在的自定义服务商`)
+          throw new Error(t(`API 配置${label}引用了不存在的自定义服务商`, `API profile ${label} references a missing custom provider`))
         }
         return [item]
       })
@@ -642,7 +643,7 @@ function normalizeDeploymentProfileEntries(input: unknown, customProviderIds: Se
   const usedIds = new Set<string>()
   if (deploymentConfig && records.length > 1) {
     const defaultCount = records.filter((record) => record.isDefault === true).length
-    if (defaultCount !== 1) throw new Error('部署文件包含多个 API 配置时，必须且只能有一项设置 isDefault: true')
+    if (defaultCount !== 1) throw new Error(t('部署文件包含多个 API 配置时，必须且只能有一项设置 isDefault: true', 'When deploying multiple API profiles, exactly one must have isDefault: true'))
   }
 
   for (const record of records) {
@@ -651,7 +652,7 @@ function normalizeDeploymentProfileEntries(input: unknown, customProviderIds: Se
       if (usedIds.has(id)) {
         const name = typeof record.name === 'string' ? record.name.trim() : ''
         const label = name ? `「${name}」` : ''
-        throw new Error(`API 配置${label}的 id「${id}」重复`)
+        throw new Error(t(`API 配置${label}的 id「${id}」重复`, `API profile ${label} has duplicate id “${id}”`))
       }
       usedIds.add(id)
       continue
@@ -861,7 +862,7 @@ function validateCustomProviderTaskMappings(providers: CustomProviderDefinition[
   const invalid = providers.find((provider) =>
     (provider.submit.taskIdPath || provider.editSubmit?.taskIdPath) && !provider.poll,
   )
-  if (invalid) throw new Error(`自定义服务商「${invalid.name}」配置了 taskIdPath，但缺少 poll`)
+  if (invalid) throw new Error(t(`自定义服务商「${invalid.name}」配置了 taskIdPath，但缺少 poll`, `Custom provider “${invalid.name}” has taskIdPath but no poll settings`))
 }
 
 function stripMarkdownCodeFence(text: string): string {
@@ -879,11 +880,11 @@ export function importCustomProviderSettingsFromJson(
   try {
     parsed = JSON.parse(stripMarkdownCodeFence(jsonText))
   } catch {
-    throw new Error('JSON 格式无效')
+    throw new Error(t('JSON 格式无效', 'Invalid JSON'))
   }
 
   if (!parsed || typeof parsed !== 'object') {
-    throw new Error('JSON 根节点必须是对象')
+    throw new Error(t('JSON 根节点必须是对象', 'The JSON root must be an object'))
   }
 
   const record = parsed as Record<string, unknown>
@@ -893,7 +894,7 @@ export function importCustomProviderSettingsFromJson(
     if (options.deploymentConfig) validateDeploymentProviderIds(record.customProviders)
     const customProviders = normalizeCustomProviderDefinitions(record.customProviders)
     if (!options.deploymentConfig && Array.isArray(record.customProviders) && record.customProviders.length > 0 && !customProviders.length) {
-      throw new Error('customProviders 数组中没有有效的服务商配置')
+      throw new Error(t('customProviders 数组中没有有效的服务商配置', 'The customProviders array contains no valid providers'))
     }
     validateCustomProviderTaskMappings(customProviders)
     const customProviderIds = new Set(customProviders.map((provider) => provider.id))
@@ -922,7 +923,7 @@ export function importCustomProviderSettingsFromJson(
     return { customProviders: [direct], profiles: [] }
   }
 
-  throw new Error('无法识别该 JSON。请粘贴自定义服务商配置。')
+  throw new Error(t('无法识别该 JSON。请粘贴自定义服务商配置。', 'This JSON is not recognized. Paste custom provider settings.'))
 }
 
 export function importCustomProviderDefinitionFromJson(jsonText: string, existingProviders: CustomProviderDefinition[] = []): CustomProviderDefinition {
@@ -955,16 +956,16 @@ export function getActiveApiProfile(settings: Partial<AppSettings> | unknown): A
 }
 
 export function validateApiProfile(profile: ApiProfile): string | null {
-  if (!profile.name.trim()) return '缺少名称'
-  if (profile.provider !== 'fal' && !profile.baseUrl.trim() && !shouldUseApiProxy(profile.apiProxy)) return '缺少 API URL'
-  if (!profile.apiKey.trim()) return '缺少 API Key'
-  if (!profile.model.trim()) return '缺少模型 ID'
+  if (!profile.name.trim()) return t('缺少名称', 'Name is missing')
+  if (profile.provider !== 'fal' && !profile.baseUrl.trim() && !shouldUseApiProxy(profile.apiProxy)) return t('缺少 API URL', 'API URL is missing')
+  if (!profile.apiKey.trim()) return t('缺少 API Key', 'API key is missing')
+  if (!profile.model.trim()) return t('缺少模型 ID', 'Model ID is missing')
   return null
 }
 
 function isDefaultOpenAIProfile(profile: ApiProfile): boolean {
   return profile.id === DEFAULT_OPENAI_PROFILE_ID &&
-    profile.name === '默认' &&
+    (profile.name === '默认' || profile.name === 'Default') &&
     profile.provider === 'openai' &&
     profile.baseUrl === DEFAULT_BASE_URL &&
     profile.apiKey === '' &&
@@ -1363,8 +1364,8 @@ export const DEFAULT_SETTINGS: AppSettings = normalizeSettings({
 export const MAX_API_PROFILES = 10
 
 export function getApiProfileLimitError(profiles: ApiProfile[]): string | null {
-  for (const [mode, label] of [['images', '画廊'], ['responses', 'Agent']] as const) {
-    if (profiles.filter((profile) => profile.provider === 'openai' && profile.apiMode === mode).length > MAX_API_PROFILES) return `${label}最多添加 ${MAX_API_PROFILES} 套 API 配置（含停用项），请先删除多余配置。`
+  for (const [mode, label] of [['images', t('画廊', 'Image')], ['responses', 'Agent']] as const) {
+    if (profiles.filter((profile) => profile.provider === 'openai' && profile.apiMode === mode).length > MAX_API_PROFILES) return t(`${label}最多添加 ${MAX_API_PROFILES} 套 API 配置（含停用项），请先删除多余配置。`, `${label} supports up to ${MAX_API_PROFILES} API profiles, including disabled ones. Delete unused profiles first.`)
   }
   return null
 }

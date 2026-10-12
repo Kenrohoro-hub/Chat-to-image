@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import type { AppSettings } from '../types'
 import { createDefaultOpenAIProfile, isAgentTextApiProfile, normalizeSettings } from './apiProfiles'
 
@@ -8,7 +9,7 @@ export function normalizeWorkspaceSettings(input: Partial<AppSettings>): AppSett
   if (!gallery) {
     let id = 'gallery-default'
     while (settings.profiles.some((p) => p.id === id)) id += '-new'
-    gallery = createDefaultOpenAIProfile({ id, name: '画廊方案 1', apiProxy: false })
+    gallery = createDefaultOpenAIProfile({ id, name: t('画廊方案 1', 'Image profile 1'), apiProxy: false })
     settings.profiles.push(gallery)
     if (!settings.failover?.slots.length) settings.failover = { enabled: true, primaryId: id, slots: [id], disabledIds: [] }
   }

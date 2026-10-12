@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import type { AgentConversation, TaskRecord, StoredImage, StoredImageThumbnail } from '../types'
 
 const DB_NAME = 'gpt-image-playground'
@@ -48,7 +49,7 @@ function dbTransaction<T>(
         const req = fn(store)
         tx.oncomplete = () => resolve(req.result)
         tx.onerror = () => reject(tx.error)
-        tx.onabort = () => reject(tx.error ?? new Error('数据库事务已中止'))
+        tx.onabort = () => reject(tx.error ?? new Error(t('数据库事务已中止', 'Database transaction aborted')))
         req.onerror = () => reject(req.error)
       }),
   )
@@ -112,7 +113,7 @@ export function commitAgentConversationChanges(conversations: AgentConversation[
     for (const id of removedIds) store.delete(id)
     tx.oncomplete = () => resolve(undefined)
     tx.onerror = () => reject(tx.error)
-    tx.onabort = () => reject(tx.error ?? new Error('数据库事务已中止'))
+    tx.onabort = () => reject(tx.error ?? new Error(t('数据库事务已中止', 'Database transaction aborted')))
   }))
 }
 
@@ -327,7 +328,7 @@ function loadImage(dataUrl: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image()
     image.onload = () => resolve(image)
-    image.onerror = () => reject(new Error('图片加载失败'))
+    image.onerror = () => reject(new Error(t('图片加载失败', 'Could not load the image')))
     image.src = dataUrl
   })
 }
@@ -336,14 +337,14 @@ async function createImageThumbnail(dataUrl: string): Promise<Omit<StoredImageTh
   const image = await loadImage(dataUrl)
   const width = image.naturalWidth
   const height = image.naturalHeight
-  if (width <= 0 || height <= 0) throw new Error('图片尺寸无效')
+  if (width <= 0 || height <= 0) throw new Error(t('图片尺寸无效', 'Invalid image dimensions'))
 
   const scale = Math.min(1, THUMBNAIL_MAX_SIZE / Math.max(width, height))
   const canvas = document.createElement('canvas')
   canvas.width = Math.max(1, Math.round(width * scale))
   canvas.height = Math.max(1, Math.round(height * scale))
   const ctx = canvas.getContext('2d')
-  if (!ctx) throw new Error('当前浏览器不支持 Canvas')
+  if (!ctx) throw new Error(t('当前浏览器不支持 Canvas', 'This browser does not support Canvas'))
   ctx.drawImage(image, 0, 0, canvas.width, canvas.height)
 
   return {

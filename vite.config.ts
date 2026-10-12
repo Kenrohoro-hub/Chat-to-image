@@ -1,4 +1,5 @@
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig } from 'vitest/config'
+import { loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { existsSync, readFileSync } from 'fs'
 import { resolve } from 'path'
@@ -49,6 +50,7 @@ export default defineConfig(async ({ command, mode }) => {
 
   return {
     plugins: [react()],
+    test: { setupFiles: ['./src/testSetup.ts'] },
     base: './',
     define: {
       __APP_VERSION__: JSON.stringify(pkg.version),

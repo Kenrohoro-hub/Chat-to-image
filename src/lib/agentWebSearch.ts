@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import type { AgentRound, ResponsesApiResponse, ResponsesOutputItem, TaskRecord } from '../types'
 import { normalizeResponsesOutputItems } from './responsesOutputState'
 
@@ -28,9 +29,9 @@ function getWebSearchActionType(action: unknown) {
 }
 
 function getRunningStatusText(actionType: string) {
-  if (actionType === 'open_page') return '正在读取网页'
-  if (actionType === 'find_in_page') return '正在查找内容'
-  return '正在搜索网页'
+  if (actionType === 'open_page') return t('正在读取网页', 'Reading web page')
+  if (actionType === 'find_in_page') return t('正在查找内容', 'Finding content')
+  return t('正在搜索网页', 'Searching the web')
 }
 
 export function collectWebSearchCalls(output: ResponsesOutputItem[] | undefined): AgentWebSearchCallSummary[] {
@@ -46,10 +47,10 @@ export function collectWebSearchCalls(output: ResponsesOutputItem[] | undefined)
 export function getWebSearchStatusForCalls(calls: AgentWebSearchCallSummary[]): AgentWebSearchStatus | null {
   const latestCall = calls[calls.length - 1]
   if (!latestCall) return null
-  if (calls.some((call) => call.status === 'failed')) return { text: '搜索失败', completed: true }
+  if (calls.some((call) => call.status === 'failed')) return { text: t('搜索失败', 'Search failed'), completed: true }
   const completed = calls.every((call) => call.status === 'completed')
   return {
-    text: completed ? '完成搜索' : getRunningStatusText(latestCall.actionType),
+    text: completed ? t('完成搜索', 'Search complete') : getRunningStatusText(latestCall.actionType),
     completed,
   }
 }

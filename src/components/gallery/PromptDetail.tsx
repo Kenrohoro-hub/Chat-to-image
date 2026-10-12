@@ -1,3 +1,4 @@
+import { getCategoryLabel, t } from '../../lib/i18n'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import type { PromptTemplate } from '../../types'
@@ -50,27 +51,27 @@ export default function PromptDetail({ item, categories, personal, saved, onClos
       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
       if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
     }}>
-      <header><div><span>{editing ? '编辑个人提示词' : '提示词详情'}</span><h2 id="prompt-detail-title">{item.title || '新建提示词'}</h2></div><button type="button" aria-label="关闭提示词详情" onClick={onClose}>×</button></header>
+      <header><div><span>{editing ? t('编辑个人提示词', 'Edit personal prompt') : t('提示词详情', 'Prompt details')}</span><h2 id="prompt-detail-title">{item.title || t('新建提示词', 'New prompt')}</h2></div><button type="button" aria-label={t('关闭提示词详情', 'Close prompt details')} onClick={onClose}>×</button></header>
       <div className="prompt-detail-body">
         <div className="prompt-detail-preview">
-          {item.previewUrl && !imageFailed ? <><button type="button" className="prompt-detail-image" aria-label={zoom ? '还原预览' : '放大预览'} onClick={() => setZoom(!zoom)}><PromptImage src={item.previewUrl} alt={item.title} referrerPolicy="no-referrer" onError={() => setImageFailed(true)} /></button><button type="button" className="prompt-zoom" onClick={() => setZoom(!zoom)}>{zoom ? '还原预览' : '放大预览'}</button></> : <div className="prompt-no-preview"><span aria-hidden="true">Aa</span><p>{imageFailed ? '预览图暂时无法加载' : '文字提示词'}</p></div>}
+          {item.previewUrl && !imageFailed ? <><button type="button" className="prompt-detail-image" aria-label={zoom ? t('还原预览', 'Reset preview') : t('放大预览', 'Enlarge preview')} onClick={() => setZoom(!zoom)}><PromptImage src={item.previewUrl} alt={item.title} referrerPolicy="no-referrer" onError={() => setImageFailed(true)} /></button><button type="button" className="prompt-zoom" onClick={() => setZoom(!zoom)}>{zoom ? t('还原预览', 'Reset preview') : t('放大预览', 'Enlarge preview')}</button></> : <div className="prompt-no-preview"><span aria-hidden="true">Aa</span><p>{imageFailed ? t('预览图暂时无法加载', 'Preview image is unavailable') : t('文字提示词', 'Text prompt')}</p></div>}
         </div>
         <div className="prompt-detail-copy" hidden={zoom}>
           {editing ? <form onSubmit={async (event) => { event.preventDefault(); if (saving || !title.trim() || !content.trim()) return; setSaving(true); try { if (await onSave(title.trim(), content.trim(), category)) setEditing(false) } finally { setSaving(false) } }}>
-            <label>名称<input aria-label="提示词名称" value={title} onChange={(event) => setTitle(event.target.value)} required autoFocus /></label>
-            <label>主题分类<select aria-label="提示词分类" value={category} onChange={(event) => setCategory(event.target.value)}>{categories.map((name) => <option key={name} value={name}>{name}</option>)}</select></label>
-            <label className="prompt-content-field">提示词内容<textarea aria-label="提示词内容" value={content} onChange={(event) => setContent(event.target.value)} required /></label>
-            <div className="prompt-detail-actions"><button type="submit" className="prompt-primary" disabled={saving}>{saving ? '保存中…' : '保存'}</button><button type="button" onClick={() => { if (!item.id) onClose(); else { setEditing(false); setTitle(item.title); setContent(item.content); setCategory(item.category || categories[0]) } }}>取消</button></div>
+            <label>{t('名称', 'Name')}<input aria-label={t('提示词名称', 'Prompt name')} value={title} onChange={(event) => setTitle(event.target.value)} required autoFocus /></label>
+            <label>{t('主题分类', 'Category')}<select aria-label={t('提示词分类', 'Prompt category')} value={category} onChange={(event) => setCategory(event.target.value)}>{categories.map((name) => <option key={name} value={name}>{getCategoryLabel(name)}</option>)}</select></label>
+            <label className="prompt-content-field">{t('提示词内容', 'Prompt content')}<textarea aria-label={t('提示词内容', 'Prompt content')} value={content} onChange={(event) => setContent(event.target.value)} required /></label>
+            <div className="prompt-detail-actions"><button type="submit" className="prompt-primary" disabled={saving}>{saving ? t('保存中…', 'Saving…') : t('保存', 'Save')}</button><button type="button" onClick={() => { if (!item.id) onClose(); else { setEditing(false); setTitle(item.title); setContent(item.content); setCategory(item.category || categories[0]) } }}>{t('取消', 'Cancel')}</button></div>
           </form> : <>
-            <div className="prompt-detail-text-wrap"><div className="prompt-detail-label"><span>{personal ? `主题分类 · ${item.category || categories[0]}` : '完整提示词'}</span><span>{item.content.length} 字符</span></div><p className="prompt-detail-text">{item.content}</p></div>
+            <div className="prompt-detail-text-wrap"><div className="prompt-detail-label"><span>{personal ? t(`主题分类 · ${item.category || categories[0]}`, `Category · ${getCategoryLabel(item.category || categories[0])}`) : t('完整提示词', 'Full prompt')}</span><span>{item.content.length} {t('字符', ' characters')}</span></div><p className="prompt-detail-text">{item.content}</p></div>
             <footer>
-              <p>{usingImage ? '正在读取预览图…' : '引用提示词只替换草稿文字；引用图片会把预览图加入参考图。不会自动生成。'}</p>
+              <p>{usingImage ? t('正在读取预览图…', 'Loading preview image…') : t('引用提示词只替换草稿文字；引用图片会把预览图加入参考图。不会自动生成。', 'Use prompt replaces the draft text. Use image adds the preview as a reference image. Neither starts generation automatically.')}</p>
               <div className="prompt-detail-actions">
-                <button type="button" className="prompt-primary" aria-label="引用当前提示词" disabled={usingImage} onClick={onUse}>引用提示词</button>
-                <button type="button" disabled={!item.previewUrl || usingImage} title={!item.previewUrl ? '这条提示词没有预览图' : undefined} onClick={() => void referenceImage(false)}>引用图片</button>
-                <button type="button" disabled={!item.previewUrl || usingImage} title={!item.previewUrl ? '这条提示词没有预览图' : undefined} onClick={() => void referenceImage(true)}>引用提示词和图片</button>
-                {personal ? <><button type="button" disabled={usingImage} onClick={() => { setTitle(item.title); setContent(item.content); setCategory(item.category || categories[0]); setEditing(true) }}>编辑</button><button type="button" disabled={usingImage} onClick={onDelete}>删除</button></> : <button type="button" aria-label="收藏提示词" disabled={saved || usingImage} onClick={onCollect}>{saved ? '已收藏' : '收藏'}</button>}
-                {item.sourceUrl && <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer">查看来源 ↗</a>}
+                <button type="button" className="prompt-primary" aria-label={t('引用当前提示词', 'Use current prompt')} disabled={usingImage} onClick={onUse}>{t('引用提示词', 'Use prompt')}</button>
+                <button type="button" disabled={!item.previewUrl || usingImage} title={!item.previewUrl ? t('这条提示词没有预览图', 'This prompt has no preview image') : undefined} onClick={() => void referenceImage(false)}>{t('引用图片', 'Use image')}</button>
+                <button type="button" disabled={!item.previewUrl || usingImage} title={!item.previewUrl ? t('这条提示词没有预览图', 'This prompt has no preview image') : undefined} onClick={() => void referenceImage(true)}>{t('引用提示词和图片', 'Use prompt and image')}</button>
+                {personal ? <><button type="button" disabled={usingImage} onClick={() => { setTitle(item.title); setContent(item.content); setCategory(item.category || categories[0]); setEditing(true) }}>{t('编辑', 'Edit')}</button><button type="button" disabled={usingImage} onClick={onDelete}>{t('删除', 'Delete')}</button></> : <button type="button" aria-label={t('收藏提示词', 'Favorite prompt')} disabled={saved || usingImage} onClick={onCollect}>{saved ? t('已收藏', 'Favorited') : t('收藏', 'Favorite')}</button>}
+                {item.sourceUrl && <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer">{t('查看来源 ↗', 'View source ↗')}</a>}
               </div>
             </footer>
           </>}

@@ -1,9 +1,10 @@
+import { t } from './i18n'
 import { DEFAULT_PARAMS, type AgentConversation, type AgentMessage, type AgentRound, type TaskRecord } from '../types'
 import { normalizeResponsesOutputItems } from './responsesOutputState'
 import { normalizeAgentPreferences } from './agentPreferences'
 import { normalizeTaskParams } from './taskParams'
 
-const AGENT_ROUND_IMAGE_MENTION_RE = /@(?:第)?(\d+)轮图(\d+)/g
+const AGENT_ROUND_IMAGE_MENTION_RE = /@(?:第|turn)?(\d+)(?:轮图|-image)(\d+)/g
 
 function normalizeStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
@@ -44,7 +45,7 @@ function normalizeAgentRound(value: unknown, fallbackIndex: number): AgentRound 
     ...(responseOutput ? { responseOutput } : {}),
     status,
     error: status === 'error'
-      ? typeof round.error === 'string' ? round.error : '上次请求已中断'
+      ? typeof round.error === 'string' ? round.error : t('上次请求已中断', 'The previous request was interrupted')
       : null,
     createdAt: typeof round.createdAt === 'number' ? round.createdAt : Date.now(),
     finishedAt: typeof round.finishedAt === 'number' ? round.finishedAt : null,
@@ -114,7 +115,7 @@ export function normalizeAgentConversations(value: unknown): AgentConversation[]
         id: conversation.id,
         imageParams: normalizeTaskParams(conversation.imageParams, DEFAULT_PARAMS),
         preferences: normalizeAgentPreferences(conversation.preferences),
-        title: typeof conversation.title === 'string' && conversation.title.trim() ? conversation.title : '新对话',
+        title: typeof conversation.title === 'string' && conversation.title.trim() ? conversation.title : t('新对话', 'New conversation'),
         activeRoundId: typeof conversation.activeRoundId === 'string' && roundIds.has(conversation.activeRoundId) ? conversation.activeRoundId : rounds[rounds.length - 1]?.id ?? null,
         createdAt: typeof conversation.createdAt === 'number' ? conversation.createdAt : Date.now(),
         updatedAt: typeof conversation.updatedAt === 'number' ? conversation.updatedAt : Date.now(),
@@ -208,8 +209,8 @@ export function remapAgentRoundMentionsForPathChange(content: string, oldPath: A
     const oldRound = oldPath[Number(roundNumber) - 1]
     if (!oldRound) return match
     const newRoundIndex = newIndexByRoundId.get(oldRound.id)
-    if (!newRoundIndex) return `@已删除轮次图${imageNumber}`
-    return `@第${newRoundIndex}轮图${imageNumber}`
+    if (!newRoundIndex) return match.startsWith('@turn') ? `@removed-turn-image${imageNumber}` : `@已删除轮次图${imageNumber}`
+    return match.startsWith('@turn') ? `@turn${newRoundIndex}-image${imageNumber}` : `@第${newRoundIndex}轮图${imageNumber}`
   })
 }
 

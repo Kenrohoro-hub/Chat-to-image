@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import type { AgentConversation, AgentMessage, AgentRound, ResponsesOutputItem, TaskRecord } from '../types'
 import { getAgentRoundPath } from './agentConversationState'
 import {
@@ -144,7 +145,7 @@ export async function buildAgentApiInput(options: BuildAgentApiInputOptions): Pr
         const assistantMessage = round.assistantMessageId
           ? options.conversation.messages.find((message) => message.id === round.assistantMessageId)
           : null
-        input.push(createAssistantFallbackItem(assistantMessage?.content || '图像已生成。'))
+        input.push(createAssistantFallbackItem(assistantMessage?.content || t('图像已生成。', 'Image generated.')))
       }
     } else {
       const assistantMessage = round.assistantMessageId

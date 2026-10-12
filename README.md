@@ -2,7 +2,9 @@
 
 在 Windows 本机运行的 AI 图片生成与编辑工具，将直接生图、对话式创作、提示词管理和作品整理放在同一个工作区。支持桌面窗口、本地浏览器及独立 CLI 调用，通过用户配置的 OpenAI 兼容 API 使用图像和对话模型。
 
-本项目独立维护，当前版本 **0.1.0**。项目地址：[Kenrohoro-hub/Chat-to-image](https://github.com/Kenrohoro-hub/Chat-to-image)。详细操作见 [中文使用说明](README_使用说明.md)。
+本项目独立维护，当前版本 **0.1.0**。项目地址：[Kenrohoro-hub/Chat-to-image](https://github.com/Kenrohoro-hub/Chat-to-image)。文档：[English README](README.en.md) · [中文使用说明](README_使用说明.md) · [English User Guide](README_User_Guide.en.md)。
+
+界面默认根据系统语言显示：中文系统显示中文，其他系统语言显示英文。桌面版读取 Windows 系统 UI 语言，本地浏览器版读取浏览器首选语言。欢迎页可点击“中文 / English”手动切换；选择会保存在当前入口，切换后刷新界面，已保存的数据保留。当前 GitHub 发布的 0.1.0 安装器仍使用原中文界面；本次中英文界面从源码重新构建后可用。
 
 ## 主要功能
 
@@ -16,13 +18,13 @@
 | 提示词文件保存 | 可指定本机保存位置，按库名和分类保存正文、来源及已预载图片；切换位置先复制校验，再启用，保留旧数据。 |
 | 作品与对话管理 | 历史搜索、收藏、图片下载、参考图复用、对话管理，以及作品、对话和个人提示词的导入导出。 |
 | 外部 Agent 接入 | 通过本地 CLI 接入 Codex、Claude Code、Cursor 和 DeepSeek Harness，生成或编辑图片后返回本地路径。 |
-| 使用体验 | 中文界面、深浅主题、可折叠侧栏、窄屏布局及设置保存反馈。 |
+| 使用体验 | 中英自动切换界面、深浅主题、可折叠侧栏、窄屏布局及设置保存反馈。 |
 
 ## 快速开始
 
 ### Windows 独立安装版
 
-从 [GitHub Releases](https://github.com/Kenrohoro-hub/Chat-to-image/releases) 下载 `Chat-to-image-0.1.0-windows-x64-setup.exe`，双击按中文向导安装，然后从开始菜单打开 **Chat to image**。支持 Windows 10（1809 起）与 Windows 11 x64，内置 Python、桌面依赖、前端和 WebView2 离线安装组件，无需另装 Python 或 Node。
+从 [GitHub Releases](https://github.com/Kenrohoro-hub/Chat-to-image/releases) 下载 `Chat-to-image-0.1.0-windows-x64-setup.exe`，双击按安装向导安装，然后从开始菜单打开 **Chat to image**。支持 Windows 10（1809 起）与 Windows 11 x64，内置 Python、桌面依赖、前端和 WebView2 离线安装组件，无需另装 Python 或 Node。GitHub 上现有的 0.1.0 安装器尚未包含本次新增的英文界面。
 
 安装包不包含个人设置、Key、作品、历史或备份；保留项目的 45 条内置提示词与展示图。首次使用需自行填写 API。默认按当前 Windows 用户安装，升级请选择原目录；卸载保留使用后产生的配置与作品。自签名构建的安装器和卸载程序带有签名；其他电脑默认不信任自签证书，仍可能显示 Windows 发布者或 SmartScreen 提示。
 
@@ -42,7 +44,7 @@
 
 在 [GitHub Releases](https://github.com/Kenrohoro-hub/Chat-to-image/releases) 查看版本文件。Windows x64 用户优先下载独立 EXE 安装器，无需预装 Python 或 Node。若只有 `Source code (zip)`，按下面的源码步骤先构建。
 
-环境安装链接及逐步操作见 [下载与启动](README_使用说明.md#下载与启动)；第一次使用可按 [首次配置与第一张图片](README_使用说明.md#首次配置与第一张图片) 完成配置。
+环境安装链接及逐步操作见 [下载与启动](README_使用说明.md#下载与启动)；第一次使用可按 [首次配置与第一张图片](README_使用说明.md#首次配置与第一张图片) 完成配置。English steps are in the [English User Guide](README_User_Guide.en.md).
 
 ### 从源码启动
 

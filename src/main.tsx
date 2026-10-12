@@ -10,7 +10,9 @@ import './gallery.css'
 import './creation.css'
 import './prompts.css'
 import { installMobileViewportGuards } from './lib/viewport'
+import { applyUiLanguage } from './lib/i18n'
 
+applyUiLanguage()
 installMobileViewportGuards()
 
 if ('serviceWorker' in navigator) {

@@ -18,16 +18,18 @@ describe('local shared settings', () => {
     await expect((await shared.desktopApi()).agent_connections('connect', 'codex')).rejects.toThrow('桌面窗口')
     expect(fetch).not.toHaveBeenCalled()
     const connect = vi.fn().mockResolvedValue({ ok: true, targets: [] })
-    vi.stubGlobal('window', { __PLAYGROUND_DESKTOP__: true, pywebview: { api: { load_settings: vi.fn(), agent_connections: connect } } })
+    const setLanguage = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('window', { __PLAYGROUND_DESKTOP__: true, pywebview: { api: { set_ui_language: setLanguage, load_settings: vi.fn(), agent_connections: connect } } })
     expect((await (await shared.desktopApi()).agent_connections('connect', 'codex')).ok).toBe(true)
     expect(connect).toHaveBeenCalledWith('connect', 'codex')
+    expect(setLanguage).toHaveBeenCalledWith('zh-CN')
   })
 
   it('blocks automatic saves and remote application when shared settings cannot be decrypted', async () => {
     const snapshot = { settings: null, revision: 'locked', error: '无法解密已有配置' }
     const load = vi.fn().mockResolvedValue(snapshot)
     const save = vi.fn()
-    vi.stubGlobal('window', { __PLAYGROUND_DESKTOP__: true, pywebview: { api: { load_settings: load, save_settings: save } }, dispatchEvent: vi.fn() })
+    vi.stubGlobal('window', { __PLAYGROUND_DESKTOP__: true, pywebview: { api: { set_ui_language: vi.fn().mockResolvedValue(undefined), load_settings: load, save_settings: save } }, dispatchEvent: vi.fn() })
     const shared = await import('./desktop')
     expect(() => shared.allowDesktopSave(snapshot, DEFAULT_SETTINGS)).toThrow('无法解密')
     await expect(shared.saveDesktopSettings(DEFAULT_SETTINGS)).rejects.toThrow('尚未加载')
@@ -46,7 +48,7 @@ describe('local shared settings', () => {
     const shared = await import('./desktop')
     expect(await (await shared.desktopApi()).recover_settings('locked')).toEqual({ ok: true, revision: 'new' })
     expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toEqual({ method: 'recover_settings', args: ['locked'] })
-    expect(fetchMock.mock.calls[1][1]?.headers).toMatchObject({ 'X-Codex-Sync': 'session-token' })
+    expect(fetchMock.mock.calls[1][1]?.headers).toMatchObject({ 'X-Codex-Sync': 'session-token', 'X-Playground-Language': 'zh-CN' })
   })
 
   it('uses protected same-origin calls and serializes saves with the latest revision', async () => {
@@ -59,7 +61,7 @@ describe('local shared settings', () => {
     const first = shared.saveDesktopSettings({ ...DEFAULT_SETTINGS, theme: 'dark' })
     const second = shared.saveDesktopSettings({ ...DEFAULT_SETTINGS, theme: 'light' })
     await Promise.all([first, second])
-    expect(fetchMock.mock.calls[1][1]?.headers).toMatchObject({ 'X-Codex-Sync': 'session-token' })
+    expect(fetchMock.mock.calls[1][1]?.headers).toMatchObject({ 'X-Codex-Sync': 'session-token', 'X-Playground-Language': 'zh-CN' })
     expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).args[1]).toBe('start')
     expect(JSON.parse(String(fetchMock.mock.calls[2][1]?.body)).args[1]).toBe('one')
     expect(shared.getSettingsRevision()).toBe('two')
@@ -102,7 +104,7 @@ describe('local shared settings', () => {
     let release!: (value: typeof snapshot) => void
     const load = vi.fn(() => new Promise<typeof snapshot>((resolve) => { release = resolve }))
     const save = vi.fn().mockResolvedValue({ ok: true, revision: 'local' })
-    vi.stubGlobal('window', { __PLAYGROUND_DESKTOP__: true, pywebview: { api: { load_settings: load, save_settings: save } }, dispatchEvent: vi.fn() })
+    vi.stubGlobal('window', { __PLAYGROUND_DESKTOP__: true, pywebview: { api: { set_ui_language: vi.fn().mockResolvedValue(undefined), load_settings: load, save_settings: save } }, dispatchEvent: vi.fn() })
     const shared = await import('./desktop')
     shared.allowDesktopSave({ settings: DEFAULT_SETTINGS, revision: 'start' }, DEFAULT_SETTINGS)
     const apply = vi.fn((settings: Partial<typeof DEFAULT_SETTINGS>) => ({ ...DEFAULT_SETTINGS, ...settings }))
@@ -139,7 +141,7 @@ describe('local shared settings', () => {
 
   it('uses the native bridge in a desktop window with the same revision contract', async () => {
     const save = vi.fn().mockResolvedValue({ ok: true, revision: 'native' })
-    vi.stubGlobal('window', { __PLAYGROUND_DESKTOP__: true, pywebview: { api: { load_settings: vi.fn(), save_settings: save } }, dispatchEvent: vi.fn() })
+    vi.stubGlobal('window', { __PLAYGROUND_DESKTOP__: true, pywebview: { api: { set_ui_language: vi.fn().mockResolvedValue(undefined), load_settings: vi.fn(), save_settings: save } }, dispatchEvent: vi.fn() })
     const shared = await import('./desktop')
     shared.allowDesktopSave({ settings: DEFAULT_SETTINGS, revision: 'start' }, DEFAULT_SETTINGS)
     await shared.saveDesktopSettings({ ...DEFAULT_SETTINGS, theme: 'dark' })
@@ -149,7 +151,7 @@ describe('local shared settings', () => {
 
   it.each(['chosen', ''])('passes explicit model %s while keeping automatic generation unlocked', async (galleryModel) => {
     const generate = vi.fn().mockResolvedValue({ ok: true, images: [], warnings: [] })
-    vi.stubGlobal('window', { __PLAYGROUND_DESKTOP__: true, pywebview: { api: { generate, load_settings: vi.fn() } }, dispatchEvent: vi.fn() })
+    vi.stubGlobal('window', { __PLAYGROUND_DESKTOP__: true, pywebview: { api: { set_ui_language: vi.fn().mockResolvedValue(undefined), generate, load_settings: vi.fn() } }, dispatchEvent: vi.fn() })
     const { createDefaultOpenAIProfile, normalizeSettings } = await import('./apiProfiles')
     const profile = createDefaultOpenAIProfile({ id: 'selected', apiKey: 'fake', apiProxy: false, model: 'default', models: ['default', 'chosen'] })
     const shared = await import('./desktop')
@@ -172,7 +174,7 @@ describe('local shared settings', () => {
     const shared = await import('./desktop')
     const pending = shared.desktopApi()
     expect(nativeWindow.addEventListener).toHaveBeenCalledWith('pywebviewready', expect.any(Function), { once: true })
-    const api = { load_settings: vi.fn() }
+    const api = { set_ui_language: vi.fn().mockResolvedValue(undefined), load_settings: vi.fn() }
     nativeWindow.pywebview.api = api
     signal()
     expect(await pending).toBe(api)

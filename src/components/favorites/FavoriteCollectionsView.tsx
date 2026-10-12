@@ -1,3 +1,4 @@
+import { getFavoriteCollectionLabel, t } from '../../lib/i18n'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { getFavoriteCoverImages } from '../../lib/favoriteState'
 import type { TaskRecord, FavoriteCollection } from '../../types'
@@ -30,10 +31,10 @@ export function FavoriteCollectionsView() {
   const cards = useMemo<CollectionCard[]>(() => {
     const allTasks = getCollectionTasks(ALL_FAVORITES_COLLECTION_ID, tasks, defaultFavoriteCollectionId)
     return [
-      { id: ALL_FAVORITES_COLLECTION_ID, name: '全部', tasks: allTasks },
+      { id: ALL_FAVORITES_COLLECTION_ID, name: t('全部', 'All'), tasks: allTasks },
       ...collections.map((collection) => ({
         id: collection.id,
-        name: collection.name,
+        name: getFavoriteCollectionLabel(collection),
         collection,
         tasks: getCollectionTasks(collection.id, tasks, defaultFavoriteCollectionId),
       })),
@@ -89,11 +90,11 @@ export function FavoriteCollectionsView() {
     if (collections.length <= 1) return
     const imageCount = new Set(collectionTasks.flatMap((task) => task.outputImages || [])).size
     setConfirmDialog({
-      title: '删除收藏夹',
-      message: `确定要删除收藏夹「${collection.name}」吗？`,
+      title: t('删除收藏夹', 'Delete collection'),
+      message: t(`确定要删除收藏夹「${collection.name}」吗？`, `Delete collection “${getFavoriteCollectionLabel(collection)}”?`),
       checkbox: imageCount > 0
         ? {
-            label: `同时删除收藏夹中的图片（${imageCount} 张）`,
+            label: t(`同时删除收藏夹中的图片（${imageCount} 张）`, `Also delete the images in this collection (${imageCount})`),
             tone: 'danger',
           }
         : undefined,
@@ -114,8 +115,8 @@ export function FavoriteCollectionsView() {
       return
     }
     setConfirmDialog({
-      title: '修改默认收藏夹',
-      message: `确定要将默认收藏夹从「${current.name}」改为「${collection.name}」吗？`,
+      title: t('修改默认收藏夹', 'Change default collection'),
+      message: t(`确定要将默认收藏夹从「${current.name}」改为「${collection.name}」吗？`, `Change the default collection from “${getFavoriteCollectionLabel(current)}” to “${getFavoriteCollectionLabel(collection)}”?`),
       action: () => setDefaultFavoriteCollectionId(collection.id),
     })
   }
@@ -125,7 +126,7 @@ export function FavoriteCollectionsView() {
       {filteredCards.length === 0 ? (
         <div className="py-32 text-center text-gray-400 dark:text-gray-500">
           <FavoriteIcon className="mx-auto mb-4 h-12 w-12 text-gray-300 dark:text-gray-600" />
-          <p className="text-sm">{cards.length === 0 ? '还没有收藏的图片' : '没有找到匹配的收藏夹'}</p>
+          <p className="text-sm">{cards.length === 0 ? t('还没有收藏的图片', 'No favorite images yet') : t('没有找到匹配的收藏夹', 'No matching collections')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 pb-10">

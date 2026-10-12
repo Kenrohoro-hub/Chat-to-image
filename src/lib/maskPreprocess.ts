@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import type { InputImage } from '../types'
 import { canvasToBlob, loadImage } from './canvasImage'
 import { blobToDataUrl } from './dataUrl'
@@ -67,7 +68,7 @@ export async function prepareMaskTargetDataUrl(dataUrl: string): Promise<Prepare
   canvas.width = size.width
   canvas.height = size.height
   const ctx = canvas.getContext('2d')
-  if (!ctx) throw new Error('当前浏览器不支持 Canvas')
+  if (!ctx) throw new Error(t('当前浏览器不支持 Canvas', 'This browser does not support Canvas'))
   ctx.drawImage(image, 0, 0, size.width, size.height)
 
   const blob = await canvasToBlob(canvas, 'image/png')

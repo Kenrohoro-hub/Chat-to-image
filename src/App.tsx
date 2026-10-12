@@ -1,3 +1,4 @@
+import { t } from './lib/i18n'
 import WelcomeModal from './components/WelcomeModal'
 import { loadPersonalPromptStorage, updatePromptStorage } from './lib/promptStorage'
 import { useEffect, useState } from 'react'
@@ -123,7 +124,7 @@ export default function App() {
         const personal = await loadPersonalPromptStorage()
         if (personal) useStore.setState(personal)
       } catch (err) {
-        const message = err instanceof Error ? err.message : '提示词保存位置加载失败。'
+        const message = err instanceof Error ? err.message : t('提示词保存位置加载失败。', 'Could not load the prompt save location.')
         updatePromptStorage({ error: message })
         useStore.getState().showToast(message, 'error')
       }
@@ -134,7 +135,7 @@ export default function App() {
         if (examples.length) useStore.getState().setTasks([...useStore.getState().tasks, ...examples])
       }).catch((error) => {
         console.warn('Failed to load starter examples:', error)
-        useStore.getState().showToast('内置示例加载失败，可重新打开工具重试。', 'info')
+        useStore.getState().showToast(t('内置示例加载失败，可重新打开工具重试。', 'Could not load the built-in examples. Reopen the app to try again.'), 'info')
       })
     }
 
@@ -190,7 +191,7 @@ export default function App() {
       .catch(async (error) => {
         if (!initialized) {
           setDesktopReady(false)
-          setDesktopError(snapshot?.error || `${loadingHistory ? '本机历史' : '共享配置'}加载失败。已停止自动保存和生图，请关闭窗口后重开。`)
+          setDesktopError(snapshot?.error || t(`${loadingHistory ? '本机历史' : '共享配置'}加载失败。已停止自动保存和生图，请关闭窗口后重开。`, `Could not load ${loadingHistory ? 'local history' : 'shared settings'}. Automatic saving and generation have stopped. Close and reopen the window.`))
           return
         }
         console.warn('Failed to import preset config:', error)
@@ -213,7 +214,7 @@ export default function App() {
           setDesktopReady(true)
           await firstSave.catch(() => undefined)
         } catch {
-          setDesktopError('本机设置加载失败。已停止自动保存和生图，请关闭窗口后重开。')
+          setDesktopError(t('本机设置加载失败。已停止自动保存和生图，请关闭窗口后重开。', 'Could not load local settings. Automatic saving and generation have stopped. Close and reopen the window.'))
         }
       })
   }, [])
@@ -231,17 +232,17 @@ export default function App() {
 
   return (
     <div className="playground-workspace">
-      {!desktopReady && <div role="status" className="fixed inset-0 z-[120] flex items-center justify-center bg-background p-10"><div className="max-w-md text-center"><h2 className="mb-4 text-xl">{desktopError ? '无法加载设置' : '正在打开工作室…'}</h2><p className="text-sm leading-7 text-gray-500">{desktopError || '正在读取本机加密设置，请稍候。'}</p>{failedSnapshot && <><p className="mt-4 text-sm leading-7 text-gray-500">重新配置会保留原加密文件，需要重新填写地址、Key 和模型。历史与作品保持不变。</p><button type="button" disabled={recovering} className="mt-5 rounded-xl bg-primary px-5 py-3 text-white disabled:opacity-50" onClick={async () => {
+      {!desktopReady && <div role="status" className="fixed inset-0 z-[120] flex items-center justify-center bg-background p-10"><div className="max-w-md text-center"><h2 className="mb-4 text-xl">{desktopError ? t('无法加载设置', 'Unable to load settings') : t('正在打开工作室…', 'Opening the studio…')}</h2><p className="text-sm leading-7 text-gray-500">{desktopError || t('正在读取本机加密设置，请稍候。', 'Reading encrypted local settings. Please wait.')}</p>{failedSnapshot && <><p className="mt-4 text-sm leading-7 text-gray-500">{t('重新配置会保留原加密文件，需要重新填写地址、Key 和模型。历史与作品保持不变。', 'Reconfiguring keeps the original encrypted file. Enter the URL, key and model again. History and artwork are preserved.')}</p><button type="button" disabled={recovering} className="mt-5 rounded-xl bg-primary px-5 py-3 text-white disabled:opacity-50" onClick={async () => {
         setRecovering(true)
         try {
           const result = await (await desktopApi()).recover_settings(failedSnapshot.revision)
           if (!result.ok) throw new Error('recovery failed')
           window.location.reload()
         } catch {
-          setDesktopError('重新配置未完成，原配置已保留。请重新打开工具后再试。')
+          setDesktopError(t('重新配置未完成，原配置已保留。请重新打开工具后再试。', 'Reconfiguration did not finish. Your original settings are preserved. Reopen the app and try again.'))
           setRecovering(false)
         }
-      }}>{recovering ? '正在保留旧配置…' : '保留旧配置并重新配置'}</button></>}</div></div>}
+      }}>{recovering ? t('正在保留旧配置…', 'Preserving old settings…') : t('保留旧配置并重新配置', 'Keep old settings and reconfigure')}</button></>}</div></div>}
       <WorkspaceSidebar view={view} onNavigate={(next) => { setSavePromptDraft(false); setView(next) }} />
       <div className="workspace-content" data-workspace-mode={appMode} data-creation-workspace={creation}>
       {view !== 'prompts' && <Header />}

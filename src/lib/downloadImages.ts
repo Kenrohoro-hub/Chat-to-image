@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import { zipSync } from 'fflate'
 import type { TaskRecord } from '../types'
 import { getNumberedFileNameBase, sanitizeFileNamePart } from './exportFileName'
@@ -109,7 +110,7 @@ async function getImageBlob(imageIdOrUrl: string): Promise<Blob> {
   }
 
   const res = await fetch(src)
-  if (!res.ok && !src.startsWith('data:')) throw new Error(`读取图片失败：${imageIdOrUrl}`)
+  if (!res.ok && !src.startsWith('data:')) throw new Error(t(`读取图片失败：${imageIdOrUrl}`, `Could not read image: ${imageIdOrUrl}`))
   return await res.blob()
 }
 

@@ -1,3 +1,4 @@
+import { t } from '../lib/i18n'
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { createInputImageFromFile, deleteImageIfUnreferenced, useStore } from '../store'
 import { useCloseOnEscape } from '../hooks/useCloseOnEscape'
@@ -158,7 +159,7 @@ export default function Lightbox() {
     try {
       const image = await createInputImageFromFile(file)
       if (!image) {
-        showToast('请选择有效图片', 'error')
+        showToast(t('请选择有效图片', 'Choose a valid image'), 'error')
         return
       }
 
@@ -166,24 +167,24 @@ export default function Lightbox() {
       const targetIdx = currentImages.findIndex((item) => item.id === targetId)
       if (targetIdx < 0) {
         void deleteImageIfUnreferenced(image.id)
-        showToast('原参考图已不存在', 'error')
+        showToast(t('原参考图已不存在', 'The original reference image no longer exists'), 'error')
         return
       }
       if (targetId === image.id) {
-        showToast('参考图未变化', 'info')
+        showToast(t('参考图未变化', 'Reference image unchanged'), 'info')
         return
       }
       if (currentImages.some((item, idx) => idx !== targetIdx && item.id === image.id)) {
-        showToast('这张图片已在参考图中', 'info')
+        showToast(t('这张图片已在参考图中', 'This image is already in the references'), 'info')
         return
       }
 
       replaceInputImage(targetIdx, image)
       const nextList = lightboxImageList.map((id) => id === targetId ? image.id : id)
       setLightboxImageId(image.id, nextList)
-      showToast('参考图已替换', 'success')
+      showToast(t('参考图已替换', 'Reference image replaced'), 'success')
     } catch (err) {
-      showToast(`参考图替换失败：${err instanceof Error ? err.message : String(err)}`, 'error')
+      showToast(t(`参考图替换失败：${err instanceof Error ? err.message : String(err)}`, `Failed to replace reference image: ${err instanceof Error ? err.message : String(err)}`), 'error')
     }
   }, [lightboxImageList, replaceInputImage, setLightboxImageId, showToast])
 
@@ -753,7 +754,7 @@ function LightboxInner({ src, imageId, maskPreviewSrc, onClose, showNav, current
             onClick={onReplace}
           >
             <RefreshIcon className="w-4 h-4" />
-            <span>替换图片</span>
+            <span>{t('替换图片', 'Replace image')}</span>
           </button>
           <div
             className="relative flex items-center"
@@ -763,7 +764,7 @@ function LightboxInner({ src, imageId, maskPreviewSrc, onClose, showNav, current
             onTouchEnd={editHint.clearTimer}
             onTouchCancel={editHint.hide}
           >
-            <ButtonTooltip visible={editDisabled && editHint.visible} text="只能有一张遮罩图" />
+            <ButtonTooltip visible={editDisabled && editHint.visible} text={t('只能有一张遮罩图', 'Only one mask image is allowed')} />
             <button
               type="button"
               disabled={editDisabled}
@@ -771,7 +772,7 @@ function LightboxInner({ src, imageId, maskPreviewSrc, onClose, showNav, current
               onClick={onEdit}
             >
               <EditIcon className="w-4 h-4" />
-              <span>编辑图片</span>
+              <span>{t('编辑图片', 'Edit image')}</span>
             </button>
           </div>
         </div>

@@ -1554,7 +1554,7 @@ describe('fal task recovery', () => {
     expect(useStore.getState().agentConversations[0].messages.find((message) => message.id === 'assistant-a')?.content).toContain('已达到最大工具调用次数（1）')
   })
 
-  it('does not continue a stopped Agent round when a recoverable fal task later completes', async () => {
+  it.each(['已停止生成。', 'Generation stopped.'])('does not continue a stopped Agent round (%s) when a recoverable fal task later completes', async (stoppedMessage) => {
     const textProfile = createDefaultOpenAIProfile({ id: 'agent-text-profile', apiKey: 'text-key', apiMode: 'responses' })
     const imageProfile = createDefaultFalProfile({ id: 'fal-profile', apiKey: 'fal-key' })
     const agentTask = task({
@@ -1591,13 +1591,13 @@ describe('fal task recovery', () => {
         outputTaskIds: [agentTask.id],
         responseOutput: [{ type: 'function_call', name: 'generate_image', call_id: 'tool-a', arguments: JSON.stringify({ id: 'cat', prompt: '画一只猫' }) }],
         status: 'error',
-        error: '已停止生成。',
+        error: stoppedMessage,
         createdAt: 1,
         finishedAt: 2,
       }],
       messages: [
         { id: 'user-a', role: 'user', content: '画一只猫', roundId: 'round-a', createdAt: 1 },
-        { id: 'assistant-a', role: 'assistant', content: '已停止生成。', roundId: 'round-a', outputTaskIds: [agentTask.id], createdAt: 2 },
+        { id: 'assistant-a', role: 'assistant', content: stoppedMessage, roundId: 'round-a', outputTaskIds: [agentTask.id], createdAt: 2 },
       ],
     })
     vi.mocked(getFalQueuedImageResult).mockResolvedValueOnce({
@@ -1630,7 +1630,7 @@ describe('fal task recovery', () => {
 
     expect(callAgentResponsesApi).not.toHaveBeenCalled()
     expect(useStore.getState().tasks.find((item) => item.id === agentTask.id)).toMatchObject({ status: 'done', falRecoverable: false })
-    expect(useStore.getState().agentConversations[0].rounds[0]).toMatchObject({ status: 'error', error: '已停止生成。' })
+    expect(useStore.getState().agentConversations[0].rounds[0]).toMatchObject({ status: 'error', error: stoppedMessage })
   })
 
   it('does not overwrite a stopped Agent task when an in-flight fal recovery completes', async () => {

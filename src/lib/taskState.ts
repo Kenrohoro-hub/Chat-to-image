@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import type { ApiProvider, TaskParams, TaskRecord } from '../types'
 
 type TaskLifecyclePatch = Pick<TaskRecord, 'status' | 'error' | 'finishedAt' | 'elapsed'>
@@ -30,7 +31,7 @@ export function markInterruptedOpenAIRunningTasks(tasks: TaskRecord[], now: numb
 
     const updated: TaskRecord = {
       ...task,
-      ...createTaskErrorPatch(task, '请求中断', now),
+      ...createTaskErrorPatch(task, t('请求中断', 'Request interrupted'), now),
       falRecoverable: false,
       elapsed: Math.max(0, now - task.createdAt),
     }

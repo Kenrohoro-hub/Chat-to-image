@@ -1,3 +1,4 @@
+import { t } from '../../lib/i18n'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { ApiProfile, AppSettings } from '../../types'
@@ -26,7 +27,7 @@ export default function GalleryModelPicker({ settings, profile, model, onSelectM
   const showSearch = groups.reduce((count, group) => count + group.models.length, 0) > 4
   const term = query.trim().toLowerCase()
   const filtered = groups.map((group) => ({ ...group, models: group.models.filter((id) => `${id} ${group.label}`.toLowerCase().includes(term)) })).filter((group) => group.models.length)
-  const showAutomatic = Boolean(selected && (!term || '自动'.includes(term)))
+  const showAutomatic = Boolean(selected && (!term || t('自动', 'Auto').toLowerCase().includes(term)))
   const options = [
     ...(showAutomatic ? [{ profileId: profile.id, model: '', selected: automatic }] : []),
     ...filtered.flatMap((group) => group.models.map((id) => ({ profileId: group.id, model: id, selected: !automatic && profile.id === group.id && model === id }))),
@@ -71,16 +72,16 @@ export default function GalleryModelPicker({ settings, profile, model, onSelectM
 
   let optionIndex = showAutomatic ? 1 : 0
   return <div className="gallery-control">
-    <div className="gallery-control-label"><label htmlFor="gallery-model">模型</label><button type="button" onClick={onConfigure}>API 配置</button></div>
-    <button id="gallery-model" ref={triggerRef} type="button" className="gallery-model" disabled={!groups.length} aria-label={`选择生图模型${selected ? `：${automatic ? '自动' : model}，${service}` : ''}`} aria-haspopup="listbox" aria-expanded={open} aria-controls={open ? 'gallery-model-options' : undefined} title={selected ? `${automatic ? `自动 · ${defaultModel}` : model} · ${selected.label}` : '请先在 API 配置中启用图像模型'} onClick={() => {
+    <div className="gallery-control-label"><label htmlFor="gallery-model">{t('模型', 'Model')}</label><button type="button" onClick={onConfigure}>{t('API 配置', 'API profiles')}</button></div>
+    <button id="gallery-model" ref={triggerRef} type="button" className="gallery-model" disabled={!groups.length} aria-label={t(`选择生图模型${selected ? `：${automatic ? '自动' : model}，${service}` : ''}`, `Choose an image model${selected ? `: ${automatic ? 'Auto' : model}, ${service}` : ''}`)} aria-haspopup="listbox" aria-expanded={open} aria-controls={open ? 'gallery-model-options' : undefined} title={selected ? t(`${automatic ? `自动 · ${defaultModel}` : model} · ${selected.label}`, `${automatic ? `Auto · ${defaultModel}` : model} · ${selected.label}`) : t('请先在 API 配置中启用图像模型', 'Enable an image model in API profiles first')} onClick={() => {
       if (open) { close(); return }
       setQuery('')
       setActive(Math.max(0, options.findIndex((option) => option.selected)))
       setOpen(true)
     }} onKeyDown={(event) => {
       if (event.key === 'ArrowDown' && !open) { event.preventDefault(); triggerRef.current?.click() }
-    }}><span className="gallery-model-copy"><span>{selected ? automatic ? '自动' : model : groups.length ? '选择模型' : '请先配置模型'}</span>{service && <small>{service}</small>}</span><ChevronDownIcon className="h-4 w-4 shrink-0" /></button>
-    {!groups.length && <p className="gallery-field-hint">请在 API 配置中启用图像模型。</p>}
+    }}><span className="gallery-model-copy"><span>{selected ? automatic ? t('自动', 'Auto') : model : groups.length ? t('选择模型', 'Choose model') : t('请先配置模型', 'Configure a model first')}</span>{service && <small>{service}</small>}</span><ChevronDownIcon className="h-4 w-4 shrink-0" /></button>
+    {!groups.length && <p className="gallery-field-hint">{t('请在 API 配置中启用图像模型。', 'Enable an image model in API profiles.')}</p>}
     {open && createPortal(<div ref={menuRef} className="gallery-model-menu" style={position} onBlur={(event) => {
       if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget as Node) && event.relatedTarget !== triggerRef.current) setOpen(false)
     }} onKeyDown={(event) => {
@@ -95,9 +96,9 @@ export default function GalleryModelPicker({ settings, profile, model, onSelectM
       }
       if (event.key === 'Enter' && options[index]) { event.preventDefault(); choose(options[index].profileId, options[index].model) }
     }}>
-      {showSearch && <input ref={searchRef} type="search" role="combobox" aria-label="搜索生图模型" aria-expanded="true" aria-controls="gallery-model-options" aria-activedescendant={options[index] ? `gallery-model-option-${index}` : undefined} autoComplete="off" placeholder="搜索模型或服务商…" value={query} onChange={(event) => { setQuery(event.target.value); setActive(0) }} />}
-      <div id="gallery-model-options" className="gallery-model-options" role="listbox" aria-label="生图模型">
-        {showAutomatic && <button id="gallery-model-option-0" type="button" role="option" aria-selected={automatic} data-option-index={0} data-highlighted={index === 0} tabIndex={showSearch ? -1 : index === 0 ? 0 : -1} onFocus={() => setActive(0)} onPointerMove={() => setActive(0)} onClick={() => choose(profile.id, '')}><span>自动<small>使用方案默认模型</small></span>{automatic && <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m5 12 4 4 10-10" /></svg>}</button>}
+      {showSearch && <input ref={searchRef} type="search" role="combobox" aria-label={t('搜索生图模型', 'Search image models')} aria-expanded="true" aria-controls="gallery-model-options" aria-activedescendant={options[index] ? `gallery-model-option-${index}` : undefined} autoComplete="off" placeholder={t('搜索模型或服务商…', 'Search models or providers…')} value={query} onChange={(event) => { setQuery(event.target.value); setActive(0) }} />}
+      <div id="gallery-model-options" className="gallery-model-options" role="listbox" aria-label={t('生图模型', 'Image models')}>
+        {showAutomatic && <button id="gallery-model-option-0" type="button" role="option" aria-selected={automatic} data-option-index={0} data-highlighted={index === 0} tabIndex={showSearch ? -1 : index === 0 ? 0 : -1} onFocus={() => setActive(0)} onPointerMove={() => setActive(0)} onClick={() => choose(profile.id, '')}><span>{t('自动', 'Auto')}<small>{t('使用方案默认模型', 'Use the profile\'s default model')}</small></span>{automatic && <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m5 12 4 4 10-10" /></svg>}</button>}
         {filtered.map((group) => <div key={group.id} role="group" aria-label={group.label}>
           <div className="gallery-model-group"><span>{group.label}</span></div>
           {group.models.map((id) => {
@@ -107,7 +108,7 @@ export default function GalleryModelPicker({ settings, profile, model, onSelectM
           })}
         </div>)}
       </div>
-      {!filtered.length && <p className="gallery-model-empty" role="status">没有匹配的模型</p>}
+      {!filtered.length && <p className="gallery-model-empty" role="status">{t('没有匹配的模型', 'No matching models')}</p>}
     </div>, document.body)}
   </div>
 }

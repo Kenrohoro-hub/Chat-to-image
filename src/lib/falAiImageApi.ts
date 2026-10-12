@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import { fal } from '@fal-ai/client'
 import type { ApiProfile, FalApiResponse, TaskParams } from '../types'
 import { DEFAULT_FAL_BASE_URL } from './apiProfiles'
@@ -133,8 +134,8 @@ async function parseFalImageResults(payload: FalApiResponse, fallbackMime: strin
   if (!results.length) {
     const err = new Error(
       customBaseUrlLabel
-        ? `${customBaseUrlLabel} 没有返回可识别的图片数据，请查看原始响应内容确认实际返回的数据结构。如果当前接口与 fal.ai 格式不兼容，建议创建并使用「自定义服务商」配置。`
-        : 'fal.ai 未返回可用图片数据',
+        ? t(`${customBaseUrlLabel} 没有返回可识别的图片数据，请查看原始响应内容确认实际返回的数据结构。如果当前接口与 fal.ai 格式不兼容，建议创建并使用「自定义服务商」配置。`, `${customBaseUrlLabel} returned no recognizable image data. Check the raw response for its structure. If the API is incompatible with fal.ai, configure a custom provider.`)
+        : t('fal.ai 未返回可用图片数据', 'fal.ai returned no usable image data'),
     )
     if (customBaseUrlLabel) {
       ;(err as any).rawResponsePayload = JSON.stringify(payload, null, 2)
@@ -204,8 +205,8 @@ export async function getFalQueuedImageResult(
 export async function callFalAiImageApi(opts: CallApiOptions, profile: ApiProfile): Promise<CallApiResult> {
   try {
     if (opts.maskDataUrl) {
-      assertMaskEditFileSize('遮罩主图文件', getDataUrlDecodedByteSize(opts.inputImageDataUrls[0] ?? ''))
-      assertMaskEditFileSize('遮罩文件', getDataUrlDecodedByteSize(opts.maskDataUrl))
+      assertMaskEditFileSize(t('遮罩主图文件', 'Original image file for mask'), getDataUrlDecodedByteSize(opts.inputImageDataUrls[0] ?? ''))
+      assertMaskEditFileSize(t('遮罩文件', 'Mask file'), getDataUrlDecodedByteSize(opts.maskDataUrl))
     }
     assertImageInputPayloadSize(
       opts.inputImageDataUrls.reduce((sum, dataUrl) => sum + getDataUrlEncodedByteSize(dataUrl), 0) +

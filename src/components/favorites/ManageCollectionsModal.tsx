@@ -1,3 +1,4 @@
+import { getFavoriteCollectionLabel, t } from '../../lib/i18n'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { FavoriteCollection } from '../../types'
@@ -133,7 +134,7 @@ export function ManageCollectionsModal() {
     touchDragRef.current = { id: collection.id, startX: touch.clientX, startY: touch.clientY, moved: false }
     setDraggedId(collection.id)
     setTouchDragPreview({
-      label: collection.name,
+      label: getFavoriteCollectionLabel(collection),
       x: touch.clientX,
       y: touch.clientY,
       width: rect.width,
@@ -261,11 +262,11 @@ export function ManageCollectionsModal() {
     const collectionTasks = tasks.filter(t => getTaskFavoriteCollectionIds(t, defaultFavoriteCollectionId).includes(collection.id))
     const imageCount = new Set(collectionTasks.flatMap((task) => task.outputImages || [])).size
     setConfirmDialog({
-      title: '删除收藏夹',
-      message: `确定要删除收藏夹「${collection.name}」吗？`,
+      title: t('删除收藏夹', 'Delete collection'),
+      message: t(`确定要删除收藏夹「${collection.name}」吗？`, `Delete collection “${getFavoriteCollectionLabel(collection)}”?`),
       checkbox: imageCount > 0
         ? {
-            label: `同时删除收藏夹中的图片（${imageCount} 张）`,
+            label: t(`同时删除收藏夹中的图片（${imageCount} 张）`, `Also delete the images in this collection (${imageCount})`),
             tone: 'danger',
           }
         : undefined,
@@ -288,8 +289,8 @@ export function ManageCollectionsModal() {
       return
     }
     setConfirmDialog({
-      title: '修改默认收藏夹',
-      message: `确定要将默认收藏夹从「${current.name}」改为「${collection.name}」吗？`,
+      title: t('修改默认收藏夹', 'Change default collection'),
+      message: t(`确定要将默认收藏夹从「${current.name}」改为「${collection.name}」吗？`, `Change the default collection from “${getFavoriteCollectionLabel(current)}” to “${getFavoriteCollectionLabel(collection)}”?`),
       action: () => setDefaultFavoriteCollectionId(collection.id),
     })
   }
@@ -299,20 +300,20 @@ export function ManageCollectionsModal() {
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-overlay-in" />
       <div ref={modalRef} className="relative z-10 flex max-h-[85vh] w-full max-w-[400px] flex-col overflow-hidden rounded-3xl bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-white/50 dark:border-white/[0.08] shadow-[0_8px_40px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_40px_rgb(0,0,0,0.4)] ring-1 ring-black/5 dark:ring-white/10 animate-modal-in" onClick={(e) => e.stopPropagation()}>
         <div className="px-6 pt-6 pb-4 shrink-0 relative border-b border-gray-100 dark:border-[#333]">
-          <FavoriteActionButton tooltip="关闭" onClick={closeManage} wrapperClassName="absolute right-5 top-5 inline-flex" className="shrink-0 rounded-full p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-200">
+          <FavoriteActionButton tooltip={t('关闭', 'Close')} onClick={closeManage} wrapperClassName="absolute right-5 top-5 inline-flex" className="shrink-0 rounded-full p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-200">
             <CloseIcon className="h-5 w-5" />
           </FavoriteActionButton>
           <h2 className="mb-2 pr-8 flex items-center gap-2.5 text-lg font-semibold text-gray-800 dark:text-gray-100 leading-snug">
-            管理收藏夹
+            {t('管理收藏夹', 'Manage collections')}
           </h2>
           <p className="text-[13px] text-gray-500 dark:text-gray-400 leading-relaxed">
-            在这里管理你的收藏夹列表及排序。
+            {t('在这里管理你的收藏夹列表及排序。', 'Manage your collections and their order here.')}
           </p>
         </div>
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden pt-3 pb-1">
           <div className="flex-1 overflow-y-auto custom-scrollbar relative">
             {selectableCollections.length === 0 ? (
-              <div className="py-8 text-center text-sm text-gray-400 dark:text-gray-500">暂无收藏夹</div>
+              <div className="py-8 text-center text-sm text-gray-400 dark:text-gray-500">{t('暂无收藏夹', 'No collections yet')}</div>
             ) : selectableCollections.map((collection) => {
               const isDefault = collection.id === defaultFavoriteCollectionId
               const canDelete = collections.length > 1
@@ -359,13 +360,13 @@ export function ManageCollectionsModal() {
                       onBlur={confirmRename}
                     />
                   ) : (
-                    <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-gray-700 dark:text-gray-200" title={collection.name}>{collection.name}</span>
+                    <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-gray-700 dark:text-gray-200" title={getFavoriteCollectionLabel(collection)}>{getFavoriteCollectionLabel(collection)}</span>
                   )}
                 </div>
                 <div className={`flex shrink-0 items-center justify-end gap-2 overflow-hidden pr-4 transition-all duration-150 ${editingId === collection.id ? 'w-12' : 'w-28'}`}>
                     {editingId === collection.id ? (
                       <FavoriteActionButton
-                        tooltip="确认"
+                        tooltip={t('确认', 'Confirm')}
                         onMouseDown={(e) => {
                           e.preventDefault()
                           e.stopPropagation()
@@ -379,9 +380,9 @@ export function ManageCollectionsModal() {
                       </FavoriteActionButton>
                     ) : (
                       <>
-                        <FavoriteActionButton tooltip={isDefault ? '取消默认收藏夹' : '设为默认收藏夹'} onClick={(e) => handleSetDefault(e, collection)} className={`p-1.5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-md transition-colors ${isDefault ? 'text-yellow-500 dark:text-yellow-400' : 'text-gray-400 hover:text-yellow-500 dark:hover:text-yellow-400'}`}><FavoriteIcon filled={isDefault} className="w-3.5 h-3.5" /></FavoriteActionButton>
-                        <FavoriteActionButton tooltip="重命名" onClick={(e) => startRename(e, collection)} className="p-1.5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-md text-gray-400 hover:text-gray-700 dark:hover:text-white transition-colors"><EditIcon className="w-3.5 h-3.5" /></FavoriteActionButton>
-                        <FavoriteActionButton tooltip={canDelete ? '删除' : '至少保留一个收藏夹'} disabled={!canDelete} onClick={(e) => handleDelete(e, collection)} className={`p-1.5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-md transition-colors ${canDelete ? 'text-gray-400 hover:text-red-500 dark:hover:text-red-400' : 'text-gray-300 dark:text-gray-600 cursor-not-allowed'}`}><TrashIcon className="w-3.5 h-3.5" /></FavoriteActionButton>
+                        <FavoriteActionButton tooltip={isDefault ? t('取消默认收藏夹', 'Unset default collection') : t('设为默认收藏夹', 'Set as default collection')} onClick={(e) => handleSetDefault(e, collection)} className={`p-1.5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-md transition-colors ${isDefault ? 'text-yellow-500 dark:text-yellow-400' : 'text-gray-400 hover:text-yellow-500 dark:hover:text-yellow-400'}`}><FavoriteIcon filled={isDefault} className="w-3.5 h-3.5" /></FavoriteActionButton>
+                        <FavoriteActionButton tooltip={t('重命名', 'Rename')} onClick={(e) => startRename(e, collection)} className="p-1.5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-md text-gray-400 hover:text-gray-700 dark:hover:text-white transition-colors"><EditIcon className="w-3.5 h-3.5" /></FavoriteActionButton>
+                        <FavoriteActionButton tooltip={canDelete ? t('删除', 'Delete') : t('至少保留一个收藏夹', 'Keep at least one collection')} disabled={!canDelete} onClick={(e) => handleDelete(e, collection)} className={`p-1.5 hover:bg-gray-200 dark:hover:bg-white/10 rounded-md transition-colors ${canDelete ? 'text-gray-400 hover:text-red-500 dark:hover:text-red-400' : 'text-gray-300 dark:text-gray-600 cursor-not-allowed'}`}><TrashIcon className="w-3.5 h-3.5" /></FavoriteActionButton>
                       </>
                     )}
                   </div>
@@ -398,7 +399,7 @@ export function ManageCollectionsModal() {
                 if (event.key === 'Enter') handleCreate()
               }}
               type="text"
-              placeholder="新建收藏夹..."
+              placeholder={t('新建收藏夹...', 'New collection…')}
               className="min-w-0 flex-1 rounded-xl border border-gray-300 bg-transparent px-4 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-white/10 dark:text-white dark:focus:border-white/30 dark:focus:ring-white/30"
             />
             <button 
@@ -407,7 +408,7 @@ export function ManageCollectionsModal() {
               disabled={!draft.trim()}
               className="inline-flex items-center justify-center rounded-xl bg-gray-200 px-5 py-2 text-sm font-medium text-gray-800 transition hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-white/10 dark:text-gray-300 dark:hover:bg-white/20"
             >
-              新建
+              {t('新建', 'Create')}
             </button>
           </div>
         </div>

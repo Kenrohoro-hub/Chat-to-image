@@ -16,13 +16,14 @@ from urllib.parse import urlsplit, parse_qs
 from playground_config import config_path, project_id, read_snapshot, save_profile, snapshot_status
 from desktop_config import read_desktop, candidates, settings_revision, SettingsConflict
 from desktop_host import DesktopApi
+from ui_language import system_ui_language, set_request_ui_language, t
 
 
 class LocalApi(DesktopApi):
   def _check(self):
     # 网页访问边界由 Handler 的同源检查及会话令牌负责。
     if self._closing:
-      raise ValueError('本机服务正在关闭。')
+      raise ValueError(t('本机服务正在关闭。', 'The local service is closing.'))
 
 
 class LocalServer(ThreadingHTTPServer):
@@ -84,11 +85,11 @@ class Handler(SimpleHTTPRequestHandler):
           profile = next((p for p in eligible if p.get('baseUrl') and p.get('model') and p.get('hasKey', True)), {})
           status = {'synced': bool(profile.get('baseUrl') and profile.get('model') and profile.get('hasKey', True)),
             'name': profile.get('name', ''), 'model': profile.get('model', ''),
-            'message': '本机配置已共享，桌面、网页和 Codex 使用同一份设置。'}
+            'message': t('本机配置已共享，桌面、网页和 Codex 使用同一份设置。', 'Local settings are shared by the desktop app, browser and Codex.')}
         else:
           status = snapshot_status(read_snapshot())
       except (OSError, ValueError):
-        status = {'synced': False, 'message': '同步配置无法读取，请从网页重新同步。'}
+        status = {'synced': False, 'message': t('同步配置无法读取，请从网页重新同步。', 'Cannot read synchronized settings. Synchronize them again from the browser.')}
       return self.respond(200, {
         'service': 'playground-codex-sync', 'sync_version': 4,
         'project_id': project_id(),
@@ -111,6 +112,7 @@ class Handler(SimpleHTTPRequestHandler):
       flags = b'window.__PLAYGROUND_LOCAL__=true;'
       if getattr(self.server, 'desktop', False) and parse_qs(urlsplit(self.path).query).get('desktop') == ['1']:
         flags += b'window.__PLAYGROUND_DESKTOP__=true;'
+        flags += ('window.__PLAYGROUND_UI_LANGUAGE__=' + json.dumps(system_ui_language()) + ';').encode('ascii')
       index = index.replace(b'<head>', b'<head><script>' + flags + b'</script>')
       return self.respond(200, index, 'text/html; charset=utf-8')
     if path.startswith(('/__codex/', '/__local/')):
@@ -129,6 +131,8 @@ class Handler(SimpleHTTPRequestHandler):
     path = urlsplit(self.path).path
     if path not in ('/__codex/config', '/__local/api'):
       return self.respond(404, {'error': 'Not found'})
+    language = self.headers.get('X-Playground-Language')
+    set_request_ui_language(language if language in ('zh-CN', 'en') else system_ui_language())
     try:
       length = int(self.headers.get('Content-Length', '0'))
       if not 0 < length <= (128 * 1024 * 1024 if path == '/__local/api' else 65536) or self.headers.get('Transfer-Encoding'):
@@ -153,14 +157,14 @@ class Handler(SimpleHTTPRequestHandler):
       if not isinstance(value, dict) or set(value) != {'profile'}:
         return self.respond(400, {'error': 'Invalid config payload'})
       if read_desktop():
-        return self.respond(409, {'error': '请刷新网页，使用本机共享配置入口。'})
+        return self.respond(409, {'error': t('请刷新网页，使用本机共享配置入口。', 'Refresh the page to use the local shared settings entry.')})
       status = save_profile(value['profile'])
       self.server.sync_revision = str(time.time_ns())
       return self.respond(200, status)
     except SettingsConflict as error:
       return self.respond(409, {'error': str(error)})
     except (OSError, ValueError, TypeError, KeyError):
-      return self.respond(400, {'error': '配置同步失败，请检查网页设置或本机用户目录。'})
+      return self.respond(400, {'error': t('配置同步失败，请检查网页设置或本机用户目录。', 'Settings synchronization failed. Check the browser settings or local user directory.')})
 
 
 def make_server(port):

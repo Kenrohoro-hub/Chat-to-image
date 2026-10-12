@@ -1,9 +1,10 @@
+import { t } from './i18n'
 import type { InputImage } from '../types'
 
 const MENTION_START = '\u2063'
 const MENTION_END = '\u2064'
-const SELECTED_IMAGE_MENTION_RE = /\u2063@图(\d+)\u2064/g
-const SELECTED_MENTION_RE = /\u2063(@图(\d+)|@(?:第)?\d+轮图\d+)\u2064/g
+const SELECTED_IMAGE_MENTION_RE = /\u2063@(?:图|image)(\d+)\u2064/g
+const SELECTED_MENTION_RE = /\u2063(@(?:图|image)(\d+)|@(?:第)?\d+轮图\d+|@turn\d+-image\d+)\u2064/g
 
 export interface AtImageQuery {
   start: number
@@ -11,7 +12,7 @@ export interface AtImageQuery {
 }
 
 export function getImageMentionLabel(index: number) {
-  return `@图${index + 1}`
+  return t(`@图${index + 1}`, `@image${index + 1}`)
 }
 
 export function getSelectedImageMentionLabel(index: number) {
@@ -64,7 +65,7 @@ export function imageMentionMatches(query: string, index: number) {
 
   const oneBasedIndex = String(index + 1)
   const label = `图${oneBasedIndex}`
-  return oneBasedIndex.includes(normalized) || label.toLowerCase().includes(normalized)
+  return oneBasedIndex.includes(normalized) || label.toLowerCase().includes(normalized) || `image${oneBasedIndex}`.includes(normalized)
 }
 
 export function insertImageMention(prompt: string, start: number, cursor: number, imageIndex: number) {
@@ -103,7 +104,7 @@ export function remapImageMentionsForOrder(
 
     const nextImageId = equivalentImageIds[previousImage.id] ?? previousImage.id
     const nextIndex = nextImages.findIndex((img) => img.id === nextImageId)
-    return nextIndex >= 0 ? getSelectedImageMentionLabel(nextIndex) : '@已移除图片'
+    return nextIndex >= 0 ? getSelectedImageMentionLabel(nextIndex) : t('@已移除图片', '@removed-image')
   })
 }
 

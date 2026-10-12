@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import type { ApiMode, ApiProfile, AppSettings } from '../types'
 import { normalizeBaseUrl } from './devProxy'
 import {
@@ -319,7 +320,7 @@ function buildRegularSettingsFromUrlParams(currentSettings: Partial<AppSettings>
     const profileApiMode = apiMode ?? 'images'
     const profile = createDefaultOpenAIProfile({
       id: requestedProfileId || createUrlProfileId(new Set(settings.profiles.map((item) => item.id))),
-      name: 'URL 参数配置',
+      name: t('URL 参数配置', 'URL parameter profile'),
       apiMode: profileApiMode,
       model: modelParam?.trim() || (profileApiMode === 'responses' ? DEFAULT_RESPONSES_MODEL : DEFAULT_IMAGES_MODEL),
     })

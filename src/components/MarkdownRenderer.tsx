@@ -1,3 +1,4 @@
+import { t } from '../lib/i18n'
 import { memo, useEffect, useState } from 'react'
 import type { Components, MathPlugin, StreamdownTranslations } from 'streamdown'
 import type { Components as ReactMarkdownComponents } from 'react-markdown'
@@ -69,26 +70,26 @@ const legacyMarkdownComponents: ReactMarkdownComponents = {
 }
 
 const translations: Partial<StreamdownTranslations> = {
-  copied: '已复制',
-  copyCode: '复制代码',
-  copyLink: '复制链接',
-  copyTable: '复制表格',
-  copyTableAsCsv: '复制为 CSV',
-  copyTableAsMarkdown: '复制为 Markdown',
-  copyTableAsTsv: '复制为 TSV',
-  downloadFile: '下载文件',
-  downloadImage: '下载图片',
-  downloadTable: '下载表格',
-  downloadTableAsCsv: '下载为 CSV',
-  downloadTableAsMarkdown: '下载为 Markdown',
-  externalLinkWarning: '即将打开外部链接',
-  imageNotAvailable: '图片不可用',
-  openExternalLink: '打开外部链接',
-  openLink: '打开链接',
+  copied: t('已复制', 'Copied'),
+  copyCode: t('复制代码', 'Copy code'),
+  copyLink: t('复制链接', 'Copy link'),
+  copyTable: t('复制表格', 'Copy table'),
+  copyTableAsCsv: t('复制为 CSV', 'Copy as CSV'),
+  copyTableAsMarkdown: t('复制为 Markdown', 'Copy as Markdown'),
+  copyTableAsTsv: t('复制为 TSV', 'Copy as TSV'),
+  downloadFile: t('下载文件', 'Download file'),
+  downloadImage: t('下载图片', 'Download image'),
+  downloadTable: t('下载表格', 'Download table'),
+  downloadTableAsCsv: t('下载为 CSV', 'Download as CSV'),
+  downloadTableAsMarkdown: t('下载为 Markdown', 'Download as Markdown'),
+  externalLinkWarning: t('即将打开外部链接', 'You are about to open an external link'),
+  imageNotAvailable: t('图片不可用', 'Image unavailable'),
+  openExternalLink: t('打开外部链接', 'Open external link'),
+  openLink: t('打开链接', 'Open link'),
   tableFormatCsv: 'CSV',
   tableFormatMarkdown: 'Markdown',
   tableFormatTsv: 'TSV',
-  viewFullscreen: '全屏查看',
+  viewFullscreen: t('全屏查看', 'View fullscreen'),
 }
 
 const canLoadStreamdown = (() => {

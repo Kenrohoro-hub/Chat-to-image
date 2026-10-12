@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import type { AgentConversation } from '../types'
 import { useStore } from '../store'
 import { commitAgentConversationChanges } from './db'
@@ -46,8 +47,8 @@ export function flushAgentConversationsToIndexedDB(): Promise<boolean> {
       } while (requested)
       return true
     } catch (err) {
-      console.warn('保存创作对话失败', err)
-      useStore.setState({ agentConversationSaveError: '创作对话尚未保存，请重试保存。' })
+      console.warn(t('保存创作对话失败', 'Could not save creation conversations'), err)
+      useStore.setState({ agentConversationSaveError: t('创作对话尚未保存，请重试保存。', 'Creation conversations have not been saved. Try saving again.') })
       return false
     } finally {
       pending = null

@@ -1,15 +1,16 @@
+import { t } from './i18n'
 import type { PromptTemplate } from '../types'
 import { desktopApi, isLocalService } from './desktop'
 
 export interface LibraryPrompt extends PromptTemplate { category: string; categories?: string[] }
 export const PROMPT_SOURCES = [
-  { id: 'garden', name: '水仙', mark: '水', description: '在线提示词', home: 'https://prompt.qqsrc.com/', cache: 'prompt-library-shuixian-v1' },
-  { id: 'promptfill', name: 'PromptFill', mark: 'P', description: '提示词填空器', home: 'https://promptfill.tanshilong.com/explore', cache: 'prompt-library-promptfill-v1' },
+  { id: 'garden', name: '水仙', mark: '水', description: t('在线提示词', 'Online prompts'), home: 'https://prompt.qqsrc.com/', cache: 'prompt-library-shuixian-v1' },
+  { id: 'promptfill', name: 'PromptFill', mark: 'P', description: t('提示词填空器', 'Prompt templates'), home: 'https://promptfill.tanshilong.com/explore', cache: 'prompt-library-promptfill-v1' },
   { id: 'youmind', name: 'YouMind', mark: 'Y', description: 'Nano Banana Pro', home: 'https://youmind.com/zh-CN/nano-banana-pro-prompts', cache: 'prompt-library-youmind-v1' },
-  { id: 'pixto', name: 'PixtoAI', mark: 'P', description: '图片风格', home: 'https://www.pixtoai.com/styles/', cache: 'prompt-library-pixto-v1' },
+  { id: 'pixto', name: 'PixtoAI', mark: 'P', description: t('图片风格', 'Image styles'), home: 'https://www.pixtoai.com/styles/', cache: 'prompt-library-pixto-v1' },
   { id: 'nanoimage', name: 'NanoPrompts GPT-2', mark: 'G', description: 'GPT-image-2', home: 'https://nanoprompts.org/zh/gpt-image-2', cache: 'prompt-library-nanoimage-v1' },
   { id: 'nano', name: 'NanoPrompts', mark: 'N', description: 'Nano Banana', home: 'https://nanoprompts.org/zh', cache: 'prompt-library-nano-v1' },
-  { id: 'hero', name: 'HeroPrompt', mark: 'H', description: '多语言提示词', home: 'https://heroprompt.sortes.ai/zh', cache: 'prompt-library-hero-v1' },
+  { id: 'hero', name: 'HeroPrompt', mark: 'H', description: t('多语言提示词', 'Multilingual prompts'), home: 'https://heroprompt.sortes.ai/zh', cache: 'prompt-library-hero-v1' },
 ] as const
 export type PromptSourceId = typeof PROMPT_SOURCES[number]['id']
 
@@ -40,7 +41,7 @@ function localized(value: unknown): string {
 }
 
 export function normalizeGardenPrompts(value: unknown): LibraryPrompt[] {
-  if (!Array.isArray(value)) throw new Error('水仙的数据格式已变化，请稍后重试。')
+  if (!Array.isArray(value)) throw new Error(t('水仙的数据格式已变化，请稍后重试。', 'The Shuixian data format changed. Try again later.'))
   return value.flatMap((item) => {
     if (!item || !Number.isSafeInteger(item.id) || item.id <= 0 || typeof item.title !== 'string' || !item.title.trim() || typeof item.prompt !== 'string' || !item.prompt.trim()) return []
     return [{ id: `garden-${item.id}`, sourcePromptId: `garden-${item.id}`, title: item.title.trim(), content: item.prompt.trim(),
@@ -51,7 +52,7 @@ export function normalizeGardenPrompts(value: unknown): LibraryPrompt[] {
 
 export function normalizePromptFill(value: unknown): LibraryPrompt[] {
   const data = value as { templates?: { config?: unknown }; banks?: { defaults?: Record<string, unknown> } } | null
-  if (!Array.isArray(data?.templates?.config) || !data.banks?.defaults || typeof data.banks.defaults !== 'object') throw new Error('PromptFill 的模板格式已变化，请刷新重试。')
+  if (!Array.isArray(data?.templates?.config) || !data.banks?.defaults || typeof data.banks.defaults !== 'object') throw new Error(t('PromptFill 的模板格式已变化，请刷新重试。', 'The PromptFill template format changed. Refresh and try again.'))
   return data.templates.config.flatMap((item) => {
     if (!item || typeof item.id !== 'string' || !item.id || item.type === 'video') return []
     const title = localized(item.name)
@@ -73,7 +74,7 @@ export function normalizePromptFill(value: unknown): LibraryPrompt[] {
 }
 
 export function normalizeYouMind(value: unknown): LibraryPrompt[] {
-  if (!Array.isArray(value)) throw new Error('YouMind 的目录格式已变化，请刷新重试。')
+  if (!Array.isArray(value)) throw new Error(t('YouMind 的目录格式已变化，请刷新重试。', 'The YouMind catalog format changed. Refresh and try again.'))
   return value.flatMap((item) => {
     if (!item || !Number.isSafeInteger(item.id) || item.id <= 0 || typeof item.title !== 'string' || !item.title.trim()) return []
     const text = localized(item.translatedContent) || localized(item.content)
@@ -89,7 +90,7 @@ export function normalizePromptSource(id: PromptSourceId, value: unknown): Libra
   if (id === 'garden') return normalizeGardenPrompts(value)
   if (id === 'promptfill') return normalizePromptFill(value)
   if (id === 'youmind') return normalizeYouMind(value)
-  if (!Array.isArray(value)) throw new Error('网站目录格式已变化，请刷新重试。')
+  if (!Array.isArray(value)) throw new Error(t('网站目录格式已变化，请刷新重试。', 'The website catalog format changed. Refresh and try again.'))
   const site = PROMPT_SOURCES.find((source) => source.id === id)!
   const labels: Record<string, string> = { Trending: '热门', Artistic: '艺术', Character: '角色', 'Image Editing': '图片编辑', 'Info Viz': '信息可视化', Lab: '创意实验', Manga: '漫画', Map: '地图', Marketing: '营销', Portrait: '人像', 'Product Design': '产品设计', Spatial: '空间', Editing: '图片编辑', 'Multi-image': '多图融合', Product: '产品', 'Style Transfer': '风格转换', 'Text & Poster': '图文海报' }
   return value.flatMap((item) => {
@@ -123,14 +124,14 @@ export function normalizePromptSource(id: PromptSourceId, value: unknown): Libra
 
 async function fetchJson(url: string) {
   const response = await fetch(url, { credentials: 'omit', cache: 'no-store', signal: AbortSignal.timeout(20000) })
-  if (!response.ok) throw new Error(`目录读取失败（HTTP ${response.status}），原缓存已保留。`)
+  if (!response.ok) throw new Error(t(`目录读取失败（HTTP ${response.status}），原缓存已保留。`, `Could not read the catalog (HTTP ${response.status}). The original cache is preserved.`))
   return response.json()
 }
 export async function fetchPromptSource(id: PromptSourceId, progress: (message: string) => void): Promise<unknown> {
   if (id === 'garden') {
     const parts = await Promise.all([1, 2, 3].map(async (part) => {
       const data = await fetchJson(`https://prompt.qqsrc.com/data/prompts.part${part}.json`)
-      if (!normalizeGardenPrompts(data).length) throw new Error('水仙返回了空目录，原缓存已保留。')
+      if (!normalizeGardenPrompts(data).length) throw new Error(t('水仙返回了空目录，原缓存已保留。', 'Shuixian returned an empty catalog. The original cache is preserved.'))
       return data as unknown[]
     }))
     return parts.flat()
@@ -141,21 +142,21 @@ export async function fetchPromptSource(id: PromptSourceId, progress: (message: 
   }
   if (id === 'nano' || id === 'nanoimage') return fetchJson(`https://nanoprompts.org/assets/data/${id === 'nano' ? 'prompts_zh' : 'prompts_gpt_image_2_zh'}.json`)
   const site = PROMPT_SOURCES.find((source) => source.id === id)!
-  if (id !== 'pixto' && !isLocalService()) throw new Error(`${site.name} 目录请使用桌面或本机网页入口读取。`)
+  if (id !== 'pixto' && !isLocalService()) throw new Error(t(`${site.name} 目录请使用桌面或本机网页入口读取。`, `Use the desktop app or local browser entry to read the ${site.name} catalog.`))
   const api = id === 'pixto' ? undefined : await desktopApi()
   const readPage = async (page: number): Promise<{ prompts: unknown[]; totalPages: number }> => {
     if (id === 'youmind') return api!.read_youmind_prompts(page)
     if (id === 'hero') return api!.read_heroprompt_posts(page)
     const payload = await fetchJson(`https://camera.animelook.top/api/normal/web-styles?page=${page}`)
     const data = payload?.data
-    if (payload?.code !== 0 || !Array.isArray(data?.data) || data.current_page !== page || !Number.isSafeInteger(data.last_page) || data.last_page < 1 || data.last_page > 1000) throw new Error('PixtoAI 目录格式已变化，原缓存已保留。')
+    if (payload?.code !== 0 || !Array.isArray(data?.data) || data.current_page !== page || !Number.isSafeInteger(data.last_page) || data.last_page < 1 || data.last_page > 1000) throw new Error(t('PixtoAI 目录格式已变化，原缓存已保留。', 'The PixtoAI catalog format changed. The original cache is preserved.'))
     return { prompts: data.data, totalPages: data.last_page }
   }
   const first = await readPage(1)
   const pages = [first.prompts]
   let next = 2
   let done = 1
-  progress(`正在读取 ${site.name} 目录：${done} / ${first.totalPages} 页`)
+  progress(t(`正在读取 ${site.name} 目录：${done} / ${first.totalPages} 页`, `Reading ${site.name} catalog: ${done} / ${first.totalPages} pages`))
   let stopped = false
   const workers = await Promise.allSettled(Array.from({ length: Math.min(3, first.totalPages - 1) }, async () => {
     while (!stopped && next <= first.totalPages) {
@@ -163,7 +164,7 @@ export async function fetchPromptSource(id: PromptSourceId, progress: (message: 
       const data = await readPage(page).catch((err) => { stopped = true; throw err })
       pages[page - 1] = data.prompts
       done++
-      progress(`正在读取 ${site.name} 目录：${done} / ${first.totalPages} 页`)
+      progress(t(`正在读取 ${site.name} 目录：${done} / ${first.totalPages} 页`, `Reading ${site.name} catalog: ${done} / ${first.totalPages} pages`))
     }
   }))
   const failed = workers.find((worker) => worker.status === 'rejected')
@@ -173,5 +174,5 @@ export async function fetchPromptSource(id: PromptSourceId, progress: (message: 
 
 export function promptSourceName(item: PromptTemplate) {
   const source = PROMPT_SOURCES.find((entry) => item.sourcePromptId?.startsWith(`${entry.id}-`) || item.id.startsWith(`${entry.id}-`)) ?? PROMPT_SOURCES.find((entry) => item.sourceUrl?.startsWith(entry.home))
-  return source?.name || '网络提示词库'
+  return source?.name || t('网络提示词库', 'Online prompt library')
 }

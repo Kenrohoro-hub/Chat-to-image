@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import { DEFAULT_PARAMS, type TaskRecord } from '../types'
 import { blobToDataUrl } from './dataUrl'
 import { putTask, storeImage } from './db'
@@ -20,7 +21,7 @@ export async function seedExampleTasks(existing: TaskRecord[], favoriteCollectio
     const outputImages: string[] = []
     for (const image of example.images) {
       const response = await fetch(`${import.meta.env.BASE_URL}examples/${image}.png`)
-      if (!response.ok) throw new Error('内置示例图片读取失败')
+      if (!response.ok) throw new Error(t('内置示例图片读取失败', 'Could not load the built-in example image'))
       outputImages.push(await storeImage(await blobToDataUrl(await response.blob()), 'generated'))
     }
     const createdAt = Date.now() - (index + 1) * 60_000

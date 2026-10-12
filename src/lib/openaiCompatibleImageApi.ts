@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import { DEFAULT_STREAM_PARTIAL_IMAGES, type ApiProfile, type CustomProviderDefinition, type CustomProviderPollMapping, type CustomProviderResultMapping, type CustomProviderSubmitMapping, type ImageApiResponse, type ImageResponseItem, type ResponsesApiResponse, type ResponsesOutputItem, type TaskParams } from '../types'
 import { dataUrlToBlob, imageDataUrlToPngBlob, maskDataUrlToPngBlob } from './canvasImage'
 import { buildApiUrl, readClientDevProxyConfig, shouldUseApiProxy } from './devProxy'
@@ -121,7 +122,7 @@ function getStreamEventErrorMessage(event: Record<string, unknown>): string | nu
 
   const type = getStringValue(event, 'type')
   if (type?.endsWith('.failed')) {
-    return getStringValue(event, 'message') ?? '流式请求失败'
+    return getStringValue(event, 'message') ?? t('流式请求失败', 'Streaming request failed')
   }
   return null
 }
@@ -196,7 +197,7 @@ function parseResponsesImageResults(payload: ResponsesApiResponse, fallbackMime:
 }> {
   const output = payload.output
   if (!Array.isArray(output) || !output.length) {
-    const err = new Error('接口未返回图片数据')
+    const err = new Error(t('接口未返回图片数据', 'The API returned no image data'))
     ;(err as any).rawResponsePayload = JSON.stringify(payload, null, 2)
     throw err
   }
@@ -217,7 +218,7 @@ function parseResponsesImageResults(payload: ResponsesApiResponse, fallbackMime:
   }
 
   if (!results.length) {
-    const err = new Error('接口没有返回可识别的图片数据，请查看原始响应内容确认服务商实际返回的数据结构。如果使用的是中转或兼容接口，建议创建并使用「自定义服务商」配置。')
+    const err = new Error(t('接口没有返回可识别的图片数据，请查看原始响应内容确认服务商实际返回的数据结构。如果使用的是中转或兼容接口，建议创建并使用「自定义服务商」配置。', 'The API returned no recognizable image data. Check the raw response for its structure. For a relay or compatible API, configure a custom provider.'))
     ;(err as any).rawResponsePayload = JSON.stringify(payload, null, 2)
     throw err
   }
@@ -228,7 +229,7 @@ function parseResponsesImageResults(payload: ResponsesApiResponse, fallbackMime:
 async function parseImagesApiResponse(payload: ImageApiResponse, mime: string, signal?: AbortSignal): Promise<CallApiResult> {
   const data = payload.data
   if (!Array.isArray(data) || !data.length) {
-    const err = new Error('接口没有返回图片数据，请查看原始响应内容确认服务商实际返回的数据结构。如果使用的是中转或兼容接口，建议创建并使用「自定义服务商」配置。')
+    const err = new Error(t('接口没有返回图片数据，请查看原始响应内容确认服务商实际返回的数据结构。如果使用的是中转或兼容接口，建议创建并使用「自定义服务商」配置。', 'The API returned no image data. Check the raw response for its structure. For a relay or compatible API, configure a custom provider.'))
     ;(err as any).rawResponsePayload = JSON.stringify(payload, null, 2)
     throw err
   }
@@ -258,7 +259,7 @@ async function parseImagesApiResponse(payload: ImageApiResponse, mime: string, s
   }
 
   if (!images.length) {
-    const err = new Error('接口没有返回可识别的图片数据，请查看原始响应内容确认服务商实际返回的数据结构。如果使用的是中转或兼容接口，建议创建并使用「自定义服务商」配置。')
+    const err = new Error(t('接口没有返回可识别的图片数据，请查看原始响应内容确认服务商实际返回的数据结构。如果使用的是中转或兼容接口，建议创建并使用「自定义服务商」配置。', 'The API returned no recognizable image data. Check the raw response for its structure. For a relay or compatible API, configure a custom provider.'))
     ;(err as any).rawResponsePayload = JSON.stringify(payload, null, 2)
     throw err
   }
@@ -330,7 +331,7 @@ async function parseImagesApiStreamResponse(
   }
 
   if (!completedItems.length) {
-    throw new Error('流式接口未返回最终图片数据')
+    throw new Error(t('流式接口未返回最终图片数据', 'The streaming API returned no final image data'))
   }
 
   const images: string[] = []
@@ -351,7 +352,7 @@ async function parseImagesApiStreamResponse(
     }
     throw err
   }
-  if (!images.length) throw new Error('流式接口未返回可用图片数据')
+  if (!images.length) throw new Error(t('流式接口未返回可用图片数据', 'The streaming API returned no usable image data'))
 
   const actualParamsList = completedItems.map((item) => mergeActualParams(pickActualParams(item)))
   const actualParams = mergeActualParams(
@@ -415,7 +416,7 @@ async function parseResponsesApiStreamResponse(
   })
 
   const payload = completedPayload ?? (outputItems.length ? { output: outputItems } : null)
-  if (!payload) throw new Error('流式接口未返回最终图片数据')
+  if (!payload) throw new Error(t('流式接口未返回最终图片数据', 'The streaming API returned no final image data'))
 
   let imageResults: ReturnType<typeof parseResponsesImageResults>
   try {
@@ -546,8 +547,8 @@ async function callImagesApiSingle(opts: CallApiOptions, profile: ApiProfile): P
 
       const maskBlob = opts.maskDataUrl ? await maskDataUrlToPngBlob(opts.maskDataUrl) : null
       if (opts.maskDataUrl) {
-        assertMaskEditFileSize('遮罩主图文件', imageBlobs[0]?.size ?? 0)
-        assertMaskEditFileSize('遮罩文件', maskBlob?.size ?? 0)
+        assertMaskEditFileSize(t('遮罩主图文件', 'Original image file for mask'), imageBlobs[0]?.size ?? 0)
+        assertMaskEditFileSize(t('遮罩文件', 'Mask file'), maskBlob?.size ?? 0)
       }
       assertImageInputPayloadSize(
         imageBlobs.reduce((sum, blob) => sum + blob.size, 0) + (maskBlob?.size ?? 0),
@@ -748,8 +749,8 @@ async function createCustomMultipartBody(mapping: CustomProviderSubmitMapping, o
   }
   const maskBlob = needsMask && opts.maskDataUrl ? await maskDataUrlToPngBlob(opts.maskDataUrl) : null
   if (opts.maskDataUrl && (needsInputImages || needsMask)) {
-    assertMaskEditFileSize('遮罩主图文件', imageBlobs[0]?.size ?? 0)
-    assertMaskEditFileSize('遮罩文件', maskBlob?.size ?? 0)
+    assertMaskEditFileSize(t('遮罩主图文件', 'Original image file for mask'), imageBlobs[0]?.size ?? 0)
+    assertMaskEditFileSize(t('遮罩文件', 'Mask file'), maskBlob?.size ?? 0)
   }
   assertImageInputPayloadSize(imageBlobs.reduce((sum, blob) => sum + blob.size, 0) + (maskBlob?.size ?? 0))
 
@@ -791,7 +792,7 @@ async function extractCustomImages(payload: unknown, result: CustomProviderResul
   }
 
   if (!images.length) {
-    const err = new Error('接口没有返回可识别的图片数据，请查看原始响应内容确认接口实际返回的数据结构，并根据 API 文档调整「自定义服务商」配置中的结果提取路径。')
+    const err = new Error(t('接口没有返回可识别的图片数据，请查看原始响应内容确认接口实际返回的数据结构，并根据 API 文档调整「自定义服务商」配置中的结果提取路径。', 'The API returned no recognizable image data. Check the raw response and adjust the custom provider result extraction paths using the API documentation.'))
     ;(err as any).rawResponsePayload = JSON.stringify(payload, null, 2)
     throw err
   }
@@ -887,7 +888,7 @@ async function pollCustomTaskResult(
     const state = getTaskState(taskPayload, poll)
     if (state === 'failure') {
       const message = getByPath(taskPayload, poll.errorPath) || getByPath(taskPayload, 'message') || getByPath(taskPayload, 'data.fail_reason') || getByPath(taskPayload, 'error.message')
-      const errorMessage = typeof message === 'string' && message.trim() ? message : '异步任务失败'
+      const errorMessage = typeof message === 'string' && message.trim() ? message : t('异步任务失败', 'Asynchronous task failed')
       throw new Error(maybeAppendTransparentBackgroundHint(errorMessage))
     }
     if (state === 'success') {
@@ -907,7 +908,7 @@ export async function getCustomQueuedImageResult(
   taskId: string,
   params: TaskParams,
 ): Promise<CallApiResult> {
-  if (!customProvider.poll) throw new Error('自定义异步任务缺少 poll 配置')
+  if (!customProvider.poll) throw new Error(t('自定义异步任务缺少 poll 配置', 'The custom asynchronous task has no poll settings'))
   const mime = MIME_MAP[params.output_format] || 'image/png'
   return pollCustomTaskResult(profile, customProvider.poll, taskId, mime)
 }
@@ -924,21 +925,21 @@ async function callCustomHttpImageApi(opts: CallApiOptions, profile: ApiProfile,
     const useApiProxy = shouldUseApiProxy(profile.apiProxy, proxyConfig)
     const submitMapping = isEdit && customProvider.editSubmit ? customProvider.editSubmit : customProvider.submit
     if (useApiProxy && (submitMapping.method ?? 'POST') !== 'POST') {
-      throw new Error('API 代理暂不支持使用 GET 提交的自定义服务商。请关闭 API 代理，或改用 POST 提交的自定义服务商配置。')
+      throw new Error(t('API 代理暂不支持使用 GET 提交的自定义服务商。请关闭 API 代理，或改用 POST 提交的自定义服务商配置。', 'The API proxy does not support custom providers that submit using GET. Disable the proxy or use a provider that submits using POST.'))
     }
     if (useApiProxy && (submitMapping.taskIdPath || customProvider.poll)) {
-      throw new Error('API 代理暂不支持使用异步任务的自定义服务商。请关闭 API 代理，或改用同步返回图片的自定义服务商配置。')
+      throw new Error(t('API 代理暂不支持使用异步任务的自定义服务商。请关闭 API 代理，或改用同步返回图片的自定义服务商配置。', 'The API proxy does not support asynchronous custom providers. Disable the proxy or use a provider that returns images synchronously.'))
     }
     const submitPayload = await submitCustomRequest(submitMapping, opts, profile, controller, proxyConfig, useApiProxy)
     const taskIdValue = submitMapping.taskIdPath ? getByPath(submitPayload, submitMapping.taskIdPath) : undefined
     const taskId = typeof taskIdValue === 'string' ? taskIdValue.trim() : String(taskIdValue ?? '').trim()
     if (submitMapping.taskIdPath && !taskId) {
-      const err = new Error('无法从响应中提取异步任务 ID，请查看原始响应内容确认接口实际返回的数据结构，并根据 API 文档调整「自定义服务商」配置中的 taskIdPath。')
+      const err = new Error(t('无法从响应中提取异步任务 ID，请查看原始响应内容确认接口实际返回的数据结构，并根据 API 文档调整「自定义服务商」配置中的 taskIdPath。', 'Cannot extract the asynchronous task ID. Check the raw response and adjust taskIdPath in the custom provider settings using the API documentation.'))
       ;(err as any).rawResponsePayload = JSON.stringify(submitPayload, null, 2)
       throw err
     }
     if (!taskId) return extractCustomImages(submitPayload, submitMapping.result ?? {}, mime, controller.signal)
-    if (!customProvider.poll) throw new Error('异步接口返回了 task_id，但服务商配置缺少 poll')
+    if (!customProvider.poll) throw new Error(t('异步接口返回了 task_id，但服务商配置缺少 poll', 'The asynchronous API returned task_id, but the provider has no poll settings'))
     opts.onCustomTaskEnqueued?.({ taskId })
     if (timeoutId) {
       clearTimeout(timeoutId)
@@ -1024,8 +1025,8 @@ async function callResponsesImageApiSingle(opts: CallApiOptions, profile: ApiPro
 
   try {
     if (opts.maskDataUrl) {
-      assertMaskEditFileSize('遮罩主图文件', getDataUrlDecodedByteSize(inputImageDataUrls[0] ?? ''))
-      assertMaskEditFileSize('遮罩文件', getDataUrlDecodedByteSize(opts.maskDataUrl))
+      assertMaskEditFileSize(t('遮罩主图文件', 'Original image file for mask'), getDataUrlDecodedByteSize(inputImageDataUrls[0] ?? ''))
+      assertMaskEditFileSize(t('遮罩文件', 'Mask file'), getDataUrlDecodedByteSize(opts.maskDataUrl))
     }
     assertImageInputPayloadSize(
       inputImageDataUrls.reduce((sum, dataUrl) => sum + getDataUrlEncodedByteSize(dataUrl), 0) +

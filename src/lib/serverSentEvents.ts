@@ -1,3 +1,4 @@
+import { t } from './i18n'
 export interface ReadJsonServerSentEventsOptions {
   signals?: Array<AbortSignal | undefined>
   formatErrorMessage?: (message: string) => string
@@ -24,7 +25,7 @@ export function parseServerSentEventBlock(block: string): string | null {
 export function throwIfAborted(...signals: Array<AbortSignal | undefined>) {
   const signal = signals.find((signal) => signal?.aborted)
   if (!signal) return
-  throw signal.reason instanceof Error ? signal.reason : new DOMException('请求已停止', 'AbortError')
+  throw signal.reason instanceof Error ? signal.reason : new DOMException(t('请求已停止', 'Request stopped'), 'AbortError')
 }
 
 export async function readJsonServerSentEvents(
@@ -32,7 +33,7 @@ export async function readJsonServerSentEvents(
   onEvent: (event: Record<string, unknown>) => void | Promise<void>,
   options: ReadJsonServerSentEventsOptions = {},
 ): Promise<void> {
-  if (!response.body) throw new Error('接口未返回可读取的流式响应')
+  if (!response.body) throw new Error(t('接口未返回可读取的流式响应', 'The API returned no readable streaming response'))
 
   const signals = options.signals ?? []
   const reader = response.body.getReader()
@@ -88,7 +89,7 @@ export async function readJsonServerSentEvents(
     throwIfAborted(...signals)
     if (buffer.trim()) await processBlock(buffer)
     if (!hasDataLine) {
-      const message = '未从流式响应中解析到有效的 data 事件'
+      const message = t('未从流式响应中解析到有效的 data 事件', 'No valid data events could be parsed from the streaming response')
       throw new Error(options.formatErrorMessage?.(message) ?? message)
     }
   } finally {

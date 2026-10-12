@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import type { PromptTemplate } from '../types'
 import { promptExampleVersion } from './promptExamples'
 
@@ -42,7 +43,7 @@ export function mergePromptTemplates(current: PromptTemplate[], incoming: unknow
   for (const item of normalizePromptTemplates(incoming)) {
     const existing = merged.find((template) => template.id === item.id)
     if (existing?.title === item.title && existing.content === item.content && existing.sourceUrl === item.sourceUrl && existing.previewUrl === item.previewUrl && existing.sourcePromptId === item.sourcePromptId && (!item.category || existing.category === item.category) && JSON.stringify(existing.categories) === JSON.stringify(item.categories)) continue
-    merged.push(existing ? { ...item, id: crypto.randomUUID(), title: `${item.title}（导入）` } : item)
+    merged.push(existing ? { ...item, id: crypto.randomUUID(), title: t(`${item.title}（导入）`, `${item.title} (imported)`) } : item)
   }
   return merged
 }

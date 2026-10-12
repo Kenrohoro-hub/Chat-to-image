@@ -1,3 +1,4 @@
+import { getUiLanguage, t } from './i18n'
 import type { AppSettings, TaskParams } from '../types'
 import type { CallApiResult } from './imageApiShared'
 
@@ -27,6 +28,7 @@ export interface AgentConnectionStatus {
 }
 
 interface DesktopApi {
+  set_ui_language(language: 'zh-CN' | 'en'): Promise<void>
   prompt_storage(action: string, payload: Record<string, unknown>): Promise<unknown>
   choose_prompt_directory(): Promise<string | null>
   read_heroprompt_posts(page: number): Promise<{ prompts: unknown[]; totalPages: number }>
@@ -65,12 +67,12 @@ let token = ''
 async function localCall<T>(method: string, args: unknown[], retry = true): Promise<T> {
   if (!token) {
     const response = await fetch('/__local/session', { cache: 'no-store', signal: AbortSignal.timeout(5000) })
-    if (!response.ok) throw new Error('无法连接本机服务，请重新打开网页。')
+    if (!response.ok) throw new Error(t('无法连接本机服务，请重新打开网页。', 'Cannot connect to the local service. Reopen the page.'))
     token = (await response.json()).token
   }
   const response = await fetch('/__local/api', {
     method: 'POST', cache: 'no-store',
-    headers: { 'Content-Type': 'application/json', 'X-Codex-Sync': token },
+    headers: { 'Content-Type': 'application/json', 'X-Codex-Sync': token, 'X-Playground-Language': getUiLanguage() },
     body: JSON.stringify({ method, args }),
     signal: method === 'generate' ? undefined : AbortSignal.timeout(method === 'prompt_storage' ? 600000 : method === 'list_models' ? 25000 : ['read_youmind_prompts', 'read_heroprompt_posts'].includes(method) ? 45000 : 15000),
   })
@@ -79,17 +81,18 @@ async function localCall<T>(method: string, args: unknown[], retry = true): Prom
     return localCall(method, args, false)
   }
   const result = await response.json()
-  if (!response.ok) throw new Error(result.error || '本机服务请求失败，请重试。')
+  if (!response.ok) throw new Error(result.error || t('本机服务请求失败，请重试。', 'Local service request failed. Try again.'))
   return result
 }
 
 const localApi: DesktopApi = {
+  set_ui_language: () => Promise.resolve(),
   prompt_storage: (action, payload) => localCall('prompt_storage', [action, payload]),
-  choose_prompt_directory: () => Promise.reject(new Error('请从桌面窗口选择目录，或手动填写路径。')),
+  choose_prompt_directory: () => Promise.reject(new Error(t('请从桌面窗口选择目录，或手动填写路径。', 'Choose a folder in the desktop window, or enter a path manually.'))),
   read_heroprompt_posts: (page) => localCall('read_heroprompt_posts', [page]),
   read_youmind_prompts: (page) => localCall('read_youmind_prompts', [page]),
   download_prompt_image: (url) => localCall('download_prompt_image', [url]),
-  agent_connections: () => Promise.reject(new Error('请在桌面窗口管理 Agent 连接。')),
+  agent_connections: () => Promise.reject(new Error(t('请在桌面窗口管理 Agent 连接。', 'Manage Agent connections in the desktop window.'))),
   load_settings: () => localCall('load_settings', []),
   recover_settings: (revision) => localCall('recover_settings', [revision]),
   save_settings: (settings, revision) => localCall('save_settings', [settings, revision]),
@@ -105,18 +108,22 @@ export function usesDesktopPool(settings: AppSettings, profileId: string) {
 }
 
 export async function desktopApi(): Promise<DesktopApi> {
-  if (!isLocalService()) throw new Error('请从桌面或本机网页入口打开。')
+  if (!isLocalService()) throw new Error(t('请从桌面或本机网页入口打开。', 'Open the app through the desktop or local browser entry.'))
   if (!isDesktop()) return localApi
-  if (typeof window.pywebview?.api?.load_settings === 'function') return window.pywebview.api
+  if (typeof window.pywebview?.api?.load_settings === 'function') {
+    await window.pywebview.api.set_ui_language(getUiLanguage())
+    return window.pywebview.api
+  }
   await new Promise<void>((resolve, reject) => {
     const ready = () => { clearTimeout(timer); resolve() }
     const timer = window.setTimeout(() => {
       window.removeEventListener('pywebviewready', ready)
-      reject(new Error('桌面连接未就绪，请关闭窗口后重新打开。'))
+      reject(new Error(t('桌面连接未就绪，请关闭窗口后重新打开。', 'The desktop connection is not ready. Close and reopen the window.')))
     }, 15000)
     window.addEventListener('pywebviewready', ready, { once: true })
   })
-  if (typeof window.pywebview?.api?.load_settings !== 'function') throw new Error('无法连接桌面服务。')
+  if (typeof window.pywebview?.api?.load_settings !== 'function') throw new Error(t('无法连接桌面服务。', 'Cannot connect to the desktop service.'))
+  await window.pywebview.api.set_ui_language(getUiLanguage())
   return window.pywebview.api
 }
 
@@ -155,23 +162,23 @@ export async function syncDesktopSettings(nextRevision: string, apply: (settings
 
 export function saveDesktopSettings(settings: AppSettings, expectedRevision?: string) {
   if (applying) return Promise.resolve()
-  if (!ready) return Promise.reject(new Error('桌面设置尚未加载，未覆盖已有配置。'))
+  if (!ready) return Promise.reject(new Error(t('桌面设置尚未加载，未覆盖已有配置。', 'Desktop settings have not loaded. Existing settings were not overwritten.')))
   const body = JSON.stringify(settings)
   pendingSaves++
   saveQueue = saveQueue.catch(() => undefined).then(async () => {
     try {
       if (expectedRevision !== undefined && expectedRevision !== revision) {
-        throw new Error('配置已在另一窗口更新。当前草稿已保留；请关闭设置后重新打开，再应用修改。')
+        throw new Error(t('配置已在另一窗口更新。当前草稿已保留；请关闭设置后重新打开，再应用修改。', 'Settings changed in another window. Your draft is preserved. Close and reopen settings before applying changes.'))
       }
       if (body !== savedSettings) {
         const result = await (await desktopApi()).save_settings(settings, expectedRevision ?? revision)
-        if (!result.ok) throw new Error('本机设置保存失败。')
+        if (!result.ok) throw new Error(t('本机设置保存失败。', 'Could not save local settings.'))
         revision = result.revision
         savedSettings = body
       }
       desktopSaveError = ''
     } catch (error) {
-      desktopSaveError = error instanceof Error ? error.message : '设置未保存到本机，请重试。'
+      desktopSaveError = error instanceof Error ? error.message : t('设置未保存到本机，请重试。', 'Settings were not saved locally. Try again.')
       throw new Error(desktopSaveError)
     } finally {
       pendingSaves--
@@ -182,7 +189,7 @@ export function saveDesktopSettings(settings: AppSettings, expectedRevision?: st
 }
 
 export async function flushDesktopSettings() {
-  if (!ready) throw new Error('桌面设置尚未加载，请重新打开窗口。')
+  if (!ready) throw new Error(t('桌面设置尚未加载，请重新打开窗口。', 'Desktop settings have not loaded. Reopen the window.'))
   await saveQueue
   if (desktopSaveError) throw new Error(desktopSaveError)
 }

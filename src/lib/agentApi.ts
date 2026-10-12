@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import { parseImageToolArguments, filterAgentVisionInput } from './agentImageTools'
 import { AgentApiRejection, withAgentFallback } from './agentRouting'
 import { DEFAULT_AGENT_MAX_TOOL_ROUNDS, type ApiProfile, type AppSettings, type ResponsesApiResponse, type ResponsesOutputItem, type TaskParams } from '../types'
@@ -302,7 +303,7 @@ function getStreamEventErrorMessage(event: Record<string, unknown>): string | nu
   if (typeof error === 'string' && error.trim()) return error
 
   const type = getStringValue(event, 'type')
-  if (type?.endsWith('.failed')) return getStringValue(event, 'message') ?? 'Agent 流式请求失败'
+  if (type?.endsWith('.failed')) return getStringValue(event, 'message') ?? t('Agent 流式请求失败', 'Agent streaming request failed')
   return null
 }
 
@@ -326,7 +327,7 @@ function getImageToolFailureFromOutputItem(event: Record<string, unknown>, item?
   const error = getErrorMessageFromValue(itemRecord?.error)
     ?? getErrorMessageFromValue(event.error)
     ?? getStringValue(event, 'message')
-    ?? '内置 image_generation 工具调用失败'
+    ?? t('内置 image_generation 工具调用失败', 'The built-in image_generation tool call failed')
 
   return {
     toolCallId,
@@ -573,10 +574,10 @@ async function parseAgentStreamResponse(
 
   throwIfAborted(signal, callerSignal)
   const payload: ResponsesApiResponse | null = completedPayload ?? (outputItems.length ? { output: outputItems } : null)
-  if (!payload) throw new Error('Agent 流式接口未返回最终响应数据')
+  if (!payload) throw new Error(t('Agent 流式接口未返回最终响应数据', 'The Agent streaming API returned no final response'))
 
   const text = extractText(payload) || streamedText.trim()
-  if (!text && !extractImages(payload, mime).length && !payload.output?.some((item) => item.type === 'function_call')) throw new Error('Agent 接口没有返回回复或图像工具调用，请检查模型是否支持 Responses 和工具调用。')
+  if (!text && !extractImages(payload, mime).length && !payload.output?.some((item) => item.type === 'function_call')) throw new Error(t('Agent 接口没有返回回复或图像工具调用，请检查模型是否支持 Responses 和工具调用。', 'The Agent API returned neither a reply nor an image tool call. Check that the model supports Responses and tool calls.'))
   return {
     responseId: payload.id,
     text,
@@ -620,7 +621,7 @@ async function callSingleAgentResponsesApi(opts: {
     }
     if (settings.agentReasoningEffort) {
       const capability = profile.modelCapabilities?.[profile.model]
-      if (capability?.reasoning === false || (capability?.reasoningEfforts && !capability.reasoningEfforts.includes(settings.agentReasoningEffort))) throw new Error(`模型「${profile.model}」不支持所选推理强度 ${settings.agentReasoningEffort}，请改为默认或选择支持的档位。`)
+      if (capability?.reasoning === false || (capability?.reasoningEfforts && !capability.reasoningEfforts.includes(settings.agentReasoningEffort))) throw new Error(t(`模型「${profile.model}」不支持所选推理强度 ${settings.agentReasoningEffort}，请改为默认或选择支持的档位。`, `Model “${profile.model}” does not support reasoning effort ${settings.agentReasoningEffort}. Use the default or a supported level.`))
       body.reasoning = { effort: settings.agentReasoningEffort }
     }
     if (profile.streamImages) {
@@ -646,10 +647,10 @@ async function callSingleAgentResponsesApi(opts: {
 
     const rawPayload = await response.json() as unknown
     const payload = normalizeResponsePayload(rawPayload)
-    if (!payload) throw new Error('Agent 接口返回格式无效')
+    if (!payload) throw new Error(t('Agent 接口返回格式无效', 'Invalid Agent API response format'))
     throwIfAborted(controller.signal, signal)
     const text = extractText(payload)
-    if (!text && !extractImages(payload, mime).length && !payload.output?.some((item) => item.type === 'function_call')) throw new Error('Agent 接口没有返回回复或图像工具调用，请检查模型是否支持 Responses 和工具调用。')
+    if (!text && !extractImages(payload, mime).length && !payload.output?.some((item) => item.type === 'function_call')) throw new Error(t('Agent 接口没有返回回复或图像工具调用，请检查模型是否支持 Responses 和工具调用。', 'The Agent API returned neither a reply nor an image tool call. Check that the model supports Responses and tool calls.'))
     return {
       responseId: payload.id,
       text,
@@ -707,7 +708,7 @@ async function callSingleAgentConversationTitleApi(opts: {
     }
 
     const payload = normalizeResponsePayload(await response.json())
-    if (!payload) throw new Error('Agent 标题接口返回格式无效')
+    if (!payload) throw new Error(t('Agent 标题接口返回格式无效', 'Invalid Agent title API response format'))
     return parseAgentConversationTitleXml(extractText(payload))
   } finally {
     clearTimeout(timeoutId)
@@ -869,27 +870,27 @@ async function callSingleBatchImage(opts: {
       return {
         batchItemId,
         image: completedImage,
-        error: completedImage ? null : '流式响应未返回图片',
+        error: completedImage ? null : t('流式响应未返回图片', 'The streaming response returned no images'),
         rawResponsePayload: rawPayload,
       }
     }
 
     // Non-streaming
     const payload = normalizeResponsePayload(await response.json())
-    if (!payload) throw new Error('图像接口返回格式无效')
+    if (!payload) throw new Error(t('图像接口返回格式无效', 'Invalid image API response format'))
     const images = extractImages(payload, mime)
     const image = images[0] ?? null
     if (image) await onImageToolCompleted?.(image)
     return {
       batchItemId,
       image,
-      error: image ? null : '接口未返回图片数据',
+      error: image ? null : t('接口未返回图片数据', 'The API returned no image data'),
       rawResponsePayload: JSON.stringify(payload, null, 2),
     }
   } catch (err) {
     if (err instanceof AgentApiRejection && !controller.signal.aborted && !signal?.aborted) throw err
     if (controller.signal.aborted || signal?.aborted) {
-      return { batchItemId, image: null, error: signal?.aborted ? '请求已取消' : '请求超时，未自动重发' }
+      return { batchItemId, image: null, error: signal?.aborted ? t('请求已取消', 'Request canceled') : t('请求超时，未自动重发', 'Request timed out. It was not sent again automatically.') }
     }
     return { batchItemId, image: null, error: err instanceof Error ? err.message : String(err) }
   } finally {

@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import type { AppSettings, ResponsesOutputItem, TaskParams } from '../types'
 import { blobToDataUrl } from './dataUrl'
 
@@ -99,12 +100,12 @@ export function getDataUrlDecodedByteSize(dataUrl: string): number {
 
 function assertMaxBytes(label: string, bytes: number, maxBytes: number) {
   if (bytes > maxBytes) {
-    throw new Error(`${label}过大：${formatMiB(bytes)}，上限为 ${formatMiB(maxBytes)}`)
+    throw new Error(t(`${label}过大：${formatMiB(bytes)}，上限为 ${formatMiB(maxBytes)}`, `${label} is too large: ${formatMiB(bytes)}. Limit: ${formatMiB(maxBytes)}`))
   }
 }
 
 export function assertImageInputPayloadSize(bytes: number) {
-  assertMaxBytes('图像输入有效负载总大小', bytes, MAX_IMAGE_INPUT_PAYLOAD_BYTES)
+  assertMaxBytes(t('图像输入有效负载总大小', 'Total image input payload'), bytes, MAX_IMAGE_INPUT_PAYLOAD_BYTES)
 }
 
 export function assertMaskEditFileSize(label: string, bytes: number) {
@@ -112,11 +113,11 @@ export function assertMaskEditFileSize(label: string, bytes: number) {
 }
 
 const IMAGE_TOOL_DROPPED_ERROR = /Tool choice 'required' must be specified with 'tools' parameter\./i
-export const IMAGE_TOOL_DROPPED_HINT = '提示：当前使用的 API 可能未正确转发图像生成工具，请尝试更换支持该工具的接口或模型。'
-export const IMAGE_FETCH_CORS_HINT = ' 可点链接按钮复制结果链接，或尝试开启「返回 Base64 图片数据」避免此问题。'
-export const STREAMING_UNSUPPORTED_HINT = '提示：当前使用的 API 可能不支持流式传输，请尝试关闭「流式传输」功能。'
-export const STREAMING_FORMAT_HINT = '提示：API 返回了无法解析的流式数据格式，请尝试关闭「流式传输」功能。'
-export const TRANSPARENT_BACKGROUND_UNSUPPORTED_HINT = '提示：当前使用的 API 不支持为该模型使用原生透明背景，请将「透明背景实现方式」切换为「本地后处理」。'
+export const IMAGE_TOOL_DROPPED_HINT = t('提示：当前使用的 API 可能未正确转发图像生成工具，请尝试更换支持该工具的接口或模型。', 'The API may not forward the image generation tool correctly. Try an API or model that supports it.')
+export const IMAGE_FETCH_CORS_HINT = t(' 可点链接按钮复制结果链接，或尝试开启「返回 Base64 图片数据」避免此问题。', ' Copy the result URL with the link button, or enable Base64 image data to avoid this issue.')
+export const STREAMING_UNSUPPORTED_HINT = t('提示：当前使用的 API 可能不支持流式传输，请尝试关闭「流式传输」功能。', 'The API may not support streaming. Try disabling streaming.')
+export const STREAMING_FORMAT_HINT = t('提示：API 返回了无法解析的流式数据格式，请尝试关闭「流式传输」功能。', 'The API returned an unreadable streaming format. Try disabling streaming.')
+export const TRANSPARENT_BACKGROUND_UNSUPPORTED_HINT = t('提示：当前使用的 API 不支持为该模型使用原生透明背景，请将「透明背景实现方式」切换为「本地后处理」。', 'This API does not support native transparent backgrounds for this model. Select local post-processing instead.')
 
 export function appendStreamingUnsupportedHint(message: string): string {
   return message ? `${message}\n${STREAMING_UNSUPPORTED_HINT}` : STREAMING_UNSUPPORTED_HINT
@@ -180,18 +181,18 @@ export async function fetchImageUrlAsDataUrl(url: string, fallbackMime: string, 
     if (err instanceof TypeError) {
       const probe = await probeNoCorsReachability(url)
       if (probe === 'opaque') {
-        throw new Error(`图片已生成，但因服务商未允许跨域，图片链接下载失败。${IMAGE_FETCH_CORS_HINT}`)
+        throw new Error(t(`图片已生成，但因服务商未允许跨域，图片链接下载失败。${IMAGE_FETCH_CORS_HINT}`, `The image was generated, but downloading its URL failed because the provider does not allow cross-origin access.${IMAGE_FETCH_CORS_HINT}`))
       }
       if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-        throw new Error(`图片链接下载失败（网络不可用）。${IMAGE_FETCH_CORS_HINT}`)
+        throw new Error(t(`图片链接下载失败（网络不可用）。${IMAGE_FETCH_CORS_HINT}`, `Could not download the image URL (network unavailable).${IMAGE_FETCH_CORS_HINT}`))
       }
-      throw new Error(`图片链接下载失败（可能因跨域限制、链接过期或网络异常）。${IMAGE_FETCH_CORS_HINT}`)
+      throw new Error(t(`图片链接下载失败（可能因跨域限制、链接过期或网络异常）。${IMAGE_FETCH_CORS_HINT}`, `Could not download the image URL (cross-origin restrictions, an expired URL or a network error).${IMAGE_FETCH_CORS_HINT}`))
     }
     throw err
   }
 
   if (!response.ok) {
-    throw new Error(`图片 URL 下载失败：HTTP ${response.status}`)
+    throw new Error(t(`图片 URL 下载失败：HTTP ${response.status}`, `Image URL download failed: HTTP ${response.status}`))
   }
 
   const blob = await response.blob()

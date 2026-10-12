@@ -1,3 +1,4 @@
+import { t } from '../lib/i18n'
 import { useMemo, useRef, useState, useEffect } from 'react'
 import { useStore, reuseConfig, editOutputs, removeTask, taskMatchesFilterStatus, taskMatchesSearchQuery } from '../store'
 import { ALL_FAVORITES_COLLECTION_ID, getTaskFavoriteCollectionIds } from '../lib/favoriteState'
@@ -53,8 +54,8 @@ export default function TaskGrid() {
 
   const handleDelete = (task: typeof tasks[0]) => {
     setConfirmDialog({
-      title: '删除任务',
-      message: '确定要删除这个任务吗？关联的图片资源也会被清理（如果没有其他任务引用）。',
+      title: t('删除任务', 'Delete task'),
+      message: t('确定要删除这个任务吗？关联的图片资源也会被清理（如果没有其他任务引用）。', 'Delete this task? Associated images will also be removed if no other task uses them.'),
       action: () => removeTask(task),
     })
   }
@@ -237,7 +238,7 @@ export default function TaskGrid() {
       if (now - lastToastTimeRef.current > 3000) {
         lastToastTimeRef.current = now
         const keyName = isMac ? '⌘' : 'Ctrl'
-        useStore.getState().showToast(`松开 ${keyName} 键使用滚轮，或拖至边缘自动滚动`, 'info')
+        useStore.getState().showToast(t(`松开 ${keyName} 键使用滚轮，或拖至边缘自动滚动`, `Release ${keyName} to scroll with the wheel, or drag to an edge to auto-scroll`), 'info')
       }
     }
 
@@ -264,7 +265,7 @@ export default function TaskGrid() {
     return (
       <div className="text-center py-20 text-gray-400 dark:text-gray-500">
         {searchQuery || filterFavorite ? (
-          <p className="text-sm">没有找到匹配的任务</p>
+          <p className="text-sm">{t('没有找到匹配的任务', 'No matching tasks')}</p>
         ) : (
           <>
             <svg
@@ -280,7 +281,7 @@ export default function TaskGrid() {
                 d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
               />
             </svg>
-            <p className="text-sm">输入提示词开始生成图片</p>
+            <p className="text-sm">{t('输入提示词开始生成图片', 'Enter a prompt to start generating images')}</p>
           </>
         )}
       </div>
@@ -320,11 +321,11 @@ export default function TaskGrid() {
           </div>
         ))}
       </div>
-      {pageCount > 1 && <nav aria-label="历史分页" data-no-drag-select className="flex flex-wrap justify-center items-center gap-3 pb-6 text-sm">
-        <button type="button" disabled={currentPage === 0} onClick={() => { setPage(currentPage - 1); rootRef.current?.scrollIntoView({ block: 'start' }) }}>上一页</button>
-        <span role="status">第 {currentPage + 1} / {pageCount} 页 · 共 {filteredTasks.length} 条</span>
-        <button type="button" disabled={currentPage + 1 >= pageCount} onClick={() => { setPage(currentPage + 1); rootRef.current?.scrollIntoView({ block: 'start' }) }}>下一页</button>
-        {!!selectedTaskIds.length && <span>已选 {selectedTaskIds.length} 条（包含其他页）</span>}
+      {pageCount > 1 && <nav aria-label={t('历史分页', 'History pages')} data-no-drag-select className="flex flex-wrap justify-center items-center gap-3 pb-6 text-sm">
+        <button type="button" disabled={currentPage === 0} onClick={() => { setPage(currentPage - 1); rootRef.current?.scrollIntoView({ block: 'start' }) }}>{t('上一页', 'Previous')}</button>
+        <span role="status">{t(`第 ${currentPage + 1} / ${pageCount} 页 · 共 ${filteredTasks.length} 条`, `Page ${currentPage + 1} / ${pageCount} · ${filteredTasks.length} items`)}</span>
+        <button type="button" disabled={currentPage + 1 >= pageCount} onClick={() => { setPage(currentPage + 1); rootRef.current?.scrollIntoView({ block: 'start' }) }}>{t('下一页', 'Next')}</button>
+        {!!selectedTaskIds.length && <span>{t('已选', 'Selected')} {selectedTaskIds.length} {t('条（包含其他页）', ' items (including other pages)')}</span>}
       </nav>}
       {selectionBox && (
         <div

@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import type { CreationDraftSnapshot } from '../types'
 import { useStore } from '../store'
 import { getAgentImageParams } from './agentPreferences'
@@ -18,7 +19,7 @@ export function applyCreationDraft(before: CreationDraftSnapshot, patch: Partial
   const state = useStore.getState()
   const conversation = state.agentConversations.find((item) => item.id === before.conversationId)
   if (!isCurrentCreationDraft(before) || conversation?.rounds.some((round) => round.status === 'running')) {
-    state.showToast('草稿或对话已改变，请重新应用。', 'info')
+    state.showToast(t('草稿或对话已改变，请重新应用。', 'The draft or conversation changed. Apply it again.'), 'info')
     return false
   }
   const next = { ...before, ...patch }
@@ -35,6 +36,6 @@ export function applyCreationDraft(before: CreationDraftSnapshot, patch: Partial
 export function undoCreationDraft() {
   const undo = useStore.getState().creationDraftUndo
   if (!undo) return
-  if (applyCreationDraft(undo.after, undo.before, false)) useStore.getState().showToast('已恢复替换前的草稿', 'info')
+  if (applyCreationDraft(undo.after, undo.before, false)) useStore.getState().showToast(t('已恢复替换前的草稿', 'Restored the previous draft'), 'info')
   else useStore.setState({ creationDraftUndo: null })
 }

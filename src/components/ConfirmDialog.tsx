@@ -1,3 +1,4 @@
+import { t } from '../lib/i18n'
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
 import { useCloseOnEscape } from '../hooks/useCloseOnEscape'
@@ -96,11 +97,11 @@ export default function ConfirmDialog() {
   usePreventBackgroundScroll(Boolean(confirmDialog))
 
   if (!confirmDialog) return null
-  const isDestructive = confirmDialog.title.includes('删除') || confirmDialog.title.includes('清空')
+  const isDestructive = /删除|清空|\b(?:delete|clear)\b/i.test(confirmDialog.title)
   const confirmTone = confirmDialog.tone ?? (isDestructive ? 'danger' : undefined)
   const confirmClassName = getActionButtonClass(confirmTone === 'danger' || confirmTone === 'warning' ? confirmTone : 'primary')
-  const confirmText = confirmDialog.confirmText ?? (isDestructive ? '确认删除' : '确认')
-  const cancelText = confirmDialog.cancelText ?? '取消'
+  const confirmText = confirmDialog.confirmText ?? (isDestructive ? t('确认删除', 'Confirm deletion') : t('确认', 'Confirm'))
+  const cancelText = confirmDialog.cancelText ?? t('取消', 'Cancel')
   const customButtons = confirmDialog.buttons?.filter((button) => button.label.trim()) ?? []
 
   return (

@@ -1,3 +1,4 @@
+import { t } from './i18n'
 import type { AppSettings } from '../types'
 import { validateApiProfile } from './apiProfiles'
 
@@ -12,7 +13,7 @@ export function getGalleryModelGroups(settings: AppSettings) {
     .filter((group) => group.models.length > 0)
   return groups.map((group, index) => ({
     ...group,
-    label: groups.filter((item) => item.label === group.label).length > 1 ? `${group.label}（配置 ${index + 1}）` : group.label,
+    label: groups.filter((item) => item.label === group.label).length > 1 ? t(`${group.label}（配置 ${index + 1}）`, `${group.label} (profile ${index + 1})`) : group.label,
   }))
 }
 

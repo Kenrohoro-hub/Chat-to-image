@@ -13,6 +13,7 @@ from contextlib import contextmanager
 from urllib.parse import urlsplit
 
 from playground_config import config_path, local_data_dir, protect, read_snapshot, snapshot_key
+from ui_language import t
 
 
 @contextmanager
@@ -26,12 +27,12 @@ def route_lock():
   scope = hashlib.sha256(str(desktop_path().parent.resolve()).casefold().encode('utf-8')).hexdigest()[:16]
   handle = kernel.CreateMutexW(None, False, 'Local\\PlaygroundRoutes-' + scope)
   if not handle:
-    raise OSError('无法创建配置锁。')
+    raise OSError(t('无法创建配置锁。', 'Could not create the settings lock.'))
   acquired = False
   try:
     acquired = kernel.WaitForSingleObject(handle, 10000) in (0, 128)
     if not acquired:
-      raise OSError('配置正忙，请重试。')
+      raise OSError(t('配置正忙，请重试。', 'Settings are busy. Please try again.'))
     yield
   finally:
     if acquired:
@@ -62,21 +63,21 @@ def settings_snapshot():
       return {'settings': initial_settings(), 'revision': settings_revision()}
     except SettingsUnreadable:
       return {'settings': None, 'revision': settings_revision(),
-              'error': '当前 Windows 环境无法解密已有 API 配置。原文件已保留，自动保存和生图已暂停。可回到保存配置的电脑和账户使用，或保留旧配置后重新填写 API。'}
+              'error': t('当前 Windows 环境无法解密已有 API 配置。原文件已保留，自动保存和生图已暂停。可回到保存配置的电脑和账户使用，或保留旧配置后重新填写 API。', 'This Windows environment cannot decrypt the existing API settings. The original file has been kept, and automatic saving and image generation are paused. Return to the computer and account where the settings were saved, or keep the old settings and enter the API details again.')}
 
 
 def recover_settings(expected_revision):
   if not isinstance(expected_revision, str):
-    raise ValueError('缺少配置版本，请重新加载设置。')
+    raise ValueError(t('缺少配置版本，请重新加载设置。', 'The settings revision is missing. Reload the settings.'))
   with route_lock():
     if expected_revision != settings_revision():
-      raise SettingsConflict('配置已在另一窗口更新，请重新打开工具。')
+      raise SettingsConflict(t('配置已在另一窗口更新，请重新打开工具。', 'Settings were updated in another window. Reopen the app.'))
     try:
       read_desktop(True)
     except SettingsUnreadable:
       pass
     else:
-      raise ValueError('当前配置可以读取，无需重新配置。')
+      raise ValueError(t('当前配置可以读取，无需重新配置。', 'The current settings are readable. No reconfiguration is needed.'))
     path = desktop_path()
     backup = path.with_name('desktop-settings.unreadable-' + uuid.uuid4().hex + '.json')
     path.rename(backup)
@@ -105,13 +106,13 @@ def read_desktop(decrypt=False):
     return None
   record = json.loads(desktop_path().read_text(encoding='utf-8'))
   if record.get('version') != 1:
-    raise ValueError('桌面配置版本不支持。')
+    raise ValueError(t('桌面配置版本不支持。', 'This desktop settings version is not supported.'))
   if decrypt:
     blob = base64.b64decode(record['encrypted'], validate=True)
     try:
       decrypted = protect(blob, decrypt=True)
     except ValueError:
-      raise SettingsUnreadable('当前 Windows 环境无法解密已有 API 配置。') from None
+      raise SettingsUnreadable(t('当前 Windows 环境无法解密已有 API 配置。', 'This Windows environment cannot decrypt the existing API settings.')) from None
     return json.loads(decrypted)
   return record
 
@@ -133,53 +134,53 @@ def initial_settings():
 
 def save_desktop(settings, expected_revision=None):
   if not isinstance(settings, dict) or not isinstance(settings.get('profiles'), list):
-    raise ValueError('设置格式错误。')
+    raise ValueError(t('设置格式错误。', 'Invalid settings format.'))
   profiles = settings['profiles']
   if not profiles or any(not isinstance(p, dict) or not isinstance(p.get('id'), str) for p in profiles):
-    raise ValueError('API 配置格式错误。')
+    raise ValueError(t('API 配置格式错误。', 'Invalid API profile format.'))
   if len({p['id'] for p in profiles}) != len(profiles):
-    raise ValueError('API 配置 ID 不能重复。')
+    raise ValueError(t('API 配置 ID 不能重复。', 'API profile IDs must be unique.'))
   for mode, label in [('images', '画廊'), ('responses', 'Agent')]:
     if sum(p.get('provider') == 'openai' and p.get('apiMode') == mode for p in profiles) > 10:
-      raise ValueError(f'{label}最多添加 10 套 API 配置（含停用项）。')
+      raise ValueError(t(f'{label}最多添加 10 套 API 配置（含停用项）。', f'You can add up to 10 {"image" if mode == "images" else "chat"} API profiles, including disabled profiles.'))
   pool = settings.get('failover') or {}
   if not isinstance(pool, dict):
-    raise ValueError('主备池格式错误。')
+    raise ValueError(t('主备池格式错误。', 'Invalid failover pool format.'))
   slots = pool.get('slots', [])
   if not isinstance(slots, list) or any(not isinstance(s, str) for s in slots) or len(slots) > 10 or len(set(slots)) != len(slots):
-    raise ValueError('主备池最多包含十套不同配置。')
+    raise ValueError(t('主备池最多包含十套不同配置。', 'A failover pool can contain up to 10 unique profiles.'))
   known = {p['id'] for p in profiles}
   if any(p not in known for p in slots) or (slots and pool.get('primaryId') not in slots):
-    raise ValueError('主用和备用配置必须存在。')
+    raise ValueError(t('主用和备用配置必须存在。', 'The primary and fallback profiles must exist.'))
   disabled = pool.get('disabledIds', [])
   if not isinstance(disabled, list) or any(p not in slots for p in disabled):
-    raise ValueError('停用方案必须属于主备池。')
+    raise ValueError(t('停用方案必须属于主备池。', 'Disabled profiles must belong to the failover pool.'))
   agent_pool = settings.get('agentFailover') or {}
   if not isinstance(agent_pool, dict):
-    raise ValueError('Agent 主备池格式错误。')
+    raise ValueError(t('Agent 主备池格式错误。', 'Invalid chat failover pool format.'))
   agent_slots = agent_pool.get('slots', [])
   agent_disabled = agent_pool.get('disabledIds', [])
   if not isinstance(agent_slots, list) or any(not isinstance(p, str) or p not in known for p in agent_slots) or len(agent_slots) > 10 or len(set(agent_slots)) != len(agent_slots):
-    raise ValueError('Agent 主备池最多包含十套不同的已有配置。')
+    raise ValueError(t('Agent 主备池最多包含十套不同的已有配置。', 'The chat failover pool can contain up to 10 unique existing profiles.'))
   if agent_slots and agent_pool.get('primaryId') not in agent_slots:
-    raise ValueError('Agent 主用配置必须属于 Agent 主备池。')
+    raise ValueError(t('Agent 主用配置必须属于 Agent 主备池。', 'The primary chat profile must belong to the chat failover pool.'))
   if not isinstance(agent_disabled, list) or any(p not in agent_slots for p in agent_disabled):
-    raise ValueError('Agent 停用方案必须属于 Agent 主备池。')
+    raise ValueError(t('Agent 停用方案必须属于 Agent 主备池。', 'Disabled chat profiles must belong to the chat failover pool.'))
   if any(p['id'] in agent_slots and (p.get('provider') != 'openai' or p.get('apiMode') != 'responses') for p in profiles):
-    raise ValueError('Agent 主备池只支持 OpenAI 兼容 Responses API。')
+    raise ValueError(t('Agent 主备池只支持 OpenAI 兼容 Responses API。', 'The chat failover pool supports only OpenAI-compatible Responses APIs.'))
   metadata = []
   for profile in profiles:
     for field in ('id', 'name', 'provider', 'baseUrl', 'model', 'apiMode', 'apiKey'):
       if not isinstance(profile.get(field, ''), str):
-        raise ValueError('配置字段类型错误。')
+        raise ValueError(t('配置字段类型错误。', 'Invalid configuration field type.'))
     if 'models' in profile and (not isinstance(profile['models'], list) or any(not isinstance(model, str) for model in profile['models'])):
-      raise ValueError('模型列表格式错误。')
+      raise ValueError(t('模型列表格式错误。', 'Invalid model list format.'))
     raw = profile.get('baseUrl', '')
     url = urlsplit(raw if '://' in raw else 'https://' + raw)
     if url.username or url.password or url.query or url.fragment:
-      raise ValueError('API 地址不能包含账号、密码、查询参数或片段，请将密钥填入 Key 字段。')
+      raise ValueError(t('API 地址不能包含账号、密码、查询参数或片段，请将密钥填入 Key 字段。', 'The API URL cannot contain a username, password, query, or fragment. Enter the secret in the Key field.'))
     if profile['id'] in slots and (profile.get('provider') != 'openai' or profile.get('apiMode') != 'images' or profile.get('codexCli') or profile.get('apiProxy') or profile.get('streamImages')):
-      raise ValueError('主备池只支持标准 OpenAI 兼容 Images API。')
+      raise ValueError(t('主备池只支持标准 OpenAI 兼容 Images API。', 'The image failover pool supports only standard OpenAI-compatible Images APIs.'))
     # 非敏感路由信息用于 dry-run，不读取或解密 Key。
     metadata.append({**{field: profile.get(field) for field in (
       'id', 'name', 'provider', 'baseUrl', 'model', 'models', 'apiMode', 'codexCli', 'apiProxy',
@@ -187,12 +188,12 @@ def save_desktop(settings, expected_revision=None):
     )}, 'hasKey': bool(profile.get('apiKey', '').strip())})
   blob = json.dumps(settings, ensure_ascii=False).encode('utf-8')
   if len(blob) > 2 * 1024 * 1024:
-    raise ValueError('设置超过 2 MiB。')
+    raise ValueError(t('设置超过 2 MiB。', 'Settings exceed 2 MiB.'))
   record = {'version': 1, 'profiles': metadata, 'activeProfileId': settings.get('activeProfileId'),
             'failover': pool, 'encrypted': base64.b64encode(protect(blob)).decode('ascii')}
   with route_lock():
     if expected_revision is not None and expected_revision != settings_revision():
-      raise SettingsConflict('配置已在另一窗口更新。未覆盖新配置，当前草稿已保留；请关闭设置后重新打开，再应用修改。')
+      raise SettingsConflict(t('配置已在另一窗口更新。未覆盖新配置，当前草稿已保留；请关闭设置后重新打开，再应用修改。', 'Settings were updated in another window. The newer settings were not overwritten, and this draft was kept. Close and reopen Settings before applying changes.'))
     previous = read_desktop(True)
     write_json(desktop_path(), record)
     if previous:
@@ -254,9 +255,9 @@ def profile_key(profile, model=None):
   settings = read_desktop(True)
   current = next((p for p in settings['profiles'] if p['id'] == profile['id']), None)
   if not current or any(current.get(k) != profile.get(k) for k in ('baseUrl', 'model', 'provider', 'apiMode')):
-    raise ValueError('配置在请求前发生变化，请重新提交。')
+    raise ValueError(t('配置在请求前发生变化，请重新提交。', 'The profile changed before the request started. Submit it again.'))
   if model and model not in (current.get('models') or [current.get('model')]):
-    raise ValueError('所选模型已从此方案停用，请重新选择。')
+    raise ValueError(t('所选模型已从此方案停用，请重新选择。', 'The selected model is disabled in this profile. Choose another model.'))
   return current.get('apiKey', '').strip()
 
 
@@ -264,17 +265,17 @@ def normalize_url(raw):
   from urllib.parse import urlsplit, urlunsplit
   import ipaddress
   if not raw.strip():
-    raise ValueError('API 地址为空。')
+    raise ValueError(t('API 地址为空。', 'The API URL is empty.'))
   url = urlsplit(raw if '://' in raw else 'https://' + raw)
   _ = url.port
   if not url.hostname or url.username or url.password or url.query or url.fragment:
-    raise ValueError('API 地址格式错误。')
+    raise ValueError(t('API 地址格式错误。', 'Invalid API URL.'))
   try:
     local = ipaddress.ip_address(url.hostname).is_loopback
   except ValueError:
     local = url.hostname.lower() == 'localhost'
   if url.scheme != 'https' and not (url.scheme == 'http' and local):
-    raise ValueError('远程 API 必须使用 HTTPS。')
+    raise ValueError(t('远程 API 必须使用 HTTPS。', 'Remote APIs must use HTTPS.'))
   parts = [part for part in url.path.split('/') if part]
   if not raw.endswith('/'):
     parts = parts[:parts.index('v1') + 1] if 'v1' in parts else parts + ['v1']

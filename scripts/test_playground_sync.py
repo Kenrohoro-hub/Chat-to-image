@@ -70,6 +70,24 @@ class SyncTests(unittest.TestCase):
     except urllib.error.HTTPError as exc:
       return exc.code, exc.read(), exc.headers
 
+  def test_ui_language_is_injected_only_for_desktop_pages(self):
+    self.server.desktop = True
+    with patch('serve_app.system_ui_language', return_value='en'):
+      with urllib.request.urlopen(self.origin + '/?desktop=1', timeout=5) as response:
+        page = response.read().decode('utf-8')
+      self.assertIn('window.__PLAYGROUND_UI_LANGUAGE__="en"', page)
+      self.assertIn('window.__PLAYGROUND_DESKTOP__=true', page)
+      with urllib.request.urlopen(self.origin + '/', timeout=5) as response:
+        page = response.read().decode('utf-8')
+      self.assertNotIn('window.__PLAYGROUND_UI_LANGUAGE__=', page)
+
+  def test_local_errors_follow_each_request_language(self):
+    payload = {'method': 'read_youmind_prompts', 'args': [0]}
+    for language, expected in [('en', 'Invalid YouMind catalog page.'), ('zh-CN', 'YouMind 目录页码无效。'), ('en', 'Invalid YouMind catalog page.')]:
+      status, raw, _ = self.send(payload, path='/__local/api', headers={'X-Playground-Language': language})
+      self.assertEqual(status, 400)
+      self.assertEqual(json.loads(raw)['error'], expected)
+
   def cli(self, *args):
     result = subprocess.run([sys.executable, '-B', str(Path(__file__).with_name('playground_image.py')), '--prompt', '测试纸飞机', *args], cwd=self.root, capture_output=True, encoding='utf-8', timeout=10)
     self.assertEqual(result.stderr, '')

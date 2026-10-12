@@ -6,6 +6,8 @@ import subprocess
 import sys
 import threading
 
+from ui_language import t
+
 
 def run_image_batch(args, paths):
   from playground_image import read_image, CallError
@@ -22,11 +24,11 @@ def run_image_batch(args, paths):
 
   def generate(path):
     with lock:
-      if stopped.is_set(): return {'ok': False, 'images': [], 'error': {'code': 'INTERRUPTED', 'message': '批次已停止。'}}
+      if stopped.is_set(): return {'ok': False, 'images': [], 'error': {'code': 'INTERRUPTED', 'message': t('批次已停止。', 'The batch was stopped.')}}
       try:
         process = subprocess.Popen(command + ['--output', str(path)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0)
       except OSError:
-        return {'ok': False, 'images': [], 'error': {'code': 'PROCESS_START_FAILED', 'message': '无法启动本次生图进程，已完成图片保留。'}}
+        return {'ok': False, 'images': [], 'error': {'code': 'PROCESS_START_FAILED', 'message': t('无法启动本次生图进程，已完成图片保留。', 'Could not start an image generation process. Completed images were kept.')}}
       processes.add(process)
     try:
       output, _ = process.communicate()
@@ -38,7 +40,7 @@ def run_image_batch(args, paths):
         raw, info = read_image(path)
         images.append({'path': str(path), 'format': info[0], 'width': info[1], 'height': info[2], 'bytes': len(raw)})
       except (CallError, OSError): pass
-      return {'ok': False, 'images': images, 'error': {'code': 'INTERRUPTED', 'message': '任务已停止，在途请求状态不明；请核对服务商记录，勿自动重跑。'}}
+      return {'ok': False, 'images': images, 'error': {'code': 'INTERRUPTED', 'message': t('任务已停止，在途请求状态不明；请核对服务商记录，勿自动重跑。', 'The task stopped while a request was in flight, so its status is unknown. Check provider records; do not retry automatically.')}}
     finally:
       with lock: processes.discard(process)
 
@@ -65,7 +67,7 @@ def run_image_batch(args, paths):
   ordered = [result for _, result in sorted(results.items())]
   failed = next((result for result in ordered if not result['ok']), None)
   if failed is None and next_index < len(paths):
-    failed = {'error': {'code': 'INTERRUPTED', 'message': '批次已停止，已完成图片保留。'}}
+    failed = {'error': {'code': 'INTERRUPTED', 'message': t('批次已停止，已完成图片保留。', 'The batch was stopped. Completed images were kept.')}}
   return {
     'ok': failed is None,
     'stage': 'done' if failed is None else failed.get('stage', 'interrupted'),

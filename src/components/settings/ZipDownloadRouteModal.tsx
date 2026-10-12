@@ -3,14 +3,15 @@ import { createPortal } from 'react-dom'
 import type { ZipDownloadRoute } from '../../types'
 import { Checkbox } from '../Checkbox'
 import { CloseIcon } from '../icons'
+import { t } from '../../lib/i18n'
 
 export const ZIP_DOWNLOAD_ROUTE_OPTIONS: Array<{ route: ZipDownloadRoute; label: string; description: string }> = [
-  { route: 'task-selection', label: '任务列表 > 多选', description: '主页或收藏夹详情中框选、Ctrl/⌘ 点选或移动端滑动选中任务后的“下载选中”。' },
-  { route: 'favorite-collection-selection', label: '收藏夹列表 > 多选', description: '收藏夹概览页选中一个或多个收藏夹后的“下载选中”。' },
-  { route: 'image-context-menu-all', label: '图片右键菜单 > 下载全部', description: '右键图片时下载同一组输出图片。' },
-  { route: 'task-detail-all', label: '任务详情 > 下载全部', description: '任务详情弹窗中下载当前任务的所有输出图。' },
-  { route: 'task-detail-partial', label: '任务详情 > 下载中间步骤图', description: '任务详情弹窗中下载流式生成保留的中间步骤图。' },
-  { route: 'agent-round-all', label: 'Agent 对话轮次 > 下载所有图片', description: 'Agent 对话中下载某轮回复关联的全部图片。' },
+  { route: 'task-selection', label: t('任务列表 > 多选', 'Task list > Multi-select'), description: t('主页或收藏夹详情中框选、Ctrl/⌘ 点选或移动端滑动选中任务后的“下载选中”。', 'Download selected after selecting tasks with a drag box, Ctrl/⌘ click, or a mobile swipe in the main list or a favorite collection.') },
+  { route: 'favorite-collection-selection', label: t('收藏夹列表 > 多选', 'Favorite collections > Multi-select'), description: t('收藏夹概览页选中一个或多个收藏夹后的“下载选中”。', 'Download selected after selecting one or more collections in the favorites overview.') },
+  { route: 'image-context-menu-all', label: t('图片右键菜单 > 下载全部', 'Image context menu > Download all'), description: t('右键图片时下载同一组输出图片。', 'Download the same group of output images from an image\'s context menu.') },
+  { route: 'task-detail-all', label: t('任务详情 > 下载全部', 'Task details > Download all'), description: t('任务详情弹窗中下载当前任务的所有输出图。', 'Download all output images for the current task from its details dialog.') },
+  { route: 'task-detail-partial', label: t('任务详情 > 下载中间步骤图', 'Task details > Download intermediate images'), description: t('任务详情弹窗中下载流式生成保留的中间步骤图。', 'Download intermediate images retained during streaming from the task details dialog.') },
+  { route: 'agent-round-all', label: t('Agent 对话轮次 > 下载所有图片', 'Agent reply > Download all images'), description: t('Agent 对话中下载某轮回复关联的全部图片。', 'Download every image associated with one agent reply.') },
 ]
 
 interface ZipDownloadRouteModalProps {
@@ -39,19 +40,19 @@ export default function ZipDownloadRouteModal({
       >
         <div className="shrink-0 p-6 pb-2">
           <div className="mb-3 flex items-center justify-between gap-4">
-            <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">使用压缩包进行批量下载</h3>
+            <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">{t('使用压缩包进行批量下载', 'Download batches as ZIP')}</h3>
             <button
               type="button"
               onClick={onClose}
               className="shrink-0 rounded-full p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-200"
-              aria-label="关闭"
+              aria-label={t('关闭', 'Close')}
             >
               <CloseIcon className="h-5 w-5" />
             </button>
           </div>
 
           <div data-selectable-text className="text-sm leading-relaxed text-gray-500 dark:text-gray-400">
-            开启后，在对应途径进行批量下载时会将结果下载为一个 ZIP，而不是多个图片文件。
+            {t('开启后，在对应途径进行批量下载时会将结果下载为一个 ZIP，而不是多个图片文件。', 'When enabled, the selected batch download actions save one ZIP instead of separate image files.')}
           </div>
         </div>
 
@@ -93,7 +94,7 @@ export default function ZipDownloadRouteModal({
             onClick={onClose}
             className="flex-1 rounded-xl bg-blue-500 py-2 text-sm font-medium text-white transition hover:bg-blue-600"
           >
-            完成
+            {t('完成', 'Done')}
           </button>
         </div>
       </div>
