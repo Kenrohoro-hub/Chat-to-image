@@ -50,7 +50,11 @@ import AgentConnectionsTab from './settings/AgentConnectionsTab'
 import AgentPreferences from './settings/AgentPreferences'
 import ZipDownloadRouteModal, { ZIP_DOWNLOAD_ROUTE_OPTIONS } from './settings/ZipDownloadRouteModal'
 import MarkdownRenderer from './MarkdownRenderer'
-import { t } from '../lib/i18n'
+import { getUiLanguagePreference, setUiLanguage, t, type UiLanguagePreference } from '../lib/i18n'
+import { hasActiveDataOperations } from '../lib/dataOperations'
+import { isEmptyAgentInputDraft } from '../lib/inputDraftState'
+import { flushAgentConversationsToIndexedDB } from '../lib/agentConversationPersistence'
+import LanguageSettingsTab from './settings/LanguageSettingsTab'
 
 function newId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
@@ -82,6 +86,7 @@ export default function SettingsModal() {
   const settingsScrollBoundaryRef = useRef<HTMLDivElement>(null)
   const zipDownloadRouteScrollBoundaryRef = useRef<HTMLDivElement>(null)
   
+  const [languageDraft, setLanguageDraft] = useState<UiLanguagePreference>(getUiLanguagePreference)
   const [draft, setDraft] = useState<AppSettings>(normalizeSettings(settings))
   const draftRef = useRef(draft)
   draftRef.current = draft
@@ -140,6 +145,7 @@ export default function SettingsModal() {
 
     wasSettingsOpenRef.current = true
     draftRevisionRef.current = getSettingsRevision()
+    setLanguageDraft(getUiLanguagePreference())
     setSaveMessage('')
     const normalizedSettings = normalizeSettings(settings)
     const displaySettings = normalizedSettings.reuseTaskApiProfileTemporarily && reusedTaskApiProfileId && normalizedSettings.profiles.some((profile) => profile.id === reusedTaskApiProfileId)
@@ -256,6 +262,13 @@ export default function SettingsModal() {
     setSaveMessage('')
     try {
       const next = commitCurrentDraft()
+      const languageChanged = languageDraft !== getUiLanguagePreference()
+      if (languageChanged) {
+        const state = useStore.getState()
+        if (hasActiveDataOperations(state.tasks, state.agentConversations)) throw new Error(t('请先完成或停止任务，再切换语言，以免刷新中断生成或对话。', 'Finish or stop running tasks before changing language so reloading does not interrupt generation or chat.'))
+        if (!next.persistInputOnRestart && (state.prompt || state.inputImages.length || state.maskDraft || state.maskEditorImageId || (state.galleryInputDraft && !isEmptyAgentInputDraft(state.galleryInputDraft)) || Object.values(state.agentInputDrafts).some((item) => !isEmptyAgentInputDraft(item)))) throw new Error(t('当前已关闭输入恢复，请先保存或清空草稿，或在“习惯配置”开启“重启后恢复输入框”，再切换语言。', 'Input restoration is off. Save or clear your drafts, or enable Restore input after restarting in Preferences before changing language.'))
+        if (!await flushAgentConversationsToIndexedDB()) throw new Error(useStore.getState().agentConversationSaveError || t('对话尚未保存，请重试后再切换语言。', 'Conversations have not been saved. Try again before changing language.'))
+      }
       const limitError = getApiProfileLimitError(next.profiles)
       if (limitError) throw new Error(limitError)
       if (isLocalService()) await saveDesktopSettings(next, draftRevisionRef.current)
@@ -264,6 +277,11 @@ export default function SettingsModal() {
       setDraft(useStore.getState().settings)
       setSaveMessage(isLocalService() ? t('已保存到本机，桌面、网页和 Codex 共用。', 'Saved locally and shared by the desktop app, local web page, and Codex.') : t('已保存到当前浏览器。', 'Saved in this browser.'))
       showToast(t('配置已保存', 'Configuration saved'), 'success')
+      if (languageChanged) {
+        try { setUiLanguage(languageDraft) }
+        catch { throw new Error(t('其他配置已保存，但无法保存语言选择，请允许本地存储后重试。', 'Other settings were saved, but the language choice could not be saved. Allow local storage and try again.')) }
+        window.location.reload()
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : t('保存失败，请重试。', 'Save failed. Please try again.')
       setSaveMessage(message)
@@ -276,6 +294,7 @@ export default function SettingsModal() {
   const handleCancel = () => {
     if (saving) return
     setDraft(normalizeSettings(settings))
+    setLanguageDraft(getUiLanguagePreference())
     setEditingProfileId(null)
     setSaveMessage(t('已取消全部未保存更改。', 'All unsaved changes discarded.'))
   }
@@ -290,7 +309,7 @@ export default function SettingsModal() {
       setShowZipDownloadRouteManager(false)
       return
     }
-    if (JSON.stringify(normalizeWorkspaceSettings(draft)) !== JSON.stringify(normalizeWorkspaceSettings(settings))) {
+    if (languageDraft !== getUiLanguagePreference() || JSON.stringify(normalizeWorkspaceSettings(draft)) !== JSON.stringify(normalizeWorkspaceSettings(settings))) {
       setConfirmDialog({ title: t('有未保存的更改', 'Unsaved changes'), message: t('关闭将放弃本次未保存的配置。可返回后点击保存。', 'Closing will discard unsaved configuration changes. Go back and save to keep them.'), action: () => setShowSettings(false) })
       return
     }
@@ -474,6 +493,14 @@ export default function SettingsModal() {
                 {t('习惯配置', 'Preferences')}
               </button>
               <button
+                onClick={() => setActiveTab('language')}
+                aria-current={activeTab === 'language' ? 'page' : undefined}
+                className={`whitespace-nowrap flex-shrink-0 flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl transition-colors ${activeTab === 'language' ? 'bg-white dark:bg-white/[0.08] shadow-sm text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100/80 dark:hover:bg-white/[0.04]'}`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" strokeWidth={2} /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12h18M12 3c3 3 3 15 0 18-3-3-3-15 0-18" /></svg>
+                {t('语言', 'Language')}
+              </button>
+              <button
                 onClick={() => setActiveTab('data')}
                 className={`whitespace-nowrap flex-shrink-0 flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl transition-colors ${activeTab === 'data' ? 'bg-white dark:bg-white/[0.08] shadow-sm text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100/80 dark:hover:bg-white/[0.04]'}`}
               >
@@ -504,6 +531,7 @@ export default function SettingsModal() {
           <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-transparent relative overflow-hidden">
             <div className="flex-1 overflow-y-auto overscroll-contain custom-scrollbar p-5 sm:p-6">
             <fieldset inert={saving} disabled={saving} className="min-w-0 border-0 p-0">
+            {activeTab === 'language' && <LanguageSettingsTab value={languageDraft} onChange={setLanguageDraft} />}
             {activeTab === 'connections' && <AgentConnectionsTab />}
             {activeTab === 'features' && <FeatureIntroTab />}
             {activeTab === 'general' && (

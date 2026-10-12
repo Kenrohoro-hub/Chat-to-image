@@ -1,4 +1,5 @@
 export type UiLanguage = 'zh-CN' | 'en'
+export type UiLanguagePreference = UiLanguage | 'system'
 
 declare global {
   interface Window {
@@ -6,11 +7,16 @@ declare global {
   }
 }
 
-export function getUiLanguage(): UiLanguage {
+export function getUiLanguagePreference(): UiLanguagePreference {
   try {
     const selected = typeof localStorage !== 'undefined' ? localStorage.getItem('chat-to-image-ui-language') : null
-    if (selected === 'zh-CN' || selected === 'en') return selected
-  } catch { /* 本地存储被禁用时仍可按系统语言显示。 */ }
+    return selected === 'zh-CN' || selected === 'en' ? selected : 'system'
+  } catch { return 'system' }
+}
+
+export function getUiLanguage(): UiLanguage {
+  const selected = getUiLanguagePreference()
+  if (selected !== 'system') return selected
   const language = typeof window !== 'undefined' && window.__PLAYGROUND_UI_LANGUAGE__
     ? window.__PLAYGROUND_UI_LANGUAGE__
     : typeof navigator !== 'undefined' ? navigator.language || navigator.languages?.[0] || 'en' : 'en'
@@ -38,8 +44,9 @@ export function getCategoryLabel(name: string): string {
   return labels[name] ?? name
 }
 
-export function setUiLanguage(language: UiLanguage) {
-  localStorage.setItem('chat-to-image-ui-language', language)
+export function setUiLanguage(language: UiLanguagePreference) {
+  if (language === 'system') localStorage.removeItem('chat-to-image-ui-language')
+  else localStorage.setItem('chat-to-image-ui-language', language)
 }
 
 export function getFavoriteCollectionLabel(collection: { id: string; name: string }): string {

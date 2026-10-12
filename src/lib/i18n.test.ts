@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { applyUiLanguage, getCategoryLabel, getUiLanguage, setUiLanguage, t } from './i18n'
+import { applyUiLanguage, getCategoryLabel, getUiLanguage, getUiLanguagePreference, setUiLanguage, t } from './i18n'
 import { getImageMentionLabel, getPromptMentionParts, getSelectedImageMentionLabel, remapImageMentionsForOrder, replaceImageMentionsForApi } from './promptImageMentions'
 import { replaceAgentPromptImageReferencesForApi } from './agentImageReferences'
 import type { AgentRound, InputImage } from '../types'
@@ -49,6 +49,24 @@ describe('interface language', () => {
     expect(getUiLanguage()).toBe('zh-CN')
     localStorage.setItem('chat-to-image-ui-language', 'fr')
     expect(getUiLanguage()).toBe('zh-CN')
+  })
+
+  it('defaults to the system preference when absent or invalid', () => {
+    expect(getUiLanguagePreference()).toBe('system')
+    localStorage.setItem('chat-to-image-ui-language', 'fr')
+    expect(getUiLanguagePreference()).toBe('system')
+    window.__PLAYGROUND_UI_LANGUAGE__ = 'en'
+    expect(getUiLanguage()).toBe('en')
+  })
+
+  it.each(['zh-CN', 'en'] as const)('removes the saved %s override when following the system', (language) => {
+    window.__PLAYGROUND_UI_LANGUAGE__ = language === 'en' ? 'zh-CN' : 'en'
+    setUiLanguage(language)
+    expect(getUiLanguagePreference()).toBe(language)
+    setUiLanguage('system')
+    expect(localStorage.getItem('chat-to-image-ui-language')).toBeNull()
+    expect(getUiLanguagePreference()).toBe('system')
+    expect(getUiLanguage()).toBe(window.__PLAYGROUND_UI_LANGUAGE__)
   })
 
   it('keeps both English and legacy Chinese image references usable', () => {

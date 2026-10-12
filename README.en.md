@@ -4,7 +4,7 @@ Chat to image is a Windows desktop AI image generation and editing tool. It comb
 
 This independently maintained project is currently at **0.1.0**. See the [project on GitHub](https://github.com/Kenrohoro-hub/Chat-to-image), [GitHub Releases](https://github.com/Kenrohoro-hub/Chat-to-image/releases), the [English User Guide](README_User_Guide.en.md), or the [中文使用说明](README_使用说明.md).
 
-The interface follows the system language by default: Chinese system languages show Chinese, and all other languages show English. The desktop app reads the Windows system UI language; the local browser app reads the browser's primary preferred language. Use the **中文 / English** buttons on the welcome page to override this choice. The selection is saved for that entry and the interface reloads; saved data is retained.
+The interface follows the system language by default: Chinese system languages show Chinese, and all other languages show English. The desktop app reads the Windows system UI language; the local browser app reads the browser's primary preferred language. Choose **Settings & API → Language** to select **Follow system**, **中文**, or **English**. This preference is shared with the welcome page for the current entry. Select **Save configuration** to save all current settings drafts, apply the language, and reload the interface. Canceling or closing Settings discards the unsaved language change. You cannot switch while image generation or chat is running; finish or stop those tasks first. If Restore input after restarting is disabled, save or clear input drafts, or enable input restoration before applying another language. Choosing **Follow system** clears the manual selection.
 
 ## Features
 
