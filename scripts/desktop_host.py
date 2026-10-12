@@ -386,7 +386,8 @@ def main():
     api._window = webview.create_window('Chat to image', api._origin + '/?desktop=1', js_api=api,
       width=1360, height=900, min_size=(980, 680), background_color='#faf9f6', text_select=True)
     api._window.events.closing += api._stop
-    webview.start(gui='edgechromium', private_mode=False, storage_path=str(local / 'webview'))
+    webview.start(gui='edgechromium', private_mode=False, storage_path=str(local / 'webview'),
+      icon=str(root / 'dist/app.ico'))
   finally:
     try:
       api._stop()

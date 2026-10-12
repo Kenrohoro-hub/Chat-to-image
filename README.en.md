@@ -2,7 +2,7 @@
 
 Chat to image is a Windows desktop AI image generation and editing tool. It combines direct generation, conversational creation, prompt management, and artwork organization. Use it in the desktop app, a local browser, or the standalone CLI with image and chat models on APIs you configure.
 
-This independently maintained project is currently at **0.1.0**. See the [project on GitHub](https://github.com/Kenrohoro-hub/Chat-to-image), [GitHub Releases](https://github.com/Kenrohoro-hub/Chat-to-image/releases), the [English User Guide](README_User_Guide.en.md), or the [中文使用说明](README_使用说明.md).
+This independently maintained project is currently at **0.2.0**. See the [project on GitHub](https://github.com/Kenrohoro-hub/Chat-to-image), [GitHub Releases](https://github.com/Kenrohoro-hub/Chat-to-image/releases), the [English User Guide](README_User_Guide.en.md), or the [中文使用说明](README_使用说明.md).
 
 The interface follows the system language by default: Chinese system languages show Chinese, and all other languages show English. The desktop app reads the Windows system UI language; the local browser app reads the browser's primary preferred language. Choose **Settings & API → Language** to select **Follow system**, **中文**, or **English**. This preference is shared with the welcome page for the current entry. Select **Save configuration** to save all current settings drafts, apply the language, and reload the interface. Canceling or closing Settings discards the unsaved language change. You cannot switch while image generation or chat is running; finish or stop those tasks first. If Restore input after restarting is disabled, save or clear input drafts, or enable input restoration before applying another language. Choosing **Follow system** clears the manual selection.
 
@@ -24,9 +24,9 @@ The interface follows the system language by default: Chinese system languages s
 
 ### Windows standalone installer
 
-Download **Chat-to-image-0.1.0-windows-x64-setup.exe** from [GitHub Releases](https://github.com/Kenrohoro-hub/Chat-to-image/releases), run it, and launch **Chat to image** from the Start menu. It supports Windows 10 version 1809 or later and Windows 11 x64. Python, desktop dependencies, the frontend, and an offline WebView2 installer are included.
+Download **Chat-to-image-0.2.0-windows-x64-setup.exe** from [GitHub Releases](https://github.com/Kenrohoro-hub/Chat-to-image/releases), run it, and launch **Chat to image** from the Start menu. It supports Windows 10 version 1809 or later and Windows 11 x64. Python, desktop dependencies, the frontend, and an offline WebView2 installer are included.
 
-The installer excludes personal settings, API keys, artwork, history, and backups. It includes 45 built-in prompts and 45 sample images. Enter your API settings before use. Installation is per-user by default; upgrades should use the existing folder. Uninstalling preserves configuration and artwork created during use. The installer and uninstaller are self-signed. Other computers do not trust the self-signed certificate by default, so Windows may still show a publisher or SmartScreen prompt. The current GitHub 0.1.0 installer does not include the English interface added in this source update.
+The installer excludes personal settings, API keys, artwork, history, and backups. It includes 45 built-in prompts and 45 sample images. Enter your API settings before use. Installation is per-user by default; upgrades should use the existing folder. Uninstalling preserves configuration and artwork created during use. The installer and uninstaller are self-signed. Other computers do not trust the self-signed certificate by default, so Windows may still show a publisher or SmartScreen prompt.
 
 ### Run from source
 

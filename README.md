@@ -2,9 +2,9 @@
 
 在 Windows 本机运行的 AI 图片生成与编辑工具，将直接生图、对话式创作、提示词管理和作品整理放在同一个工作区。支持桌面窗口、本地浏览器及独立 CLI 调用，通过用户配置的 OpenAI 兼容 API 使用图像和对话模型。
 
-本项目独立维护，当前版本 **0.1.0**。项目地址：[Kenrohoro-hub/Chat-to-image](https://github.com/Kenrohoro-hub/Chat-to-image)。文档：[English README](README.en.md) · [中文使用说明](README_使用说明.md) · [English User Guide](README_User_Guide.en.md)。
+本项目独立维护，当前版本 **0.2.0**。项目地址：[Kenrohoro-hub/Chat-to-image](https://github.com/Kenrohoro-hub/Chat-to-image)。文档：[English README](README.en.md) · [中文使用说明](README_使用说明.md) · [English User Guide](README_User_Guide.en.md)。
 
-界面默认跟随系统语言：中文系统显示中文，其他系统语言显示英文。桌面版读取 Windows 系统 UI 语言，本地浏览器版读取浏览器首选语言。可在“设置与 API → 语言”选择“跟随系统 / 中文 / English”；此设置与欢迎页共用当前入口的语言偏好。选择后点击“保存配置”才会保存全部设置草稿并应用语言、刷新界面；取消或关闭不保存语言更改。生成或对话任务运行时不能切换，需先完成或停止任务。若关闭“重启后恢复输入框”且还有草稿，请先保存或清空草稿，或开启输入恢复。恢复“跟随系统”会清除手动选择。当前 GitHub 发布的 0.1.0 安装器仍使用原中文界面；本次中英文界面从源码重新构建后可用。
+界面默认跟随系统语言：中文系统显示中文，其他系统语言显示英文。桌面版读取 Windows 系统 UI 语言，本地浏览器版读取浏览器首选语言。可在“设置与 API → 语言”选择“跟随系统 / 中文 / English”；此设置与欢迎页共用当前入口的语言偏好。选择后点击“保存配置”才会保存全部设置草稿并应用语言、刷新界面；取消或关闭不保存语言更改。生成或对话任务运行时不能切换，需先完成或停止任务。若关闭“重启后恢复输入框”且还有草稿，请先保存或清空草稿，或开启输入恢复。恢复“跟随系统”会清除手动选择。
 
 ## 主要功能
 
@@ -24,7 +24,7 @@
 
 ### Windows 独立安装版
 
-从 [GitHub Releases](https://github.com/Kenrohoro-hub/Chat-to-image/releases) 下载 `Chat-to-image-0.1.0-windows-x64-setup.exe`，双击按安装向导安装，然后从开始菜单打开 **Chat to image**。支持 Windows 10（1809 起）与 Windows 11 x64，内置 Python、桌面依赖、前端和 WebView2 离线安装组件，无需另装 Python 或 Node。GitHub 上现有的 0.1.0 安装器尚未包含本次新增的英文界面。
+从 [GitHub Releases](https://github.com/Kenrohoro-hub/Chat-to-image/releases) 下载 `Chat-to-image-0.2.0-windows-x64-setup.exe`，双击按安装向导安装，然后从开始菜单打开 **Chat to image**。支持 Windows 10（1809 起）与 Windows 11 x64，内置 Python、桌面依赖、前端和 WebView2 离线安装组件，无需另装 Python 或 Node。
 
 安装包不包含个人设置、Key、作品、历史或备份；保留项目的 45 条内置提示词与展示图。首次使用需自行填写 API。默认按当前 Windows 用户安装，升级请选择原目录；卸载保留使用后产生的配置与作品。自签名构建的安装器和卸载程序带有签名；其他电脑默认不信任自签证书，仍可能显示 Windows 发布者或 SmartScreen 提示。
 

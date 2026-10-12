@@ -20,6 +20,8 @@ SetupLogging=yes
 SignTool=chattoimage
 SignedUninstaller=yes
 UninstallDisplayName=Chat to image
+SetupIconFile={#PayloadDir}\dist\app.ico
+UninstallDisplayIcon={app}\dist\app.ico
 LicenseFile={#PayloadDir}\LICENSE
 CloseApplications=yes
 RestartApplications=no
@@ -35,8 +37,8 @@ Source: "{#PayloadDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
 Source: "{#WebViewInstaller}"; Flags: dontcopy
 
 [Icons]
-Name: "{group}\Chat to image"; Filename: "{app}\runtime\pythonw.exe"; Parameters: "-B ""{app}\scripts\desktop_app.pyw"""; WorkingDir: "{app}"
-Name: "{autodesktop}\Chat to image"; Filename: "{app}\runtime\pythonw.exe"; Parameters: "-B ""{app}\scripts\desktop_app.pyw"""; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{group}\Chat to image"; Filename: "{app}\runtime\pythonw.exe"; Parameters: "-B ""{app}\scripts\desktop_app.pyw"""; WorkingDir: "{app}"; IconFilename: "{app}\dist\app.ico"
+Name: "{autodesktop}\Chat to image"; Filename: "{app}\runtime\pythonw.exe"; Parameters: "-B ""{app}\scripts\desktop_app.pyw"""; WorkingDir: "{app}"; IconFilename: "{app}\dist\app.ico"; Tasks: desktopicon
 Name: "{group}\卸载 Chat to image"; Filename: "{uninstallexe}"
 
 [Run]

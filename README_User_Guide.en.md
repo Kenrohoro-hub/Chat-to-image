@@ -6,7 +6,7 @@ Chat to image is a Windows desktop AI image generation and editing tool. You pro
 
 The interface follows the system language by default: Chinese system languages show Chinese, and all other languages show English. The desktop app reads the Windows system UI language; the local browser app reads the browser's primary preferred language. Choose **Settings & API → Language** to select **Follow system**, **中文**, or **English**. This preference is shared with the welcome page for the current entry. Select **Save configuration** to save all current settings drafts, apply the language, and reload the interface. Canceling or closing Settings discards the unsaved language change. You cannot switch while image generation or chat is running; finish or stop those tasks first. If Restore input after restarting is disabled, save or clear input drafts, or enable input restoration before applying another language. Choosing **Follow system** clears the manual selection.
 
-Current version: **0.1.0**. [Project home](https://github.com/Kenrohoro-hub/Chat-to-image) · [Releases](https://github.com/Kenrohoro-hub/Chat-to-image/releases) · [Release notes](RELEASE.md)
+Current version: **0.2.0**. [Project home](https://github.com/Kenrohoro-hub/Chat-to-image) · [Releases](https://github.com/Kenrohoro-hub/Chat-to-image/releases) · [Release notes](RELEASE.md)
 
 ## Contents
 
@@ -25,11 +25,11 @@ Current version: **0.1.0**. [Project home](https://github.com/Kenrohoro-hub/Chat
 
 ## Windows standalone installer
 
-Download Chat-to-image-0.1.0-windows-x64-setup.exe from [GitHub Releases](https://github.com/Kenrohoro-hub/Chat-to-image/releases). It supports Windows 10 version 1809 or later and Windows 11 x64. Run the installer and launch **Chat to image** from the Start menu. You can select a desktop shortcut during installation. Python, desktop components, the built frontend, and an offline WebView2 installer are included, so Python and Node.js are not required. Internet access is not needed to download runtime components during installation. You must provide your own API settings before calling a model service.
+Download Chat-to-image-0.2.0-windows-x64-setup.exe from [GitHub Releases](https://github.com/Kenrohoro-hub/Chat-to-image/releases). It supports Windows 10 version 1809 or later and Windows 11 x64. Run the installer and launch **Chat to image** from the Start menu. You can select a desktop shortcut during installation. Python, desktop components, the built frontend, and an offline WebView2 installer are included, so Python and Node.js are not required. Internet access is not needed to download runtime components during installation. You must provide your own API settings before calling a model service.
 
 The installer uses the current user's application directory by default. Configuration stays in the installation folder under user-config/; artwork and history stay in local user data. The package contains only an application file allowlist and a freshly built dist directory. It excludes personal config, artwork, prompt-library data, logs, agent connection records, and backups while retaining the 45 built-in prompts and 45 sample images. Upgrading in the existing folder preserves data. Uninstall removes application files and shortcuts but preserves user-config/ and user data. Use the app's export/import feature to migrate data.
 
-The current GitHub 0.1.0 installer does not include the English interface added in this source update.
+
 
 ## Download and launch
 
@@ -48,7 +48,7 @@ Windows x64 users can instead download the standalone installer and skip the sou
 
 | Download | How to use it |
 | --- | --- |
-| Release attachment: Chat-to-image-0.1.0-windows-x64-setup.exe | Run the installer, then open the app from the Start menu. |
+| Release attachment: Chat-to-image-0.2.0-windows-x64-setup.exe | Run the installer, then open the app from the Start menu. |
 | GitHub Source code ZIP, Download ZIP, or a cloned repository | Extract or clone the full source, run build-app.cmd, then run run-app.cmd. |
 
 Do not launch from inside the archive or copy only the startup scripts. GitHub's generated source archive does not include dist/, so a first-time source setup must build the frontend. The build script installs frontend dependencies in a local cache, builds the app, and updates dist/. It supports Chinese paths and network shares. Do not edit dist/ manually.

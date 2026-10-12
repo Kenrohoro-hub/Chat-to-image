@@ -4,7 +4,7 @@
 
 Chat to image 是在 Windows 本机运行的 AI 图片生成与编辑工具，支持直接生图、对话创作、参考图与蒙版编辑、提示词管理和作品备份。
 
-当前版本 **0.1.0**。你需要自行准备可用的 API 地址、Key 和模型；本工具不附带模型服务或调用额度。生成图片和对话时，相应提示词、消息及参考图会发送给你配置的服务商。界面默认跟随系统语言：中文系统显示中文，其他系统语言显示英文。桌面版读取 Windows 系统 UI 语言，本地浏览器版读取浏览器首选语言。可在“设置与 API → 语言”选择“跟随系统 / 中文 / English”；此设置与欢迎页共用当前入口的语言偏好。选择后点击“保存配置”才会保存全部设置草稿并应用语言、刷新界面；取消或关闭不保存语言更改。生成或对话任务运行时不能切换，需先完成或停止任务。若关闭“重启后恢复输入框”且还有草稿，请先保存或清空草稿，或开启输入恢复。恢复“跟随系统”会清除手动选择。当前 GitHub 发布的 0.1.0 安装器仍使用原中文界面；本次中英文界面从源码重新构建后可用。
+当前版本 **0.2.0**。你需要自行准备可用的 API 地址、Key 和模型；本工具不附带模型服务或调用额度。生成图片和对话时，相应提示词、消息及参考图会发送给你配置的服务商。界面默认跟随系统语言：中文系统显示中文，其他系统语言显示英文。桌面版读取 Windows 系统 UI 语言，本地浏览器版读取浏览器首选语言。可在“设置与 API → 语言”选择“跟随系统 / 中文 / English”；此设置与欢迎页共用当前入口的语言偏好。选择后点击“保存配置”才会保存全部设置草稿并应用语言、刷新界面；取消或关闭不保存语言更改。生成或对话任务运行时不能切换，需先完成或停止任务。若关闭“重启后恢复输入框”且还有草稿，请先保存或清空草稿，或开启输入恢复。恢复“跟随系统”会清除手动选择。
 
 [项目首页](https://github.com/Kenrohoro-hub/Chat-to-image) · [版本下载](https://github.com/Kenrohoro-hub/Chat-to-image/releases) · [更新说明](RELEASE.md)
 
@@ -34,13 +34,13 @@ Chat to image 是在 Windows 本机运行的 AI 图片生成与编辑工具，�
 | Node.js 与 npm | **仅从源码构建时需要**，建议安装 [Node.js 官网](https://nodejs.org/zh-cn/download) 当前支持的 LTS 版本，npm 随附。 |
 | 网络连接 | 首次安装组件、调用 API，以及读取或刷新网络提示词时需要联网。 |
 
-Windows x64 用户可直接下载安装 `Chat-to-image-0.1.0-windows-x64-setup.exe`，无需预装 Python 或 Node；安装说明见[Windows 独立安装器](#windows-独立安装器)。以上环境要求仅适用于源码部署。
+Windows x64 用户可直接下载安装 `Chat-to-image-0.2.0-windows-x64-setup.exe`，无需预装 Python 或 Node；安装说明见[Windows 独立安装器](#windows-独立安装器)。以上环境要求仅适用于源码部署。
 
 ### 选择你下载的文件
 
 | 下载方式 | 怎么使用 |
 | --- | --- |
-| Release 附件中的 `Chat-to-image-0.1.0-windows-x64-setup.exe`（Windows x64 推荐） | 双击安装，然后从开始菜单打开 Chat to image，无需另装 Python 或 Node。 |
+| Release 附件中的 `Chat-to-image-0.2.0-windows-x64-setup.exe`（Windows x64 推荐） | 双击安装，然后从开始菜单打开 Chat to image，无需另装 Python 或 Node。 |
 | GitHub 的 `Source code (zip)`、`Code → Download ZIP` 或克隆的源码 | 完整解压或克隆后，先双击 `build-app.cmd`，构建成功后再双击 `run-app.cmd`。 |
 
 **不要直接在压缩包内启动，也不要只复制启动脚本。** GitHub 自动生成的源码包不包含 `dist/`，首次必须先构建。若下载页只有源码，请使用源码步骤，不要将它当成已构建包。
@@ -288,7 +288,7 @@ Windows x64 用户可直接下载安装 `Chat-to-image-0.1.0-windows-x64-setup.e
 
 ## Windows 独立安装器
 
-当前版本安装文件为 `Chat-to-image-0.1.0-windows-x64-setup.exe`，适用于 Windows 10（1809 起）和 Windows 11 x64。双击安装后，从开始菜单打开 **Chat to image**；可在安装时勾选桌面快捷方式。内置 Python、桌面组件、构建页面及 WebView2 离线安装包，电脑无需预装 Python 或 Node，安装过程无需联网下载组件。首次填写自己的 API 后才能调用模型服务。
+当前版本安装文件为 `Chat-to-image-0.2.0-windows-x64-setup.exe`，适用于 Windows 10（1809 起）和 Windows 11 x64。双击安装后，从开始菜单打开 **Chat to image**；可在安装时勾选桌面快捷方式。内置 Python、桌面组件、构建页面及 WebView2 离线安装包，电脑无需预装 Python 或 Node，安装过程无需联网下载组件。首次填写自己的 API 后才能调用模型服务。
 
 安装默认为当前用户的应用程序目录；配置仍保存在安装目录的 `user-config/`，历史与作品沿用本机用户数据区。安装包只收集程序白名单和重新构建的 `dist/`，不收集个人配置、作品、提示词目录、日志、Agent 接入记录或备份；45 条默认提示词及其展示图正常保留。升级安装到原目录可保留已有数据；卸载只移除安装文件和快捷方式，保留 `user-config/` 及用户数据区。迁移数据仍使用应用导出/导入功能。
 
