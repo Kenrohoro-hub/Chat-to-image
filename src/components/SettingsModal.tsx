@@ -53,6 +53,7 @@ import { hasActiveDataOperations } from '../lib/dataOperations'
 import { isEmptyAgentInputDraft } from '../lib/inputDraftState'
 import { flushAgentConversationsToIndexedDB } from '../lib/agentConversationPersistence'
 import LanguageSettingsTab from './settings/LanguageSettingsTab'
+import AppUpdateTab from './settings/AppUpdateTab'
 
 function newId(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
@@ -467,7 +468,7 @@ export default function SettingsModal() {
           </div>
         </div>
 
-        <div role="status" className="border-b border-gray-100 px-5 py-2 text-xs text-gray-500 dark:border-white/[0.08]">{activeTab === 'features' ? t('了解功能与使用方式，访问项目主页查看源码和说明。', 'Explore features and usage. Visit the project page for source code and documentation.') : activeTab === 'connections' ? t('连接操作点击后立即生效，与 API 草稿保存独立。', 'Connection actions take effect immediately, independently of API draft changes.') : saveMessage || t('修改仅保留在草稿，点击“保存配置”后生效；切换页面或配置可继续编辑。', 'Changes remain in the draft until you click Save configuration. You can keep editing while switching pages or profiles.')}</div>
+        <div role="status" className="border-b border-gray-100 px-5 py-2 text-xs text-gray-500 dark:border-white/[0.08]">{activeTab === 'features' ? t('了解功能与使用方式，访问项目主页查看源码和说明。', 'Explore features and usage. Visit the project page for source code and documentation.') : activeTab === 'connections' ? t('连接操作点击后立即生效，与 API 草稿保存独立。', 'Connection actions take effect immediately, independently of API draft changes.') : activeTab === 'updates' ? t('更新检查独立于设置保存；升级前请先保存配置草稿。', 'Update checks are separate from settings. Save settings drafts before upgrading.') : saveMessage || t('修改仅保留在草稿，点击“保存配置”后生效；切换页面或配置可继续编辑。', 'Changes remain in the draft until you click Save configuration. You can keep editing while switching pages or profiles.')}</div>
         <div className="flex flex-1 min-h-0 flex-col sm:flex-row">
           {/* Sidebar */}
           <div className="w-full sm:w-48 shrink-0 flex flex-col border-b sm:border-b-0 sm:border-r border-gray-100 dark:border-white/[0.08] bg-gray-50/50 dark:bg-white/[0.02]">
@@ -515,6 +516,13 @@ export default function SettingsModal() {
                 {t('Agent 连接', 'Agent connections')}
               </button>
               <button
+                onClick={() => setActiveTab('updates')}
+                className={`whitespace-nowrap flex-shrink-0 flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl transition-colors ${activeTab === 'updates' ? 'bg-white dark:bg-white/[0.08] shadow-sm text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100/80 dark:hover:bg-white/[0.04]'}`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7v5h-5M4 17v-5h5m10-5a8 8 0 00-14.9 2M5 17a8 8 0 0014.9-2" /></svg>
+                {t('检查更新', 'Check for updates')}
+              </button>
+              <button
                 onClick={() => setActiveTab('features')}
                 aria-current={activeTab === 'features' ? 'page' : undefined}
                 className={`whitespace-nowrap flex-shrink-0 flex items-center gap-2.5 px-3 py-2.5 text-sm rounded-xl transition-colors ${activeTab === 'features' ? 'bg-white dark:bg-white/[0.08] shadow-sm text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100/80 dark:hover:bg-white/[0.04]'}`}
@@ -532,6 +540,7 @@ export default function SettingsModal() {
             {activeTab === 'language' && <LanguageSettingsTab value={languageDraft} onChange={setLanguageDraft} />}
             {activeTab === 'connections' && <AgentConnectionsTab />}
             {activeTab === 'features' && <FeatureIntroTab />}
+            {activeTab === 'updates' && <AppUpdateTab hasUnsavedChanges={languageDraft !== getUiLanguagePreference() || JSON.stringify(normalizeWorkspaceSettings(draft)) !== JSON.stringify(normalizeWorkspaceSettings(settings))} busy={saving || isExportingData || isImportingData} />}
             {activeTab === 'general' && (
               <>
               <GeneralSettingsTab

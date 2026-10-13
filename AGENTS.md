@@ -11,6 +11,7 @@
 - 内置默认提示词和展示图属于项目资源，随发布包保留，不按个人资料排除。源码保留 `src/lib/promptExamples.ts`、它引用的数据模块和 `public/prompt-examples/`；安装包保留完整 `dist/` 及 `dist/prompt-examples/`。用户新增或修改的提示词、配置、作品、备份不随包收集。
 - `build-installer.cmd` 使用系统 Inno Setup 6 生成 `release/` 的 Windows x64 独立安装器；按白名单收集程序并重新构建前端，附带 Python 与 WebView2 离线组件。保留内置示例，严禁收集 `user-config/`、作品、日志和用户备份；安装器改动运行 `scripts/test_installer.py` 与 `scripts/test_desktop_startup.py`，实际安装/升级/卸载使用隔离测试目录。
 - 安装器与卸载程序通过 `scripts/sign_installer.ps1` 自签，复用当前 Windows 用户证书库中的专用不可导出私钥；只发布 CER 公钥，禁止导出私钥或自动修改根信任库。签名改动还需设置 `CHAT_TO_IMAGE_SIGNING_THUMBPRINT` 后运行安装器篡改检查，并验证隔离安装生成的卸载程序；自签证书不会自动获得 Windows/SmartScreen 信任；当前无外部时间戳，证书过期后需使用有效证书重新签名。
+- 手动更新入口为“设置与 API → 检查更新”，`scripts/app_update.py` 只读取项目 GitHub 正式版并校验安装器；仅安装版桌面可下载并退出安装，本机网页和源码支持检查。安装前沿用保存/任务保护，保持安装目录；更新逻辑改动运行 `scripts/test_app_update.py` 及相关前端测试，退出流程改动补桌面和启动检查。
 - 包管理器为 npm（有 `package-lock.json`），不要使用 yarn 或 pnpm。
 
 ## Codex 图片调用入口

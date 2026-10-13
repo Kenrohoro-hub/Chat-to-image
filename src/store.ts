@@ -122,7 +122,7 @@ function isErrorToastTitle(title: string): boolean {
   return /(?:失败|错误|异常|报错|无法|不能|超时|中断|断开|请先|请输入|已达上限|不存在|已丢失)$|failed|error|cannot|unable|timed out|interrupted|missing|not found/i.test(title)
 }
 
-export type SettingsTab = 'general' | 'agent-api' | 'api' | 'data' | 'connections' | 'features' | 'language'
+export type SettingsTab = 'general' | 'agent-api' | 'api' | 'data' | 'connections' | 'features' | 'language' | 'updates'
 
 const TIMEOUT_STREAMING_HINT = t('也可尝试打开「流式传输」，并提高「请求中间步骤图像数」来维持连接。', 'Try enabling streaming and increasing the number of intermediate images to keep the connection active.')
 const TIMEOUT_PARTIAL_IMAGES_ZERO_HINT = t('官方流式接口不发送心跳，当前「请求中间步骤图像数」为 0，连接可能因无数据传输而断开。建议提高到 2 或 3。', 'The official streaming API does not send heartbeats. With intermediate images set to 0, inactivity may disconnect the request. Try 2 or 3.')

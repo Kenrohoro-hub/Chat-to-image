@@ -11,6 +11,19 @@ interface DesktopResult extends CallApiResult {
 
 export type AgentConnectionAction = 'status' | 'connect' | 'update' | 'disconnect'
 
+export interface AppUpdateState {
+  status: 'idle' | 'checking' | 'current' | 'available' | 'downloading' | 'ready' | 'installing' | 'error'
+  currentVersion: string
+  latestVersion: string | null
+  releaseUrl: string
+  notes: string
+  available: boolean
+  canInstall: boolean
+  downloaded: number
+  total: number
+  error: string
+}
+
 export interface AgentConnectionStatus {
   ok: boolean
   runtime_ready: boolean
@@ -35,6 +48,7 @@ interface DesktopApi {
   read_youmind_prompts(page: number): Promise<{ prompts: unknown[]; totalPages: number }>
   download_prompt_image(url: string): Promise<{ dataUrl: string }>
   agent_connections(action: AgentConnectionAction, target?: string): Promise<AgentConnectionStatus>
+  app_update(action: 'status' | 'check' | 'download' | 'install'): Promise<AppUpdateState>
   cancel_generation(requestId: string): Promise<{ ok: boolean }>
   list_models(profileId: string | Pick<import('../types').ApiProfile, 'baseUrl' | 'apiKey'>): Promise<NonNullable<import('../types').ApiProfile['modelCatalog']>>
   load_settings(): Promise<SettingsSnapshot>
@@ -74,7 +88,7 @@ async function localCall<T>(method: string, args: unknown[], retry = true): Prom
     method: 'POST', cache: 'no-store',
     headers: { 'Content-Type': 'application/json', 'X-Codex-Sync': token, 'X-Playground-Language': getUiLanguage() },
     body: JSON.stringify({ method, args }),
-    signal: method === 'generate' ? undefined : AbortSignal.timeout(method === 'prompt_storage' ? 600000 : method === 'list_models' ? 25000 : ['read_youmind_prompts', 'read_heroprompt_posts'].includes(method) ? 45000 : 15000),
+    signal: method === 'generate' ? undefined : AbortSignal.timeout(method === 'prompt_storage' ? 600000 : ['app_update', 'read_youmind_prompts', 'read_heroprompt_posts'].includes(method) ? 45000 : method === 'list_models' ? 25000 : 15000),
   })
   if (response.status === 403 && retry) {
     token = ''
@@ -93,6 +107,7 @@ const localApi: DesktopApi = {
   read_youmind_prompts: (page) => localCall('read_youmind_prompts', [page]),
   download_prompt_image: (url) => localCall('download_prompt_image', [url]),
   agent_connections: () => Promise.reject(new Error(t('请在桌面窗口管理 Agent 连接。', 'Manage Agent connections in the desktop window.'))),
+  app_update: (action) => localCall('app_update', [action]),
   load_settings: () => localCall('load_settings', []),
   recover_settings: (revision) => localCall('recover_settings', [revision]),
   save_settings: (settings, revision) => localCall('save_settings', [settings, revision]),

@@ -32,6 +32,8 @@ class DesktopApi:
     self._lock = threading.Lock()
     self._closing = False
     self._ui_language = system_ui_language()
+    self._updater = None
+    self._pending_installer = None
 
   def set_ui_language(self, language):
     self._check()
@@ -43,6 +45,40 @@ class DesktopApi:
     if f'{url.scheme}://{url.netloc}' != self._origin or self._closing:
       raise ValueError(t('当前页面不能访问桌面设置。', 'This page cannot access desktop settings.'))
     set_request_ui_language(self._ui_language)
+
+  def app_update(self, action):
+    self._check()
+    if not isinstance(action, str) or action not in ('status', 'check', 'download', 'install'):
+      raise ValueError(t('不支持此更新操作。', 'Unsupported update action.'))
+    if action in ('download', 'install') and not self._window:
+      raise ValueError(t('请从安装版桌面窗口下载和安装更新。', 'Download and install updates from the installed desktop window.'))
+    with self._lock:
+      if self._updater is None:
+        from app_update import AppUpdater
+        self._updater = AppUpdater(Path(__file__).resolve().parent.parent)
+    if action == 'check':
+      result = self._updater.check()
+    elif action == 'download':
+      result = self._updater.download()
+    elif action == 'install':
+      with self._lock:
+        if self._closing or self._processes or self._queued or self._requests:
+          raise ValueError(t('请先完成或停止所有任务，再安装更新。', 'Finish or stop all running tasks before installing the update.'))
+        self._pending_installer = self._updater.prepare_install()
+        self._closing = True
+      try:
+        self._window.destroy()
+      except Exception:
+        with self._lock:
+          self._pending_installer = None
+          self._closing = False
+        with self._updater.lock:
+          self._updater.state['status'] = 'ready'
+        raise
+      result = self._updater.snapshot()
+    else:
+      result = self._updater.snapshot()
+    return {**result, 'canInstall': result['canInstall'] and self._window is not None}
 
   def load_settings(self):
     self._check()
@@ -402,6 +438,10 @@ def main():
             server.server_close()
       finally:
         kernel.CloseHandle(mutex)
+  # 所属窗口和服务全部退出后再启动安装器，避免覆盖仍在使用的运行文件。
+  if api._pending_installer:
+    subprocess.Popen([str(api._pending_installer), '/NORESTART', f'/DIR={root}'],
+      cwd=api._pending_installer.parent, close_fds=True)
 
 
 if __name__ == '__main__':

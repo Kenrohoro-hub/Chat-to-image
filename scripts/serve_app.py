@@ -134,12 +134,12 @@ class Handler(SimpleHTTPRequestHandler):
         return self.respond(400, {'error': 'Invalid local API payload'})
       method = value['method']
       counts = {'load_settings': 0, 'recover_settings': 1, 'save_settings': 2, 'status': 0, 'reset_routes': 0,
-        'prompt_storage': 2, 'read_youmind_prompts': 1, 'read_heroprompt_posts': 1, 'download_prompt_image': 1, 'list_models': 1, 'generate': 1, 'cancel_generation': 1}
+        'prompt_storage': 2, 'read_youmind_prompts': 1, 'read_heroprompt_posts': 1, 'download_prompt_image': 1, 'list_models': 1, 'generate': 1, 'cancel_generation': 1, 'app_update': 1}
       if not isinstance(method, str) or method not in counts or len(value['args']) != counts[method]:
         return self.respond(400, {'error': 'Invalid local API method'})
       if method not in ('generate', 'prompt_storage') and length > 2 * 1024 * 1024:
         return self.respond(413, {'error': 'Body exceeds limit'})
-      if method in ('prompt_storage', 'download_prompt_image', 'read_youmind_prompts', 'read_heroprompt_posts', 'list_models'):
+      if method in ('prompt_storage', 'download_prompt_image', 'read_youmind_prompts', 'read_heroprompt_posts', 'list_models', 'app_update'):
         try:
           return self.respond(200, getattr(self.server.api, method)(*value['args']))
         except ValueError as error:

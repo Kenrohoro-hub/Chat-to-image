@@ -37,6 +37,7 @@ vi.mock('./settings/ApiDiagnostics', () => ({ default: () => null }))
 vi.mock('./settings/GeneralSettingsTab', () => ({ default: () => null }))
 vi.mock('./settings/AgentConnectionsTab', () => ({ default: () => null }))
 vi.mock('./settings/AgentPreferences', () => ({ default: () => null }))
+vi.mock('./settings/AppUpdateTab', () => ({ default: ({ hasUnsavedChanges, busy }: { hasUnsavedChanges: boolean; busy: boolean }) => <div data-testid="app-update-tab" data-unsaved={String(hasUnsavedChanges)} data-busy={String(busy)} /> }))
 vi.mock('./MarkdownRenderer', () => ({ default: () => null }))
 
 let root: Root
@@ -162,4 +163,11 @@ it('keeps settings and language unchanged when conversation persistence fails', 
   expect(state.setSettings).not.toHaveBeenCalled()
   expect(getUiLanguagePreference()).toBe('system')
   expect(state.showToast).toHaveBeenCalledWith(expect.any(String), 'error')
+})
+
+it('opens the update tab with the current draft state', async () => {
+  await mount()
+  await act(() => button('检查更新').click())
+  expect(document.querySelector('[data-testid="app-update-tab"]')?.getAttribute('data-unsaved')).toBe('false')
+  expect(document.querySelector('[data-testid="app-update-tab"]')?.getAttribute('data-busy')).toBe('false')
 })
