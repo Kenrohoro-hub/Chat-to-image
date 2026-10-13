@@ -30,7 +30,7 @@
         ? settings.profiles.find((profile) => profile.id === settings.activeProfileId)
         : settings
       const profile = {}
-      for (const field of ['id', 'name', 'provider', 'baseUrl', 'model', 'apiMode', 'apiKey', 'codexCli', 'apiProxy', 'streamImages', 'responseFormatB64Json']) {
+      for (const field of ['id', 'name', 'provider', 'baseUrl', 'model', 'apiMode', 'imageProtocol', 'apiKey', 'codexCli', 'apiProxy', 'streamImages', 'responseFormatB64Json']) {
         if (selected?.[field] !== undefined) profile[field] = selected[field]
       }
       const body = JSON.stringify({ profile })

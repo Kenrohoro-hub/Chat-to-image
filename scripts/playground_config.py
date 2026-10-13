@@ -87,6 +87,7 @@ def save_profile(value):
   profile = {field: value.get(field, '').strip() for field in fields}
   profile['provider'] = profile['provider'] or 'openai'
   profile['apiMode'] = profile['apiMode'] or 'images'
+  profile['imageProtocol'] = value.get('imageProtocol') if value.get('imageProtocol') in ('auto', 'openai', 'gemini') else 'auto'
   profile['responseFormatB64Json'] = value.get('responseFormatB64Json') is True
   profile['streamImages'] = value.get('streamImages') is True
   key = value.get('apiKey', '')

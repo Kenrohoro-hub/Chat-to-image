@@ -8,6 +8,7 @@ import sys
 from playground_image import CallError, Parser
 from playground_config import config_path, read_snapshot
 from desktop_config import read_desktop
+from gemini_image import uses_gemini
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -21,7 +22,8 @@ def doctor():
     disabled = pool.get('disabledIds', [])
     profiles = [p for p in record.get('profiles', []) if p.get('provider') == 'openai' and
       p.get('apiMode') == 'images' and p.get('id') not in disabled and
-      not any(p.get(k) for k in ('streamImages', 'codexCli', 'apiProxy'))]
+      not any(p.get(k) for k in ('codexCli', 'apiProxy')) and
+      (not p.get('streamImages') or uses_gemini(p, p.get('model', '')))]
     config.update(source='desktop', ready=bool(record.get('encrypted') and any(p.get('hasKey') and p.get('baseUrl') and p.get('model') for p in profiles)),
       profiles=[{'id': p.get('id'), 'name': p.get('name'), 'model': p.get('model'),
         'models': p.get('models') or [p.get('model')]} for p in profiles])

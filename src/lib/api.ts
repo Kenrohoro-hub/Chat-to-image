@@ -3,12 +3,14 @@ import { validateImageModelParams } from './imageModelCapabilities'
 import { runImageBatch } from './imageBatch'
 import { getActiveApiProfile, getCustomProviderDefinition } from './apiProfiles'
 import { callFalAiImageApi } from './falAiImageApi'
+import { callGeminiImageApi, usesGeminiImageApi } from './geminiImageApi'
 import { callOpenAICompatibleImageApi } from './openaiCompatibleImageApi'
 import type { CallApiOptions, CallApiResult } from './imageApiShared'
 import { desktopApi, flushDesktopSettings, isLocalService } from './desktop'
 
 export type { CallApiOptions, CallApiResult } from './imageApiShared'
 export { normalizeBaseUrl } from './devProxy'
+export { usesGeminiImageApi }
 
 export async function callImageApi(opts: CallApiOptions): Promise<CallApiResult> {
   const profile = getActiveApiProfile(opts.settings)
@@ -26,7 +28,7 @@ export async function callImageApi(opts: CallApiOptions): Promise<CallApiResult>
 
 async function callImageApiSingle(opts: CallApiOptions): Promise<CallApiResult> {
   const profile = getActiveApiProfile(opts.settings)
-  if (isLocalService() && profile.provider === 'openai' && profile.apiMode === 'images' && !profile.codexCli && !profile.apiProxy && !profile.streamImages) {
+  if (isLocalService() && profile.provider === 'openai' && profile.apiMode === 'images' && !profile.codexCli && !profile.apiProxy && (usesGeminiImageApi(profile) || !profile.streamImages)) {
     await flushDesktopSettings()
     const api = await desktopApi()
     opts.signal?.throwIfAborted()
@@ -53,6 +55,7 @@ async function callImageApiSingle(opts: CallApiOptions): Promise<CallApiResult> 
     } finally { opts.signal?.removeEventListener('abort', cancel) }
   }
   if (profile.provider === 'fal') return callFalAiImageApi(opts, profile)
+  if (usesGeminiImageApi(profile)) return callGeminiImageApi(opts, profile)
 
   return callOpenAICompatibleImageApi(opts, profile, getCustomProviderDefinition(opts.settings, profile.provider))
 }

@@ -16,7 +16,7 @@ from unittest.mock import MagicMock, patch
 
 from desktop_config import candidates, read_desktop, save_desktop, report_route, desktop_path, profile_key, settings_snapshot, recover_settings, settings_revision, SettingsConflict
 from desktop_host import DesktopApi
-from test_playground_image import IMAGE
+from test_playground_image import IMAGE, JPEG
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -50,7 +50,10 @@ class Handler(BaseHTTPRequestHandler):
     try:
       self.send_response(mode if isinstance(mode, int) else 200)
       self.end_headers()
-      self.wfile.write(json.dumps({'data': [{'b64_json': 'invalid!' if mode == 'bad' else base64.b64encode(IMAGE).decode()}]}).encode())
+      response = {'data': [{'b64_json': 'invalid!' if mode == 'bad' else base64.b64encode(JPEG if mode == 'jpeg' else IMAGE).decode()}]}
+      if self.path.endswith(':generateContent'):
+        response = {'candidates': [{'content': {'parts': [{'inlineData': {'mimeType': 'image/png', 'data': base64.b64encode(IMAGE).decode()}}]}}]}
+      self.wfile.write(json.dumps(response).encode())
     except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
       pass
 
@@ -499,7 +502,7 @@ class DesktopTests(unittest.TestCase):
         result = job.result(timeout=5)
         self.assertFalse(result['ok'])
         self.assertEqual(len(result['images']), 1)
-        self.assertEqual(result['actualParamsList'], [{'size': '1024x1024'}])
+        self.assertEqual(result['actualParamsList'], [{'size': '1024x1024', 'output_format': 'png'}])
       finally:
         self.server.release.set()
         api._stop()
@@ -543,6 +546,49 @@ class DesktopTests(unittest.TestCase):
     self.assertEqual(result['usedProfiles'][0]['id'], 'backup')
     self.assertEqual(result['actualParamsList'][0]['size'], '1024x1024')
     self.assertFalse(api._processes)
+
+  def test_host_preserves_provider_format_and_reports_it(self):
+    api = DesktopApi()
+    self.server.modes['primary'] = 'jpeg'
+    with patch.object(api, '_check'):
+      result = api.generate({'prompt': 'test', 'profileId': 'primary', 'params': {'output_format': 'png'}})
+    self.assertTrue(result['ok'], result)
+    self.assertTrue(result['images'][0].startswith('data:image/jpeg;base64,'))
+    self.assertEqual(base64.b64decode(result['images'][0].split(',')[1]), JPEG)
+    self.assertEqual(result['actualParamsList'][0]['output_format'], 'jpeg')
+    self.assertEqual(len(self.server.calls), 1)
+
+  def test_host_gemini_protocol_is_saved_and_used_for_selected_model(self):
+    self.settings['profiles'][0].update(model='gemini-3-pro-image-preview', imageProtocol='gemini', streamImages=True)
+    save_desktop(self.settings)
+    self.assertEqual(read_desktop()['profiles'][0]['imageProtocol'], 'gemini')
+    api = DesktopApi()
+    with patch.object(api, '_check'):
+      result = api.generate({'prompt': 'test', 'profileId': 'primary', 'model': 'gemini-3-pro-image-preview', 'params': {}})
+    self.assertTrue(result['ok'], result)
+    body = json.loads(self.server.calls[0][1])
+    self.assertIn('contents', body)
+    self.assertNotIn('model', body)
+    self.assertEqual(len(self.server.calls), 1)
+
+  def test_auto_protocol_uses_selected_gemini_model_with_streaming_enabled(self):
+    self.settings['profiles'][0].update(models=['test-model', 'gemini-3-pro-image-preview'], streamImages=True)
+    self.settings['galleryModel'] = 'gemini-3-pro-image-preview'
+    save_desktop(self.settings)
+    result = self.run_cli('--saved-profile', 'primary', '--saved-model', 'gemini-3-pro-image-preview')
+    self.assertTrue(result['ok'], result)
+    self.assertEqual(result['model'], 'gemini-3-pro-image-preview')
+    self.assertEqual(len(self.server.calls), 1)
+    self.assertIn('contents', json.loads(self.server.calls[0][1]))
+
+  def test_fallback_uses_its_own_image_protocol(self):
+    self.settings['profiles'][1].update(model='gemini-3-pro-image-preview', imageProtocol='gemini')
+    save_desktop(self.settings)
+    self.server.modes['primary'] = 401
+    result = self.run_cli('--saved-profile', 'primary')
+    self.assertTrue(result['ok'], result)
+    self.assertEqual([p for p, _ in self.server.calls], ['primary', 'backup'])
+    self.assertIn('contents', json.loads(self.server.calls[1][1]))
 
   def test_streaming_stays_outside_pool(self):
     self.settings['profiles'][0]['streamImages'] = True

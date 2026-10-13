@@ -19,7 +19,7 @@ APP_FILES = (
   'package.json', 'requirements-desktop.txt', 'LICENSE', 'README.md', 'README_使用说明.md', 'RELEASE.md',
   'README.en.md', 'README_User_Guide.en.md', 'docs/codex-image-interface.md',
   'scripts/desktop_app.pyw', 'scripts/desktop_host.py', 'scripts/desktop_config.py',
-  'scripts/playground_config.py', 'scripts/playground_image.py', 'scripts/playground_bridge.js',
+  'scripts/playground_config.py', 'scripts/playground_image.py', 'scripts/gemini_image.py', 'scripts/playground_bridge.js',
   'scripts/serve_app.py', 'scripts/sync_app.py', 'scripts/chat_to_image.py',
   'scripts/agent_connections.py', 'scripts/image_batch.py', 'scripts/prompt_storage.py', 'scripts/ui_language.py',
 )

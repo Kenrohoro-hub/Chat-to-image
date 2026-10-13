@@ -36,10 +36,11 @@ def run_image_batch(args, paths):
         try: return json.loads(output.decode('utf-8'))
         except (ValueError, UnicodeDecodeError): pass
       images = []
-      try:
-        raw, info = read_image(path)
-        images.append({'path': str(path), 'format': info[0], 'width': info[1], 'height': info[2], 'bytes': len(raw)})
-      except (CallError, OSError): pass
+      for saved_path in dict.fromkeys([path, *(path.with_suffix('.' + fmt) for fmt in ('png', 'jpeg', 'webp'))]):
+        try:
+          raw, info = read_image(saved_path)
+          images.append({'path': str(saved_path), 'format': info[0], 'width': info[1], 'height': info[2], 'bytes': len(raw)})
+        except (CallError, OSError): pass
       return {'ok': False, 'images': images, 'error': {'code': 'INTERRUPTED', 'message': t('任务已停止，在途请求状态不明；请核对服务商记录，勿自动重跑。', 'The task stopped while a request was in flight, so its status is unknown. Check provider records; do not retry automatically.')}}
     finally:
       with lock: processes.discard(process)

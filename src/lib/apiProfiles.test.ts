@@ -54,6 +54,8 @@ describe('normalizeApiProfile', () => {
     expect(normalizeSettings({ apiMode: 'responses' }).model).toBe(DEFAULT_RESPONSES_MODEL)
     expect(normalizeApiProfile({ apiMode: 'responses', model: 'vendor/text' }).model).toBe('vendor/text')
     expect(normalizeApiProfile({ model: 'legacy' }).model).toBe('legacy')
+    expect(normalizeApiProfile({ imageProtocol: 'gemini' }).imageProtocol).toBe('gemini')
+    expect(normalizeApiProfile({ imageProtocol: 'invalid' }).imageProtocol).toBeUndefined()
   })
 
   it('keeps missing restored tool models empty while defaulting newly created profiles', () => {
@@ -65,6 +67,14 @@ describe('normalizeApiProfile', () => {
       imageGenerationModel: 'gpt-image-2.5-flare',
     }).imageGenerationModel).toBe('gpt-image-2.5-flare')
     expect(normalizeApiProfile({ apiMode: 'responses', imageGenerationModel: '   ' }).imageGenerationModel).toBe('')
+  })
+
+  it('does not deduplicate profiles that select different image protocols', () => {
+    const current = normalizeSettings({
+      profiles: [createDefaultOpenAIProfile({ id: 'openai-default', imageProtocol: 'auto' })],
+    })
+    const imported = createDefaultOpenAIProfile({ id: 'imported', imageProtocol: 'gemini' })
+    expect(findEquivalentApiProfile(current, imported)).toBeNull()
   })
 
   it('uses provider defaults and preserves explicit transparent background methods', () => {
@@ -79,6 +89,27 @@ describe('normalizeApiProfile', () => {
 })
 
 describe('normalizeSettings', () => {
+  it('keeps streaming Gemini image profiles eligible for failover', () => {
+    const settings = normalizeSettings({
+      profiles: [createDefaultOpenAIProfile({ id: 'gemini-images', model: 'gemini-3-pro-image-preview', streamImages: true })],
+    })
+    expect(settings.failover?.slots).toContain('gemini-images')
+  })
+
+  it('keeps a streaming Gemini gallery model eligible for failover', () => {
+    const settings = normalizeSettings({
+      activeProfileId: 'images',
+      galleryModel: 'gemini-3-pro-image-preview',
+      profiles: [createDefaultOpenAIProfile({
+        id: 'images',
+        model: 'openai-image',
+        models: ['openai-image', 'gemini-3-pro-image-preview'],
+        streamImages: true,
+      })],
+    })
+    expect(settings.failover?.slots).toContain('images')
+  })
+
   it('preserves a non-empty profile description and removes an empty one', () => {
     const settings = normalizeSettings({
       profiles: [

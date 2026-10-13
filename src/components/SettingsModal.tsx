@@ -659,7 +659,22 @@ export default function SettingsModal() {
                 </div>
               </div>
 
-              <p className="text-xs text-gray-500 dark:text-gray-400">{apiGroup === 'agent' ? t('通过 Responses 接口进行对话，地址下自动使用 /responses。', 'Chat uses the Responses API, with /responses appended to the URL.') : t('通过 Images 接口生成和编辑图片。', 'Generates and edits images through the Images API.')}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{apiGroup === 'agent' ? t('通过 Responses 接口进行对话，地址下自动使用 /responses。', 'Chat uses the Responses API, with /responses appended to the URL.') : t('根据所选协议通过 OpenAI Images 或 Gemini 原生协议生成和编辑图片。', 'Generates and edits images through the selected OpenAI Images or native Gemini protocol.')}</p>
+              {apiGroup === 'gallery' && activeProfile.provider === 'openai' && <label className="block">
+                <span className="mb-1.5 block text-sm text-gray-600 dark:text-gray-300">{t('生图协议', 'Image protocol')}</span>
+                <Select
+                  value={activeProfile.imageProtocol ?? 'auto'}
+                  onChange={(value) => updateActiveProfile({ imageProtocol: value as ApiProfile['imageProtocol'] }, true)}
+                  options={[
+                    { label: t('自动（Gemini 模型使用原生协议）', 'Auto (native protocol for Gemini models)'), value: 'auto' },
+                    { label: 'OpenAI Images', value: 'openai' },
+                    { label: t('Gemini 原生', 'Native Gemini'), value: 'gemini' },
+                  ]}
+                  disabled={activeProfileLocked}
+                  className="w-full rounded-xl border border-gray-200/70 bg-white/60 px-3 py-2.5 text-sm text-gray-700 outline-none transition focus:border-blue-300 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-200 dark:focus:border-blue-500/50"
+                />
+                <span className="mt-1 block text-xs text-gray-500 dark:text-gray-500">{t('选择与服务商兼容的图片生成协议。', 'Choose an image protocol supported by the provider.')}</span>
+              </label>}
 
               <ModelSettings key={activeProfile.id} profile={activeProfile} agent={apiGroup === 'agent'} locked={activeProfileLocked}
                 onChange={(patch) => updateActiveProfile(patch, true)}

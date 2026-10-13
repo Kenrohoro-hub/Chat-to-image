@@ -28,6 +28,7 @@ def png(width=1024, height=1024, alpha=True):
 
 
 IMAGE = png()
+JPEG = base64.b64decode('/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCAACAAIDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD8qqKKKAP/2Q==')
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -67,13 +68,21 @@ class Handler(BaseHTTPRequestHandler):
     self.send_header('x-request-id', 'request-local-test')
     self.end_headers()
     item = {'b64_json': base64.b64encode(IMAGE).decode()}
+    if mode == 'jpeg':
+      item = {'b64_json': base64.b64encode(JPEG).decode()}
     if mode == 'url':
       item = {'url': f'http://127.0.0.1:{self.server.server_port}/result.png?signature=local'}
     if mode == 'bad_base64':
       item = {'b64_json': 'not-an-image!'}
     if mode == 'html_image':
       item = {'b64_json': base64.b64encode(b'<html>error</html>').decode()}
-    self.wfile.write(json.dumps({'data': [item]}).encode())
+    response = {'data': [item]}
+    if mode.startswith('gemini'):
+      inline = 'inline_data' if mode == 'gemini_snake' else 'inlineData'
+      parts = [{'text': 'generated'}, {inline: {'mimeType': 'image/png', 'data': base64.b64encode(IMAGE).decode()}}]
+      if mode == 'gemini_empty': parts = [{'text': 'no image'}]
+      response = {'candidates': [{'content': {'parts': parts}}]}
+    self.wfile.write(json.dumps(response).encode())
 
   def do_GET(self):
     self.server.downloads.append(dict(self.headers))
@@ -137,6 +146,74 @@ class InterfaceTests(unittest.TestCase):
     result = self.run_cli('--config', str(config), '--prompt', 'test', '--size', 'bogus', configured=False)
     self.assertFalse(result['ok'])
     self.assertEqual(len(self.server.calls), 0)
+
+  def test_gemini_native_request_and_reference_image(self):
+    self.server.mode = 'gemini'
+    (self.root / 'reference.png').write_bytes(IMAGE)
+    result = self.run_cli('--prompt', 'edit this', '--model', 'gemini-3-pro-image-preview', '--size', '2k-landscape', '--image', 'reference.png')
+    self.assertTrue(result['ok'], result)
+    self.assertEqual(Path(result['images'][0]['path']).read_bytes(), IMAGE)
+    call = self.server.calls[0]
+    self.assertEqual(call['path'], '/v1beta/models/gemini-3-pro-image-preview:generateContent')
+    self.assertEqual({key.lower(): value for key, value in call['headers'].items()}['x-goog-api-key'], 'mock-secret-must-not-leak')
+    self.assertNotIn('Authorization', call['headers'])
+    body = json.loads(call['body'])
+    self.assertEqual(body['contents'][0]['parts'][0], {'text': 'edit this'})
+    self.assertEqual(base64.b64decode(body['contents'][0]['parts'][1]['inlineData']['data']), IMAGE)
+    self.assertEqual(body['generationConfig'], {'responseModalities': ['TEXT', 'IMAGE'], 'imageConfig': {'aspectRatio': '16:9', 'imageSize': '2K'}})
+    self.assertNotIn('output_format', body)
+    self.assertNotIn('quality', body)
+    self.assertEqual(len(self.server.calls), 1)
+
+  def test_gemini_endpoint_and_explicit_protocol(self):
+    for suffix in ['', '/v1', '/v1/', '/v1beta/', '/v1beta/models/old:generateContent']:
+      result = self.run_cli('--prompt', 'x', '--base-url', self.base.removesuffix('/v1') + suffix, '--model', 'models/gemini-3-pro-image-preview', '--dry-run')
+      self.assertTrue(result['ok'], result)
+      self.assertEqual(result['endpoint'], self.base.removesuffix('/v1') + '/v1beta/models/gemini-3-pro-image-preview:generateContent')
+    result = self.run_cli('--prompt', 'x', '--model', 'gemini-3-pro-image-preview', '--protocol', 'openai')
+    self.assertTrue(result['ok'], result)
+    self.assertEqual(self.server.calls[-1]['path'], '/v1/images/generations')
+    self.server.mode = 'gemini_snake'
+    result = self.run_cli('--prompt', 'x', '--protocol', 'gemini', '--size', 'auto')
+    self.assertTrue(result['ok'], result)
+    self.assertNotIn('imageConfig', json.loads(self.server.calls[-1]['body'])['generationConfig'])
+
+  def test_gemini_rejects_mask_and_native_transparency_before_request(self):
+    (self.root / 'reference.png').write_bytes(IMAGE)
+    for extra in [('--background', 'transparent'), ('--image', 'reference.png', '--mask', 'reference.png')]:
+      result = self.run_cli('--prompt', 'x', '--model', 'gemini-3-pro-image-preview', *extra)
+      self.assertEqual(result['error']['code'], 'MODEL_CAPABILITY', result)
+    self.assertEqual(self.server.calls, [])
+
+  def test_gemini_text_only_does_not_retry(self):
+    self.server.mode = 'gemini_empty'
+    result = self.run_cli('--prompt', 'x', '--model', 'gemini-3-pro-image-preview')
+    self.assertFalse(result['ok'])
+    self.assertEqual(result['error']['code'], 'INVALID_RESPONSE')
+    self.assertEqual(len(self.server.calls), 1)
+    self.assertEqual(list((self.root / 'outputs').iterdir()), [])
+
+  def test_returned_jpeg_is_preserved_without_overwriting_sibling(self):
+    self.server.mode = 'jpeg'
+    (self.root / 'picture.jpeg').write_bytes(b'keep-existing')
+    result = self.run_cli('--prompt', 'x', '--model', 'grok-imagine-image-2.0', '--output', 'picture.png')
+    self.assertTrue(result['ok'], result)
+    saved = Path(result['images'][0]['path'])
+    self.assertEqual(saved.suffix, '.jpeg')
+    self.assertEqual(saved.read_bytes(), JPEG)
+    self.assertEqual(result['images'][0]['format'], 'jpeg')
+    self.assertFalse((self.root / 'picture.png').exists())
+    self.assertEqual((self.root / 'picture.jpeg').read_bytes(), b'keep-existing')
+    self.assertTrue(any('JPEG' in warning and 'PNG' in warning for warning in result['warnings']))
+    self.assertEqual(len(self.server.calls), 1)
+
+  def test_batch_keeps_actual_format_and_reports_actual_paths(self):
+    self.server.mode = 'jpeg'
+    result = self.run_cli('--prompt', 'x', '--count', '2')
+    self.assertTrue(result['ok'], result)
+    self.assertEqual(len(self.server.calls), 2)
+    self.assertEqual(len(result['images']), 2)
+    self.assertTrue(all(Path(item['path']).suffix == '.jpeg' and Path(item['path']).read_bytes() == JPEG for item in result['images']))
 
   def test_generate_and_prompt_file_unicode(self):
     prompt = '中文海报\n包含 "引号" 和 $符号'

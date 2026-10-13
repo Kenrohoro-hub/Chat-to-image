@@ -96,6 +96,7 @@ export interface ApiProfile {
   imageGenerationModel?: string
   timeout: number
   apiMode: ApiMode
+  imageProtocol?: 'auto' | 'openai' | 'gemini'
   reasoningEffort?: ReasoningEffort
   codexCli: boolean
   apiProxy: boolean
@@ -103,7 +104,7 @@ export interface ApiProfile {
   streamImages?: boolean
   streamPartialImages?: number
   transparentBackgroundMethod: 'api' | 'local'
-  providerDrafts?: Partial<Record<ApiProvider, Partial<Pick<ApiProfile, 'baseUrl' | 'model' | 'imageGenerationModel' | 'apiMode' | 'reasoningEffort' | 'codexCli' | 'apiProxy' | 'responseFormatB64Json' | 'streamImages' | 'streamPartialImages' | 'transparentBackgroundMethod'>>>>
+  providerDrafts?: Partial<Record<ApiProvider, Partial<Pick<ApiProfile, 'baseUrl' | 'model' | 'imageGenerationModel' | 'apiMode' | 'imageProtocol' | 'reasoningEffort' | 'codexCli' | 'apiProxy' | 'responseFormatB64Json' | 'streamImages' | 'streamPartialImages' | 'transparentBackgroundMethod'>>>>
 }
 
 export interface PresetAgentConfig {

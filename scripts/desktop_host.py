@@ -312,7 +312,7 @@ class DesktopApi:
         return {'ok': result['ok'], 'images': images, 'warnings': result.get('warnings', []),
           'usedProfile': result.get('used_profile'), 'error': result.get('error'),
           'usedProfiles': [entry.get('used_profile') for entry in result.get('images', [])],
-          'actualParamsList': [{'size': f"{entry['width']}x{entry['height']}"} for entry in result.get('images', [])],
+          'actualParamsList': [{'size': f"{entry['width']}x{entry['height']}", 'output_format': entry['format']} for entry in result.get('images', [])],
           'revisedPrompts': [entry.get('revised_prompt') for entry in result.get('images', [])]}
       finally:
         with self._lock:

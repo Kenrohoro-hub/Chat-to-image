@@ -29,7 +29,7 @@ const calls = vi.hoisted(() => ({ save: vi.fn(), flush: vi.fn() }))
 vi.mock('../store', () => ({ useStore: Object.assign((select: (value: typeof state) => unknown) => select(state), { getState: () => state }) }))
 vi.mock('../lib/desktop', () => ({ getSettingsRevision: () => 'test-revision', isLocalService: () => true, saveDesktopSettings: calls.save }))
 vi.mock('../lib/agentConversationPersistence', () => ({ flushAgentConversationsToIndexedDB: calls.flush }))
-vi.mock('./ApiProfileList', () => ({ default: () => null }))
+vi.mock('./ApiProfileList', () => ({ default: ({ children }: { children: import('react').ReactNode }) => children }))
 vi.mock('./settings/DataManagementTab', () => ({ default: () => null }))
 vi.mock('./settings/FeatureIntroTab', () => ({ default: () => null }))
 vi.mock('./settings/ModelSettings', () => ({ default: () => null }))
@@ -66,6 +66,18 @@ const button = (text: string) => [...document.querySelectorAll('button')].find((
 const choose = async (value: string) => { await act(() => { selector().value = value; selector().dispatchEvent(new Event('change', { bubbles: true })) }) }
 const save = async () => { await act(() => button('保存配置').click()) }
 const draft = (prompt: string): AgentInputDraft => ({ prompt, inputImages: [], maskDraft: null, maskEditorImageId: null })
+
+it('saves the selected image protocol in the profile', async () => {
+  await mount()
+  await act(() => button('API 配置').click())
+  const protocol = [...document.querySelectorAll('span')].find((item) => item.textContent === '自动（Gemini 模型使用原生协议）')!
+  expect(protocol).toBeTruthy()
+  await act(() => protocol.parentElement!.click())
+  await act(() => document.querySelector<HTMLElement>('[data-option-value="gemini"]')!.click())
+  await save()
+  expect(state.settings.profiles[0].imageProtocol).toBe('gemini')
+  expect(calls.save).toHaveBeenCalledWith(expect.objectContaining({ profiles: expect.arrayContaining([expect.objectContaining({ imageProtocol: 'gemini' })]) }), 'test-revision')
+})
 
 it('keeps the selected language in the draft and asks before closing unsaved changes', async () => {
   await mount()

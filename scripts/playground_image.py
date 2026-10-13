@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Chat to image 的无第三方依赖 Images API 调用入口。"""
+"""Chat to image 的无第三方依赖图片 API 调用入口。"""
 
 import argparse
 import base64
@@ -20,6 +20,7 @@ import uuid
 from playground_config import read_snapshot, snapshot_key
 from desktop_config import candidates, read_desktop, profile_key, normalize_url, report_route
 from ui_language import t
+from gemini_image import uses_gemini, gemini_endpoint, gemini_request, gemini_images
 
 
 MAX_IMAGE_BYTES = 50 * 1024 * 1024
@@ -142,7 +143,7 @@ def load_profile(args):
   if not args.config:
     if args.profile:
       raise CallError('INVALID_CONFIG', t('--profile 必须与 --config 一起使用。', '--profile must be used with --config.'))
-    explicit = args.base_url or args.model or args.api_key_env or (not args.saved_profile and (os.environ.get('PLAYGROUND_BASE_URL') or os.environ.get('PLAYGROUND_MODEL')))
+    explicit = args.base_url or args.model or args.api_key_env or args.protocol or (not args.saved_profile and (os.environ.get('PLAYGROUND_BASE_URL') or os.environ.get('PLAYGROUND_MODEL')))
     if explicit:
       return {}
     if read_desktop() is not None:
@@ -158,7 +159,7 @@ def load_profile(args):
           continue
       pool = valid
       if not pool:
-        raise CallError('NO_AVAILABLE_PROFILE', t('请在桌面设置中启用至少一套 OpenAI 兼容 Images API 配置。', 'Enable at least one OpenAI-compatible Images API profile in desktop settings.'))
+        raise CallError('NO_AVAILABLE_PROFILE', t('请在桌面设置中启用至少一套图像 API 配置。', 'Enable at least one image API profile in desktop settings.'))
       return {**pool[0], '_desktop_candidates': pool, '_desktop_selected': args.saved_profile}
     snapshot = read_snapshot()
     if not snapshot:
@@ -180,16 +181,16 @@ def load_profile(args):
     raise CallError('INVALID_CONFIG', t('请用 --profile 指定唯一配置 ID，或设置一个 isDefault。', 'Use --profile to select a unique profile ID, or set one profile as isDefault.'))
   profile = profiles[0]
   if profile.get('provider', 'openai') != 'openai' or profile.get('apiMode', 'images') != 'images':
-    raise CallError('UNSUPPORTED_PROVIDER', t('此入口支持 OpenAI 兼容 Images API；当前配置不是该类型。', 'This entry point supports OpenAI-compatible Images APIs. The current profile uses another type.'))
+    raise CallError('UNSUPPORTED_PROVIDER', t('此入口支持图像配置中的 OpenAI Images 或 Gemini 原生协议；当前配置不是该类型。', 'This entry point supports OpenAI Images and native Gemini image protocols. The current profile uses another type.'))
   if profile.get('codexCli'):
     raise CallError('UNSUPPORTED_PROVIDER', t('此入口不支持网页的 Codex CLI 特殊参数模式。', 'This entry point does not support the web app’s special Codex CLI parameter mode.'))
   return profile
 
 
-def request(url, timeout, result, body=None, key=None, content_type=None):
+def request(url, timeout, result, body=None, key=None, content_type=None, protocol='openai'):
   headers = {'Accept': 'application/json' if body is not None else 'image/*', 'User-Agent': 'Chat-to-image-CLI/1'}
   if key is not None:
-    headers['Authorization'] = 'Bearer ' + key
+    headers['x-goog-api-key' if protocol == 'gemini' else 'Authorization'] = key if protocol == 'gemini' else 'Bearer ' + key
   if content_type:
     headers['Content-Type'] = content_type
   req = urllib.request.Request(url, data=body, headers=headers)
@@ -215,7 +216,7 @@ def request(url, timeout, result, body=None, key=None, content_type=None):
       400: ('检查模型和图片参数。', 'Check the model and image parameters.'),
       401: ('检查 API Key。', 'Check the API key.'),
       403: ('检查密钥权限。', 'Check the API key permissions.'),
-      404: ('检查完整 Base URL 和模型。', 'Check the full Base URL and model.'),
+      404: ('检查协议、完整 Base URL 和模型。', 'Check the protocol, full Base URL, and model.'),
       429: ('检查余额或限流。', 'Check your balance or rate limits.'),
     }
     hint = hints.get(exc.code, ('请核对服务商请求日志；不会自动重试。', 'Check the provider request logs. The request will not be retried automatically.'))
@@ -281,7 +282,6 @@ def submit_image(args, profile, body, inputs, mask, endpoint, key, result):
   for index, candidate in enumerate(pool):
     current = dict(body)
     if '_desktop_candidates' in profile:
-      endpoint = normalize_url(candidate['baseUrl']) + ('/images/edits' if inputs else '/images/generations')
       current['model'] = args.saved_model or candidate['model']
       key = profile_key(candidate, args.saved_model)
       if not key or '\r' in key or '\n' in key:
@@ -294,18 +294,26 @@ def submit_image(args, profile, body, inputs, mask, endpoint, key, result):
         current.pop('response_format', None)
         if candidate.get('responseFormatB64Json'):
           current['response_format'] = 'b64_json'
+    gemini = uses_gemini(candidate, current['model'])
+    candidate_base = candidate['baseUrl'] if '_desktop_candidates' in profile else args.base_url or os.environ.get('PLAYGROUND_BASE_URL') or candidate.get('baseUrl')
+    endpoint = checked_url(gemini_endpoint(candidate_base, current['model'])) if gemini else (normalize_url(candidate_base) if '_desktop_candidates' in profile else checked_url(candidate_base)) + ('/images/edits' if inputs else '/images/generations')
     try:
       validate_image_model(candidate, current, len(inputs))
+      if gemini:
+        try:
+          native_body = gemini_request(current, inputs, mask)
+        except ValueError as exc:
+          raise CallError('MODEL_CAPABILITY', str(exc)) from None
     except CallError as exc:
       if exc.code not in ('MODEL_CAPABILITY', 'INVALID_ARGUMENT') or index + 1 == len(pool): raise
       result['warnings'].append(t(f"配置 {candidate.get('name', '')} 不支持当前图像参数，未提交，继续检查备用。", f"Profile {candidate.get('name', '')} does not support these image settings. Nothing was submitted; checking the next fallback."))
       continue
-    payload, content_type = encode_request(current, inputs, mask)
-    result.update({'endpoint': endpoint, 'model': current['model'], 'stage': 'submit'})
+    payload, content_type = (json.dumps(native_body, ensure_ascii=False).encode('utf-8'), 'application/json') if gemini else encode_request(current, inputs, mask)
+    result.update({'endpoint': endpoint, 'model': current['model'], 'protocol': 'gemini' if gemini else 'openai', 'stage': 'submit'})
     result.pop('http_status', None)
     result['attempted_requests'] += 1
     try:
-      raw = request(endpoint, args.timeout or candidate.get('timeout') or 600, result, payload, key, content_type)
+      raw = request(endpoint, args.timeout or candidate.get('timeout') or 600, result, payload, key, content_type, result['protocol'])
       result['completed_requests'] += 1
       if '_desktop_candidates' in profile:
         report_route(candidate['id'], True)
@@ -338,6 +346,7 @@ def main(argv=None):
     parser.add_argument('--saved-model', help='从已保存方案启用的模型中选择，备用必须支持同一模型')
     parser.add_argument('--base-url', help='完整 API 前缀，例如 https://api.example.com/v1')
     parser.add_argument('--model', help='服务商支持的图片模型 ID')
+    parser.add_argument('--protocol', choices=['auto', 'openai', 'gemini'], help='图片协议；默认自动识别 Gemini 模型')
     parser.add_argument('--api-key-env', help='存放 Key 的环境变量名，默认 PLAYGROUND_API_KEY')
     parser.add_argument('--image', action='append', default=[], help='本地参考图，可重复，最多 16 张')
     parser.add_argument('--mask', help='有 Alpha 通道的 PNG 蒙版；透明区域用于修改')
@@ -354,9 +363,11 @@ def main(argv=None):
     parser.add_argument('--output', help='输出目录或单张图片文件名；默认保存在本机用户目录')
     parser.add_argument('--dry-run', action='store_true', help='只校验参数；不读取 Key、不联网、不写文件')
     args = parser.parse_args(argv)
-    if args.saved_profile and (args.config or args.base_url or args.model or args.api_key_env):
+    if args.saved_profile and (args.config or args.base_url or args.model or args.api_key_env or args.protocol):
       raise CallError('INVALID_ARGUMENT', t('--saved-profile 不能与独立配置参数同时使用。', '--saved-profile cannot be combined with individual profile options.'))
     profile = load_profile(args)
+    if args.protocol:
+      profile = {**profile, 'imageProtocol': args.protocol}
     if args.saved_model and '_desktop_candidates' not in profile:
       raise CallError('INVALID_ARGUMENT', t('--saved-model 只能用于桌面已保存的方案。', '--saved-model can only be used with a profile saved in the desktop app.'))
     base_url = profile.get('baseUrl') if args.saved_profile else args.base_url or os.environ.get('PLAYGROUND_BASE_URL') or profile.get('baseUrl')
@@ -367,7 +378,10 @@ def main(argv=None):
       raise CallError('MISSING_CONFIG', t('请用 run-app.cmd 打开桌面设置并填写 API；也可使用 --config 或环境变量。', 'Open desktop settings with run-app.cmd and configure an API. You can also use --config or environment variables.'))
     if not isinstance(key_env, str) or not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', key_env):
       raise CallError('INVALID_CONFIG', t('apiKeyEnv 必须是环境变量名。', 'apiKeyEnv must be an environment variable name.'))
-    base_url = normalize_url(base_url.strip()) if '_desktop_candidates' in profile else checked_url(base_url.strip())
+    if (profile.get('imageProtocol') or 'auto') not in ('auto', 'openai', 'gemini'):
+      raise CallError('INVALID_CONFIG', t('图片协议应为 auto、openai 或 gemini。', 'The image protocol must be auto, openai, or gemini.'))
+    gemini = uses_gemini(profile, model.strip())
+    base_url = checked_url(gemini_endpoint(base_url.strip(), model.strip())) if gemini else normalize_url(base_url.strip()) if '_desktop_candidates' in profile else checked_url(base_url.strip())
     if profile.get('apiKey'):
       result['warnings'].append(t('配置文件中的 apiKey 已忽略；凭据仅从指定环境变量读取。', 'The apiKey in the config file was ignored. Credentials are read only from the specified environment variable.'))
     if profile.get('streamImages'):
@@ -417,13 +431,18 @@ def main(argv=None):
       candidate_model = args.saved_model or candidate.get('model', model) if '_desktop_candidates' in profile else model.strip()
       try:
         validate_image_model(candidate, {**body, 'model': candidate_model}, len(inputs))
+        if uses_gemini(candidate, candidate_model):
+          try:
+            gemini_request(body, [], mask)
+          except ValueError as exc:
+            raise CallError('MODEL_CAPABILITY', str(exc)) from None
         capability_error = None
         break
       except CallError as exc:
         if exc.code not in ('MODEL_CAPABILITY', 'INVALID_ARGUMENT'): raise
         capability_error = exc
     if capability_error: raise capability_error
-    endpoint = base_url + ('/images/edits' if inputs else '/images/generations')
+    endpoint = base_url if gemini else base_url + ('/images/edits' if inputs else '/images/generations')
     from playground_config import local_data_dir
     output = Path(args.output).expanduser().resolve() if args.output else local_data_dir() / 'outputs'
     suffixes = {'.png': 'png', '.jpg': 'jpeg', '.jpeg': 'jpeg', '.webp': 'webp'}
@@ -462,7 +481,13 @@ def main(argv=None):
               raw = submit_image(args, profile, body, inputs, mask, endpoint, key, result)
               result['stage'] = 'decode'
               response = json.loads(raw)
-              data = response.get('data') if isinstance(response, dict) else None
+              if result.get('protocol') == 'gemini':
+                try:
+                  data = gemini_images(response)
+                except ValueError as exc:
+                  raise CallError('INVALID_RESPONSE', str(exc)) from None
+              else:
+                data = response.get('data') if isinstance(response, dict) else None
               if not isinstance(data, list) or len(data) != 1 or not isinstance(data[0], dict):
                 raise CallError('INVALID_RESPONSE', t('接口未返回 n=1 对应的 data 图片列表。请核对服务商记录。', 'The API did not return the expected data list for n=1. Check the provider records.'))
               item = data[0]
@@ -483,8 +508,6 @@ def main(argv=None):
                 info = image_info(image)
               except CallError as exc:
                 raise CallError(exc.code, t(f'接口返回的图片检查失败：{exc}', f'The returned image failed validation: {exc}')) from None
-              if info[0] != args.format:
-                raise CallError('FORMAT_MISMATCH', t('服务商返回的图片格式与 --format 不一致。请检查服务商的参数支持情况。', 'The provider returned an image format that does not match --format. Check the provider’s parameter support.'))
               if size != 'auto' and f'{info[1]}x{info[2]}' != size:
                 result['warnings'].append(t(f'实际返回尺寸为 {info[1]}x{info[2]}，请求尺寸为 {size}。', f'The returned image is {info[1]}x{info[2]}; the requested size was {size}.'))
               result['stage'] = 'save'
@@ -492,8 +515,25 @@ def main(argv=None):
               target.flush()
               os.fsync(target.fileno())
               saved = True
-              result['images'].append({'path': str(path), 'format': info[0], 'width': info[1], 'height': info[2], 'bytes': len(image),
-                'used_profile': result.get('used_profile'), 'revised_prompt': item.get('revised_prompt')})
+              entry = {'path': str(path), 'format': info[0], 'width': info[1], 'height': info[2], 'bytes': len(image),
+                'used_profile': result.get('used_profile'), 'revised_prompt': item.get('revised_prompt')}
+              result['images'].append(entry)
+              if info[0] != args.format:
+                target.close()
+                actual_path = path.with_suffix('.' + info[0])
+                # Windows 的 rename 在目标已存在时失败，不覆盖用户已有作品。
+                while True:
+                  try:
+                    path.rename(actual_path)
+                    path = actual_path
+                    break
+                  except FileExistsError:
+                    actual_path = path.with_name(path.stem + '-' + uuid.uuid4().hex + '.' + info[0])
+                  except OSError:
+                    result['warnings'].append(t('未能更新图片扩展名，原文件已保留；实际格式以 images 中的 format 为准。', 'Could not update the extension. The original file was kept; see images[].format for its actual format.'))
+                    break
+                result['warnings'].append(t(f'服务商返回 {info[0].upper()}，请求为 {args.format.upper()}；已保留原始图片，未转换格式。', f'The provider returned {info[0].upper()} instead of the requested {args.format.upper()}. The original image was kept without conversion.'))
+              entry['path'] = str(path)
             finally:
               if not saved:
                 target.close()
@@ -505,7 +545,9 @@ def main(argv=None):
     message = str(exc) if isinstance(exc, CallError) else t('本地文件、响应解析或用户中断错误。请检查路径与服务商请求记录。', 'A local file, response parsing, or user interruption error occurred. Check the paths and provider request records.')
     result['error'] = {'code': error_code, 'message': message}
     if result['attempted_requests']:
-      result['warnings'].append(t('已提交过请求，服务商可能已计费；不要自动重跑。已保存图片见 images。', 'A request was submitted and may have incurred a charge. Do not rerun it automatically. Saved images are listed in images.'))
+      result['warnings'].append(t('已提交过请求，服务商可能已计费；不要自动重跑。', 'A request was submitted and may have incurred a charge. Do not rerun it automatically.'))
+      if result['images']:
+        result['warnings'].append(t('已完成图片已保留。', 'Completed images were kept.'))
   print(json.dumps(result, ensure_ascii=False))
   return code
 

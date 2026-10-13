@@ -51,7 +51,7 @@ class SyncTests(unittest.TestCase):
     self.profile = {
       'id': 'test', 'name': '测试配置', 'provider': 'openai', 'apiMode': 'images',
       'baseUrl': f'http://127.0.0.1:{self.image_server.server_port}',
-      'model': 'mock-image', 'apiKey': 'sync-test-secret',
+      'model': 'mock-image', 'apiKey': 'sync-test-secret', 'imageProtocol': 'auto',
     }
 
   @staticmethod
@@ -380,6 +380,12 @@ class SyncTests(unittest.TestCase):
     self.assertEqual(Path(result['images'][0]['path']).read_bytes(), IMAGE)
     self.assertEqual(self.image_server.calls[0]['headers']['Authorization'], 'Bearer sync-test-secret')
     self.assertEqual(self.image_server.calls[0]['path'], '/v1/images/generations')
+
+  def test_browser_sync_preserves_image_protocol(self):
+    profile = {**self.profile, 'imageProtocol': 'gemini'}
+    status, raw, _ = self.send({'profile': profile})
+    self.assertEqual(status, 200)
+    self.assertEqual(read_snapshot()['profile']['imageProtocol'], 'gemini')
 
   def test_host_origin_token_and_media_type_guards(self):
     cases = [({'Origin': 'https://untrusted.example'}, 403), ({'Host': 'evil.example'}, 403), ({'X-Codex-Sync': 'bad'}, 403), ({'Content-Type': 'text/plain'}, 415)]

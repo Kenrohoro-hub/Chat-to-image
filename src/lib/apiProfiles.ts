@@ -21,6 +21,7 @@ import { DEFAULT_AGENT_MAX_TOOL_ROUNDS, DEFAULT_STREAM_PARTIAL_IMAGES, DEFAULT_Z
 import { customProviderSupportsNativeTransparentBackground } from './customProviderCapabilities'
 import { shouldUseApiProxy } from './devProxy'
 import { normalizeImageCapabilities } from './imageModelCapabilities'
+import { usesGeminiImageApi } from './geminiImageApi'
 import { normalizeModelCatalog, normalizeModelCapabilities } from './modelCatalog'
 import { normalizeReasoningEffort, normalizeStreamPartialImages, parseDefaultApiUrl } from './defaultApiUrl'
 import { readRuntimeEnv } from './runtimeEnv'
@@ -412,6 +413,7 @@ export function switchApiProfileProvider(profile: ApiProfile, provider: ApiProvi
       model: profile.model,
       imageGenerationModel: profile.imageGenerationModel,
       apiMode: profile.apiMode,
+      imageProtocol: profile.imageProtocol,
       reasoningEffort: profile.reasoningEffort,
       codexCli: profile.codexCli,
       apiProxy: profile.apiProxy,
@@ -431,6 +433,7 @@ export function switchApiProfileProvider(profile: ApiProfile, provider: ApiProvi
       model: savedDraft?.model ?? DEFAULT_FAL_MODEL,
       imageGenerationModel: savedDraft?.imageGenerationModel ?? profile.imageGenerationModel,
       apiMode: 'images',
+      imageProtocol: savedDraft?.imageProtocol,
       reasoningEffort: savedDraft?.reasoningEffort,
       codexCli: false,
       apiProxy: false,
@@ -452,6 +455,7 @@ export function switchApiProfileProvider(profile: ApiProfile, provider: ApiProvi
       model: savedDraft?.model ?? (shouldUseOpenAIDefaults ? DEFAULT_IMAGES_MODEL : profile.model || DEFAULT_IMAGES_MODEL),
       imageGenerationModel: savedDraft?.imageGenerationModel ?? profile.imageGenerationModel,
       apiMode: 'images',
+      imageProtocol: savedDraft?.imageProtocol,
       reasoningEffort: savedDraft?.reasoningEffort,
       codexCli: savedDraft?.codexCli ?? false,
       apiProxy: false,
@@ -478,6 +482,7 @@ export function switchApiProfileProvider(profile: ApiProfile, provider: ApiProvi
     model: savedDraft?.model ?? DEFAULT_IMAGES_MODEL,
     imageGenerationModel: savedDraft?.imageGenerationModel ?? profile.imageGenerationModel,
     apiMode: nextApiMode,
+    imageProtocol: savedDraft?.imageProtocol,
     reasoningEffort: savedDraft?.reasoningEffort ?? profile.reasoningEffort,
     codexCli: savedDraft?.codexCli ?? profile.codexCli,
     apiProxy: savedDraft?.apiProxy ?? DEFAULT_OPENAI_API_PROXY,
@@ -519,6 +524,7 @@ function normalizeProviderDraft(
     codexCli: typeof input.codexCli === 'boolean' ? input.codexCli : fallback.codexCli,
     apiProxy: typeof input.apiProxy === 'boolean' ? input.apiProxy : fallback.apiProxy,
     responseFormatB64Json: input.responseFormatB64Json === true ? true : undefined,
+    imageProtocol: input.imageProtocol === 'openai' || input.imageProtocol === 'gemini' || input.imageProtocol === 'auto' ? input.imageProtocol : undefined,
     streamImages: typeof input.streamImages === 'boolean' ? input.streamImages : fallback.streamImages,
     streamPartialImages: normalizeStreamPartialImages(input.streamPartialImages, fallback.streamPartialImages),
     transparentBackgroundMethod: !nativeTransparentBackgroundUnavailable && (input.transparentBackgroundMethod === 'api' || input.transparentBackgroundMethod === 'local')
@@ -587,6 +593,7 @@ export function normalizeApiProfile(
     codexCli: Boolean(record.codexCli),
     apiProxy: provider === 'sb2api-async' ? false : typeof record.apiProxy === 'boolean' ? record.apiProxy : defaults.apiProxy,
     responseFormatB64Json: record.responseFormatB64Json === true ? true : undefined,
+    imageProtocol: record.imageProtocol === 'openai' || record.imageProtocol === 'gemini' || record.imageProtocol === 'auto' ? record.imageProtocol : undefined,
     streamImages,
     streamPartialImages: normalizeStreamPartialImages(record.streamPartialImages, defaults.streamPartialImages),
     transparentBackgroundMethod: !nativeTransparentBackgroundUnavailable && (record.transparentBackgroundMethod === 'api' || record.transparentBackgroundMethod === 'local')
@@ -685,6 +692,7 @@ export function normalizeSettings(input: Partial<AppSettings> | unknown): AppSet
     imageGenerationModel: record.imageGenerationModel,
     timeout: typeof record.timeout === 'number' && Number.isFinite(record.timeout) ? record.timeout : DEFAULT_API_TIMEOUT,
     apiMode: legacyApiMode,
+    imageProtocol: record.imageProtocol,
     codexCli: Boolean(record.codexCli),
     apiProxy: typeof record.apiProxy === 'boolean' ? record.apiProxy : DEFAULT_OPENAI_API_PROXY,
     responseFormatB64Json: record.responseFormatB64Json === true ? true : undefined,
@@ -717,7 +725,8 @@ export function normalizeSettings(input: Partial<AppSettings> | unknown): AppSet
     : active.id
 
   const pool = isRecord(record.failover) ? record.failover : {}
-  const eligible = profiles.filter((p) => p.provider === 'openai' && p.apiMode === 'images' && !p.codexCli && !p.apiProxy && !p.streamImages)
+  const galleryModel = typeof record.galleryModel === 'string' ? record.galleryModel.trim() : ''
+  const eligible = profiles.filter((p) => p.provider === 'openai' && p.apiMode === 'images' && !p.codexCli && !p.apiProxy && (!p.streamImages || usesGeminiImageApi(p.id === activeProfileId && galleryModel && (p.models ?? [p.model]).includes(galleryModel) ? { ...p, model: galleryModel } : p)))
   const slots = [...new Set((Array.isArray(pool.slots) ? [...pool.slots, ...eligible.map((p) => p.id)] : eligible.map((p) => p.id))
     .filter((id): id is string => typeof id === 'string' && eligible.some((p) => p.id === id)))]
   const primaryId = typeof pool.primaryId === 'string' && slots.includes(pool.primaryId) ? pool.primaryId : slots[0] ?? ''
@@ -770,7 +779,7 @@ export function normalizeSettings(input: Partial<AppSettings> | unknown): AppSet
     agentMathFormattingPrompt: typeof record.agentMathFormattingPrompt === 'boolean' ? record.agentMathFormattingPrompt : true,
     agentImageTools: typeof record.agentImageTools === 'boolean' ? record.agentImageTools : undefined,
     agentModel: typeof record.agentModel === 'string' ? record.agentModel.trim() : '',
-    galleryModel: typeof record.galleryModel === 'string' ? record.galleryModel.trim() : '',
+    galleryModel,
     agentReasoningEffort: REASONING_EFFORT_VALUES.includes(record.agentReasoningEffort as ReasoningEffort) ? record.agentReasoningEffort as ReasoningEffort : '',
     agentApiConfigMode,
     agentTextProfileId,
@@ -1025,6 +1034,7 @@ function getApiProfileDedupKey(profile: ApiProfile): string {
     profile.models,
     profile.imageGenerationModel?.trim(),
     profile.apiMode,
+    profile.imageProtocol ?? 'auto',
     profile.reasoningEffort,
   ])
 }
@@ -1037,6 +1047,7 @@ function getApiProfileConnectionKey(profile: ApiProfile): string {
     profile.models,
     profile.imageGenerationModel?.trim(),
     profile.apiMode,
+    profile.imageProtocol ?? 'auto',
     profile.reasoningEffort,
   ])
 }
@@ -1169,6 +1180,7 @@ const PRESET_PROFILE_DEPLOYMENT_KEYS = [
   'imageGenerationModel',
   'timeout',
   'apiMode',
+  'imageProtocol',
   'reasoningEffort',
   'codexCli',
   'apiProxy',

@@ -28,11 +28,11 @@ function setup(settings) {
 
 test('只同步当前配置的允许字段，不发送其他配置或历史', async () => {
   const state = setup({ activeProfileId: 'selected', profiles: [
-    { id: 'selected', apiKey: 'test-key', model: 'test-model', providerDrafts: { unused: 'not-sent' } },
+    { id: 'selected', apiKey: 'test-key', model: 'test-model', imageProtocol: 'gemini', providerDrafts: { unused: 'not-sent' } },
     { id: 'other', apiKey: 'other-key' },
   ] })
   await settle()
-  assert.deepEqual(JSON.parse(state.calls[0].options.body), { profile: { id: 'selected', apiKey: 'test-key', model: 'test-model' } })
+  assert.deepEqual(JSON.parse(state.calls[0].options.body), { profile: { id: 'selected', apiKey: 'test-key', model: 'test-model', imageProtocol: 'gemini' } })
   assert.equal(state.badge.textContent, 'Codex：已同步')
   assert.equal(state.calls[0].url, '/__codex/config')
   assert.ok(state.calls[0].options.headers['X-Codex-Sync'])

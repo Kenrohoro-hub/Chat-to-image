@@ -2,6 +2,8 @@ import json
 from argparse import Namespace
 from pathlib import Path
 import unittest
+import tempfile
+from test_playground_image import JPEG
 from unittest.mock import MagicMock, patch
 import image_batch
 
@@ -19,6 +21,20 @@ class ImageBatchTest(unittest.TestCase):
     self.assertFalse(result['ok'])
     self.assertEqual(result['error']['code'], 'INTERRUPTED')
     self.assertEqual(len(result['images']), 2)
+
+  def test_interrupted_child_recovers_image_with_actual_extension(self):
+    process = MagicMock()
+    process.communicate.return_value = (b'', b'')
+    with tempfile.TemporaryDirectory() as directory:
+      requested = Path(directory) / 'image.png'
+      saved = requested.with_suffix('.jpeg')
+      saved.write_bytes(JPEG)
+      with patch.object(image_batch.subprocess, 'Popen', return_value=process):
+        result = image_batch.run_image_batch(Namespace(concurrency=1), [requested])
+      self.assertFalse(result['ok'])
+      self.assertEqual(len(result['images']), 1)
+      self.assertEqual(result['images'][0]['path'], str(saved))
+      self.assertEqual(result['images'][0]['format'], 'jpeg')
 
   def test_worker_launch_failure_keeps_successful_results(self):
     process = MagicMock()

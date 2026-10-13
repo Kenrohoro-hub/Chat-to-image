@@ -1,6 +1,6 @@
 # 图片 CLI 接口
 
-`chat-to-image.cmd` 调用同步、非流式 OpenAI 兼容 Images API，支持文字生图、参考图、PNG 蒙版和批量生成，返回本地图片路径。安装版使用内置 Python；源码版需要 Python 3.10+。可在桌面关闭后使用。
+`chat-to-image.cmd` 调用同步、非流式 OpenAI Images 或 Gemini 原生 API，支持文字生图、参考图、PNG 蒙版和批量生成，返回本地图片路径。安装版使用内置 Python；源码版需要 Python 3.10+。可在桌面关闭后使用。
 
 ## 1. 配置服务和凭据
 
@@ -9,11 +9,13 @@
 - `--saved-profile ID`：选择已保存图像配置。主备规则见 [使用说明](../README_使用说明.md#模型与备用服务)。
 - `--saved-model MODEL_ID`：选择该配置已启用的模型；备用也须启用相同 ID。
 - `--config-dir 绝对路径`：放在子命令前，为当前调用指定共享配置目录。
-- `--saved-profile` 不能与 `--config`、`--base-url`、`--model`、`--api-key-env` 合用。
+- `--saved-profile` 不能与 `--config`、`--base-url`、`--model`、`--api-key-env`、`--protocol` 合用。
 
 独立配置可从 [示例](../playground-cli.example.json) 创建 `playground-cli.local.json`，填写完整 API 前缀（如 `https://api.example.com/v1`）及模型，通过 `--config` 指定。Key 从环境变量读取，默认 `PLAYGROUND_API_KEY`；`--api-key-env` 只指定变量名，不传入 Key。
 
 独立模式地址/模型优先级：命令参数 → `PLAYGROUND_BASE_URL` / `PLAYGROUND_MODEL` → JSON。显式覆盖地址、模型或配置时，不使用共享密钥。`--config` 也可读取 `profiles` JSON，用 `--profile ID` 选择；未指定时必须有唯一的默认项。
+
+协议默认自动识别：`gemini-` 开头的模型使用 Gemini 原生接口，其他模型使用 OpenAI Images。可在生图配置中指定协议；独立模式用 `--protocol auto/openai/gemini` 或 JSON 的 `imageProtocol`。Gemini 地址可填站点根地址、`/v1` 或 `/v1beta` 前缀，自动使用 `/v1beta/models/{model}:generateContent`。
 
 ## 2. 生成与编辑
 
@@ -31,6 +33,8 @@
 `doctor` 只检查本机环境和脱敏配置；`--dry-run` 不读 Key、不联网、不写图片，不能验证真实服务能力。
 
 提示词文件使用 UTF-8。`--prompt` 与 `--prompt-file` 二选一。参考图支持 PNG/JPEG/WebP，最多 16 张；参考图与蒙版总计不超过 50 MiB。蒙版须为带 Alpha 的 PNG，与第一张参考图同尺寸，透明区域用于修改。
+
+Gemini 支持文字与参考图生图；不支持原生蒙版和透明参数。尺寸换算为最接近的支持比例和 1K/2K/4K 档位，`auto` 由模型决定；质量、压缩和文件格式由服务商决定。
 
 ## 3. 在 Codex 中使用
 
@@ -64,7 +68,7 @@
 | --- | --- |
 | `--size` | `auto`、`宽x高`、`1k/2k/4k`，可附 `-landscape/-portrait`；默认 `1k`。 |
 | `--quality` | `auto/low/medium/high/xhigh/max`；默认 `auto`。 |
-| `--format` | `png/jpeg/webp`；默认 `png`，与输出文件扩展名一致。 |
+| `--format` | `png/jpeg/webp`；默认 `png`；服务商返回其他有效格式时保留原图并调整扩展名，不转码。 |
 | `--background` | `auto/opaque/transparent`；透明需要 PNG/WebP 和模型支持。 |
 | `--moderation` | `auto/low`。 |
 | `--output-compression` | JPEG/WebP 压缩值，按接口支持设置。 |
@@ -81,7 +85,7 @@
 - `ok`、`stage`：状态；失败附 `error.code`、`error.message`。
 - `images[].path`：已保存图片的绝对路径；CLI 图片不自动加入桌面历史。
 - `attempted_requests`、`completed_requests`、`request_ids`：已提交和收到响应的请求记录。
-- `warnings`：实际尺寸等差异。`output_paths` 仅是计划路径。
+- `warnings`：实际尺寸、格式等差异；最终文件位置以 `images[].path` 为准。`output_paths` 仅是计划路径。
 
 ## 5. 失败处理
 
