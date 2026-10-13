@@ -96,7 +96,7 @@ export interface ApiProfile {
   imageGenerationModel?: string
   timeout: number
   apiMode: ApiMode
-  imageProtocol?: 'auto' | 'openai' | 'gemini'
+  imageProtocol?: 'auto' | 'openai' | 'gemini' | 'seedream' | 'qwen'
   reasoningEffort?: ReasoningEffort
   codexCli: boolean
   apiProxy: boolean

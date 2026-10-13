@@ -1,12 +1,21 @@
-import { DEFAULT_PARAMS, type AppSettings, type TaskParams } from '../types'
+import { DEFAULT_PARAMS, type ApiProfile, type AppSettings, type TaskParams } from '../types'
 import { getActiveApiProfile, isOpenAICompatibleProvider } from './apiProfiles'
 import { getImageModelCapabilities } from './imageModelCapabilities'
 import { getImageGenerationModel, isGptImage25Model } from './imageModels'
 import { normalizeCodexCliImageSize, normalizeImageSize } from './size'
+import { getImageProtocol } from './imageProtocol'
 
 export const DEFAULT_FAL_IMAGE_SIZE = '1360x1024'
 export const MAX_FAL_OUTPUT_IMAGES = 4
 export const MAX_OPENAI_OUTPUT_IMAGES = 10
+
+export function normalizeSizeForProfile(profile: ApiProfile, size: string) {
+  const protocol = getImageProtocol(profile)
+  if (protocol === 'seedream' || protocol === 'qwen') {
+    return size.trim().replace(/^(\d+)\s*[xX×]\s*(\d+)$/, '$1x$2')
+  }
+  return profile.provider !== 'fal' && profile.codexCli ? normalizeCodexCliImageSize(size) : normalizeImageSize(size)
+}
 
 export function getOutputImageLimitForSettings(settings: AppSettings) {
   return getActiveApiProfile(settings).provider === 'fal' ? MAX_FAL_OUTPUT_IMAGES : MAX_OPENAI_OUTPUT_IMAGES
@@ -20,14 +29,16 @@ export function normalizeParamsForSettings(
   const activeProfile = getActiveApiProfile(settings)
   const rule = getImageModelCapabilities(activeProfile)
   const outputImageLimit = getOutputImageLimitForSettings(settings)
+  const protocol = getImageProtocol(activeProfile)
+  const nativeSize = protocol === 'seedream' || protocol === 'qwen'
   const nextParams: TaskParams = {
     ...params,
-    size: rule?.sizes ? (rule.sizes.includes(params.size) ? params.size : rule.sizes[0]) : normalizeImageSize(params.size) || DEFAULT_PARAMS.size,
+    size: rule?.sizes ? (rule.sizes.includes(params.size) ? params.size : rule.sizes[0]) : normalizeSizeForProfile(activeProfile, params.size) || DEFAULT_PARAMS.size,
     n: Math.min(outputImageLimit, Math.max(1, params.n || DEFAULT_PARAMS.n)),
   }
 
   if (isOpenAICompatibleProvider(settings, activeProfile.provider) && activeProfile.codexCli) {
-    nextParams.size = normalizeCodexCliImageSize(nextParams.size)
+    if (!nativeSize) nextParams.size = normalizeCodexCliImageSize(nextParams.size)
     nextParams.quality = DEFAULT_PARAMS.quality
   }
 

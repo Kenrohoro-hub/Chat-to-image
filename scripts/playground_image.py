@@ -20,7 +20,8 @@ import uuid
 from playground_config import read_snapshot, snapshot_key
 from desktop_config import candidates, read_desktop, profile_key, normalize_url, report_route
 from ui_language import t
-from gemini_image import uses_gemini, gemini_endpoint, gemini_request, gemini_images
+from gemini_image import gemini_endpoint, gemini_request, gemini_images
+from image_protocol import resolve_image_protocol, json_image_endpoint, json_image_request, validate_json_image
 
 
 MAX_IMAGE_BYTES = 50 * 1024 * 1024
@@ -261,7 +262,13 @@ def validate_image_model(profile, body, input_count):
     allowed = rule.get(field)
     if allowed and body[param] not in allowed:
       raise CallError('MODEL_CAPABILITY', t(f"模型 {body['model']} 的{label}仅支持 {'、'.join(allowed)}。", f"Model {body['model']} only supports {', '.join(allowed)} for {label_en}."))
-  if not rule.get('sizes') and body['size'] != 'auto':
+  protocol = resolve_image_protocol(profile, body['model'])
+  if protocol in ('seedream', 'qwen'):
+    try:
+      validate_json_image(protocol, body, input_count)
+    except ValueError as exc:
+      raise CallError('MODEL_CAPABILITY', str(exc)) from None
+  if protocol not in ('seedream', 'qwen') and not rule.get('sizes') and body['size'] != 'auto':
     match = re.fullmatch(r'(\d{1,4})x(\d{1,4})', body['size'])
     if not match:
       raise CallError('INVALID_ARGUMENT', t('尺寸应为 auto、1k/2k/4k 或合法的宽x高。', 'Size must be auto, 1k/2k/4k, or a valid width-by-height value.'))
@@ -294,22 +301,23 @@ def submit_image(args, profile, body, inputs, mask, endpoint, key, result):
         current.pop('response_format', None)
         if candidate.get('responseFormatB64Json'):
           current['response_format'] = 'b64_json'
-    gemini = uses_gemini(candidate, current['model'])
+    protocol = resolve_image_protocol(candidate, current['model'])
+    gemini = protocol == 'gemini'
     candidate_base = candidate['baseUrl'] if '_desktop_candidates' in profile else args.base_url or os.environ.get('PLAYGROUND_BASE_URL') or candidate.get('baseUrl')
-    endpoint = checked_url(gemini_endpoint(candidate_base, current['model'])) if gemini else (normalize_url(candidate_base) if '_desktop_candidates' in profile else checked_url(candidate_base)) + ('/images/edits' if inputs else '/images/generations')
+    endpoint = checked_url(gemini_endpoint(candidate_base, current['model'])) if gemini else checked_url(json_image_endpoint(candidate_base, protocol)) if protocol in ('seedream', 'qwen') else (normalize_url(candidate_base) if '_desktop_candidates' in profile else checked_url(candidate_base)) + ('/images/edits' if inputs else '/images/generations')
     try:
       validate_image_model(candidate, current, len(inputs))
-      if gemini:
+      if protocol != 'openai':
         try:
-          native_body = gemini_request(current, inputs, mask)
+          native_body = gemini_request(current, inputs, mask) if gemini else json_image_request(protocol, current, inputs, mask)
         except ValueError as exc:
           raise CallError('MODEL_CAPABILITY', str(exc)) from None
     except CallError as exc:
       if exc.code not in ('MODEL_CAPABILITY', 'INVALID_ARGUMENT') or index + 1 == len(pool): raise
       result['warnings'].append(t(f"配置 {candidate.get('name', '')} 不支持当前图像参数，未提交，继续检查备用。", f"Profile {candidate.get('name', '')} does not support these image settings. Nothing was submitted; checking the next fallback."))
       continue
-    payload, content_type = (json.dumps(native_body, ensure_ascii=False).encode('utf-8'), 'application/json') if gemini else encode_request(current, inputs, mask)
-    result.update({'endpoint': endpoint, 'model': current['model'], 'protocol': 'gemini' if gemini else 'openai', 'stage': 'submit'})
+    payload, content_type = (json.dumps(native_body, ensure_ascii=False).encode('utf-8'), 'application/json') if protocol != 'openai' else encode_request(current, inputs, mask)
+    result.update({'endpoint': endpoint, 'model': current['model'], 'protocol': protocol, 'stage': 'submit'})
     result.pop('http_status', None)
     result['attempted_requests'] += 1
     try:
@@ -346,7 +354,7 @@ def main(argv=None):
     parser.add_argument('--saved-model', help='从已保存方案启用的模型中选择，备用必须支持同一模型')
     parser.add_argument('--base-url', help='完整 API 前缀，例如 https://api.example.com/v1')
     parser.add_argument('--model', help='服务商支持的图片模型 ID')
-    parser.add_argument('--protocol', choices=['auto', 'openai', 'gemini'], help='图片协议；默认自动识别 Gemini 模型')
+    parser.add_argument('--protocol', choices=['auto', 'openai', 'gemini', 'seedream', 'qwen'], help='图片协议；默认按模型自动识别')
     parser.add_argument('--api-key-env', help='存放 Key 的环境变量名，默认 PLAYGROUND_API_KEY')
     parser.add_argument('--image', action='append', default=[], help='本地参考图，可重复，最多 16 张')
     parser.add_argument('--mask', help='有 Alpha 通道的 PNG 蒙版；透明区域用于修改')
@@ -378,10 +386,15 @@ def main(argv=None):
       raise CallError('MISSING_CONFIG', t('请用 run-app.cmd 打开桌面设置并填写 API；也可使用 --config 或环境变量。', 'Open desktop settings with run-app.cmd and configure an API. You can also use --config or environment variables.'))
     if not isinstance(key_env, str) or not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', key_env):
       raise CallError('INVALID_CONFIG', t('apiKeyEnv 必须是环境变量名。', 'apiKeyEnv must be an environment variable name.'))
-    if (profile.get('imageProtocol') or 'auto') not in ('auto', 'openai', 'gemini'):
-      raise CallError('INVALID_CONFIG', t('图片协议应为 auto、openai 或 gemini。', 'The image protocol must be auto, openai, or gemini.'))
-    gemini = uses_gemini(profile, model.strip())
-    base_url = checked_url(gemini_endpoint(base_url.strip(), model.strip())) if gemini else normalize_url(base_url.strip()) if '_desktop_candidates' in profile else checked_url(base_url.strip())
+    if (profile.get('imageProtocol') or 'auto') not in ('auto', 'openai', 'gemini', 'seedream', 'qwen'):
+      raise CallError('INVALID_CONFIG', t('图片协议应为 auto、openai、gemini、seedream 或 qwen。', 'The image protocol must be auto, openai, gemini, seedream, or qwen.'))
+    protocol = resolve_image_protocol(profile, model.strip())
+    if protocol == 'gemini':
+      base_url = checked_url(gemini_endpoint(base_url.strip(), model.strip()))
+    elif protocol in ('seedream', 'qwen'):
+      base_url = checked_url(json_image_endpoint(base_url.strip(), protocol))
+    else:
+      base_url = normalize_url(base_url.strip()) if '_desktop_candidates' in profile else checked_url(base_url.strip())
     if profile.get('apiKey'):
       result['warnings'].append(t('配置文件中的 apiKey 已忽略；凭据仅从指定环境变量读取。', 'The apiKey in the config file was ignored. Credentials are read only from the specified environment variable.'))
     if profile.get('streamImages'):
@@ -431,9 +444,13 @@ def main(argv=None):
       candidate_model = args.saved_model or candidate.get('model', model) if '_desktop_candidates' in profile else model.strip()
       try:
         validate_image_model(candidate, {**body, 'model': candidate_model}, len(inputs))
-        if uses_gemini(candidate, candidate_model):
+        candidate_protocol = resolve_image_protocol(candidate, candidate_model)
+        if candidate_protocol != 'openai':
           try:
-            gemini_request(body, [], mask)
+            if candidate_protocol == 'gemini':
+              gemini_request(body, [], mask)
+            else:
+              json_image_request(candidate_protocol, {**body, 'model': candidate_model}, inputs, mask)
           except ValueError as exc:
             raise CallError('MODEL_CAPABILITY', str(exc)) from None
         capability_error = None
@@ -442,7 +459,7 @@ def main(argv=None):
         if exc.code not in ('MODEL_CAPABILITY', 'INVALID_ARGUMENT'): raise
         capability_error = exc
     if capability_error: raise capability_error
-    endpoint = base_url if gemini else base_url + ('/images/edits' if inputs else '/images/generations')
+    endpoint = base_url if protocol != 'openai' else base_url + ('/images/edits' if inputs else '/images/generations')
     from playground_config import local_data_dir
     output = Path(args.output).expanduser().resolve() if args.output else local_data_dir() / 'outputs'
     suffixes = {'.png': 'png', '.jpg': 'jpeg', '.jpeg': 'jpeg', '.webp': 'webp'}

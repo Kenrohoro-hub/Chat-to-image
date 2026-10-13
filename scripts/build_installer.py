@@ -17,9 +17,9 @@ PYTHON_SHA256 = '97dae5274cc54867065e8d5a3226e48c35017ed332a0fdb0e27d5b582196129
 APP_FILES = (
   'run-app.cmd', 'run-sync.cmd', 'run-image.cmd', 'chat-to-image.cmd',
   'package.json', 'requirements-desktop.txt', 'LICENSE', 'README.md', 'README_使用说明.md', 'RELEASE.md',
-  'README.en.md', 'README_User_Guide.en.md', 'docs/codex-image-interface.md',
+  'README.en.md', 'README_User_Guide.en.md', 'docs/codex-image-interface.md', 'docs/image-protocols.md',
   'scripts/desktop_app.pyw', 'scripts/desktop_host.py', 'scripts/desktop_config.py',
-  'scripts/playground_config.py', 'scripts/playground_image.py', 'scripts/gemini_image.py', 'scripts/playground_bridge.js',
+  'scripts/playground_config.py', 'scripts/playground_image.py', 'scripts/gemini_image.py', 'scripts/image_protocol.py', 'scripts/playground_bridge.js',
   'scripts/serve_app.py', 'scripts/sync_app.py', 'scripts/chat_to_image.py',
   'scripts/agent_connections.py', 'scripts/image_batch.py', 'scripts/prompt_storage.py', 'scripts/ui_language.py',
 )

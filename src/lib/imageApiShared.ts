@@ -242,3 +242,19 @@ export function mergeActualParams(...sources: Array<Partial<TaskParams> | undefi
   const merged = Object.assign({}, ...sources.filter((source) => source && Object.keys(source).length))
   return Object.keys(merged).length ? merged : undefined
 }
+
+export function detectBase64ImageFormat(base64: string): { mimeType: string; format: TaskParams['output_format'] } | null {
+  try {
+    const bytes = atob(base64)
+    if (bytes.length >= 45 && bytes.startsWith('\x89PNG\r\n\x1a\n') && bytes.slice(12, 16) === 'IHDR' && bytes.slice(-8, -4) === 'IEND') {
+      return { mimeType: 'image/png', format: 'png' }
+    }
+    if (bytes.startsWith('\xff\xd8') && bytes.endsWith('\xff\xd9')) return { mimeType: 'image/jpeg', format: 'jpeg' }
+    if (bytes.startsWith('RIFF') && bytes.slice(8, 12) === 'WEBP' && new DataView(Uint8Array.from(bytes, (char) => char.charCodeAt(0)).buffer).getUint32(4, true) === bytes.length - 8) {
+      return { mimeType: 'image/webp', format: 'webp' }
+    }
+  } catch {
+    return null
+  }
+  return null
+}

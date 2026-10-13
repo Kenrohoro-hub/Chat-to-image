@@ -55,6 +55,8 @@ describe('normalizeApiProfile', () => {
     expect(normalizeApiProfile({ apiMode: 'responses', model: 'vendor/text' }).model).toBe('vendor/text')
     expect(normalizeApiProfile({ model: 'legacy' }).model).toBe('legacy')
     expect(normalizeApiProfile({ imageProtocol: 'gemini' }).imageProtocol).toBe('gemini')
+    expect(normalizeApiProfile({ imageProtocol: 'seedream' }).imageProtocol).toBe('seedream')
+    expect(normalizeApiProfile({ imageProtocol: 'qwen' }).imageProtocol).toBe('qwen')
     expect(normalizeApiProfile({ imageProtocol: 'invalid' }).imageProtocol).toBeUndefined()
   })
 

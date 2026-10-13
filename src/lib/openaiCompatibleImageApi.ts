@@ -1,10 +1,11 @@
 import { t } from './i18n'
 import { DEFAULT_STREAM_PARTIAL_IMAGES, type ApiProfile, type CustomProviderDefinition, type CustomProviderPollMapping, type CustomProviderResultMapping, type CustomProviderSubmitMapping, type ImageApiResponse, type ImageResponseItem, type ResponsesApiResponse, type ResponsesOutputItem, type TaskParams } from '../types'
-import { dataUrlToBlob, imageDataUrlToPngBlob, maskDataUrlToPngBlob } from './canvasImage'
+import { dataUrlToBlob, imageDataUrlToPngBlob, loadImage, maskDataUrlToPngBlob } from './canvasImage'
 import { buildApiUrl, readClientDevProxyConfig, shouldUseApiProxy } from './devProxy'
 import {
   assertImageInputPayloadSize,
   assertMaskEditFileSize,
+  detectBase64ImageFormat,
   appendStreamingFormatHint,
   maybeAppendStreamingHint,
   type CallApiOptions,
@@ -27,6 +28,7 @@ import {
 import { getImageGenerationModel } from './imageModels'
 import { isEventStreamResponse, readJsonServerSentEvents } from './serverSentEvents'
 import { prependCodexCliSizePrompt } from './size'
+import { getImageProtocol } from './imageProtocol'
 
 function getStreamPartialImages(profile: ApiProfile): number {
   return profile.streamPartialImages ?? DEFAULT_STREAM_PARTIAL_IMAGES
@@ -453,7 +455,8 @@ export async function callOpenAICompatibleImageApi(opts: CallApiOptions, profile
 
 async function callImagesApi(opts: CallApiOptions, profile: ApiProfile): Promise<CallApiResult> {
   const n = opts.params.n > 0 ? opts.params.n : 1
-  if ((profile.codexCli || (profile.streamImages && n > 1)) && n > 1) {
+  const protocol = getImageProtocol(profile)
+  if (protocol === 'openai' && (profile.codexCli || (profile.streamImages && n > 1)) && n > 1) {
     return callImagesApiConcurrent(opts, profile, n)
   }
 
@@ -483,6 +486,7 @@ async function callImagesApiConcurrent(opts: CallApiOptions, profile: ApiProfile
 
 async function callImagesApiSingle(opts: CallApiOptions, profile: ApiProfile): Promise<CallApiResult> {
   const { prompt: originalPrompt, params, inputImageDataUrls } = opts
+  const protocol = getImageProtocol(profile)
   const sizePrompt = profile.codexCli && !opts.skipCodexCliSizePrompt
     ? prependCodexCliSizePrompt(originalPrompt, params.size)
     : originalPrompt
@@ -505,7 +509,16 @@ async function callImagesApiSingle(opts: CallApiOptions, profile: ApiProfile): P
   try {
     let response: Response
 
-    if (isEdit) {
+    if (protocol === 'seedream' || protocol === 'qwen') {
+      const request = await createNativeJsonImageRequest(opts, profile, protocol)
+      response = await fetch(request.url, {
+        method: 'POST',
+        headers: { ...requestHeaders, 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        body: JSON.stringify(request.body),
+        signal: controller.signal,
+      })
+    } else if (isEdit) {
       const formData = new FormData()
       formData.append('model', profile.model)
       formData.append('prompt', prompt)
@@ -619,14 +632,17 @@ async function callImagesApiSingle(opts: CallApiOptions, profile: ApiProfile): P
 
     if (!response.ok) {
       const errorMessage = await getApiErrorMessage(response)
-      throw new Error(maybeAppendStreamingHint(errorMessage, response.status, profile.streamImages))
+      throw new Error(maybeAppendStreamingHint(errorMessage, response.status, protocol === 'openai' && profile.streamImages))
     }
 
-    if (profile.streamImages && isEventStreamResponse(response)) {
+    if (protocol === 'openai' && profile.streamImages && isEventStreamResponse(response)) {
       return parseImagesApiStreamResponse(response, mime, opts.onPartialImage, controller.signal)
     }
 
-    return parseImagesApiResponse(await response.json() as ImageApiResponse, mime, controller.signal)
+    const payload = await response.json() as unknown
+    return protocol === 'seedream' || protocol === 'qwen'
+      ? parseNativeJsonImageResponse(payload, mime, controller.signal, params.output_format)
+      : parseImagesApiResponse(payload as ImageApiResponse, mime, controller.signal)
   } finally {
     clearTimeout(timeoutId)
     opts.signal?.removeEventListener('abort', abortFromCaller)
@@ -1079,5 +1095,139 @@ async function callResponsesImageApiSingle(opts: CallApiOptions, profile: ApiPro
     }
   } finally {
     clearTimeout(timeoutId)
+  }
+}
+
+function getNativeImagesEndpoint(profile: ApiProfile, protocol: 'seedream' | 'qwen'): string {
+  const base = profile.baseUrl.trim().replace(/\/+$/, '')
+  const input = /^[a-zA-Z][a-zA-Z\d+.-]*:\/\//.test(base) ? base : `https://${base}`
+  const url = new URL(input)
+  let path = url.pathname.replace(/\/+$/, '')
+  if (path.endsWith('/images/generations')) return url.href
+  if (!path) path = protocol === 'seedream' ? '/api/v3' : '/compatible-mode/v1'
+  url.pathname = `${path}/images/generations`
+  return url.href
+}
+
+function getSeedreamModelInfo(model: string) {
+  const id = model.toLowerCase()
+  const tier = /seedream-5[.-]0-(pro|flash|lite)(?:-|$)/.exec(id)?.[1]
+  const is45 = /seedream-4[.-]5(?:-|$)/.test(id)
+  const is4 = /seedream-4(?:[.-]0)?(?:-|$)/.test(id)
+  return {
+    tier,
+    isKnownV5: Boolean(tier),
+    supportsTransparency: tier === 'pro' || tier === 'flash',
+    maxImages: tier === 'pro' || tier === 'flash' || !tier && !is45 && !is4 ? 10 : 14,
+    minPixels: tier === 'lite' || is45 ? 3686400 : 921600,
+    maxPixels: tier === 'pro' || tier === 'flash' || !tier && !is45 && !is4 ? 4624220 : 16777216,
+  }
+}
+
+function getSizeDimensions(size: string): [number, number] | null {
+  const match = /^(\d+)x(\d+)$/.exec(size)
+  if (!match) return null
+  return [Number(match[1]), Number(match[2])]
+}
+
+function validateNativeOutputSize(size: string, protocol: 'seedream' | 'qwen', profile: ApiProfile) {
+  if (size === 'auto') return
+  const dimensions = getSizeDimensions(size)
+  if (!dimensions) throw new Error(t('图片尺寸格式无效，请使用“宽x高”。', 'Invalid image size. Use “widthxheight”.'))
+  const [width, height] = dimensions
+  const pixels = width * height
+  const ratio = width / height
+  if (protocol === 'seedream') {
+    const model = getSeedreamModelInfo(profile.model)
+    if (ratio < 1 / 16 || ratio > 16 || pixels < model.minPixels || pixels > model.maxPixels) {
+      throw new Error(t(`Seedream 当前模型不支持 ${size}。请使用符合该模型像素数与 1:16 至 16:1 比例范围的尺寸。`, `Seedream does not support ${size}. Choose dimensions within this model's pixel limits and 1:16 to 16:1 aspect ratio.`))
+    }
+    return
+  }
+  if (pixels < 262144 || pixels > 4194304 || ratio < 1 / 8 || ratio > 8) {
+    throw new Error(t(`Qwen-Image 不支持 ${size}。请使用 262144–4194304 像素、最长边不超过 8000 且宽高比在 1:8 至 8:1 范围内的尺寸。`, `Qwen-Image does not support ${size}. Use 262,144–4,194,304 pixels, sides up to 8,000, and a 1:8 to 8:1 aspect ratio.`))
+  }
+}
+
+async function createNativeJsonImageRequest(opts: CallApiOptions, profile: ApiProfile, protocol: 'seedream' | 'qwen') {
+  if (opts.maskDataUrl) throw new Error(t(`${protocol === 'seedream' ? 'Seedream' : 'Qwen-Image'} 不支持遮罩编辑。`, `${protocol === 'seedream' ? 'Seedream' : 'Qwen-Image'} does not support mask editing.`))
+  if (protocol === 'qwen' && opts.nativeTransparentBackground) {
+    throw new Error(t('Qwen-Image 不支持原生透明背景，请改用本地透明背景处理。', 'Qwen-Image does not support native transparent backgrounds. Use local transparency processing.'))
+  }
+  if (protocol === 'seedream' && opts.params.output_format === 'webp') {
+    throw new Error(t('Seedream 不支持 WebP 输出，请改用 PNG 或 JPEG。', 'Seedream does not support WebP output. Choose PNG or JPEG.'))
+  }
+
+  const proxyConfig = readClientDevProxyConfig()
+  if (shouldUseApiProxy(profile.apiProxy, proxyConfig)) {
+    throw new Error(t('当前 API 代理不支持该图片协议路径，请关闭 API 代理或配置直连。', 'The current API proxy does not support this image protocol path. Disable API proxy or configure a direct connection.'))
+  }
+  validateNativeOutputSize(opts.params.size, protocol, profile)
+
+  const blobs = await Promise.all(opts.inputImageDataUrls.map((dataUrl) => dataUrlToBlob(dataUrl)))
+  const images = await Promise.all(opts.inputImageDataUrls.map((dataUrl) => loadImage(dataUrl)))
+  assertImageInputPayloadSize(blobs.reduce((sum, blob) => sum + blob.size, 0))
+  if (protocol === 'seedream') {
+    const model = getSeedreamModelInfo(profile.model)
+    if (opts.inputImageDataUrls.length > model.maxImages) throw new Error(t(`Seedream 最多支持 ${model.maxImages} 张参考图。`, `Seedream supports up to ${model.maxImages} reference images.`))
+    if (blobs.some((blob) => blob.size > 30 * 1024 * 1024)) throw new Error(t('Seedream 单张参考图不能超过 30 MB。', 'Seedream reference images cannot exceed 30 MB each.'))
+    if (images.some((image) => image.naturalWidth <= 14 || image.naturalHeight <= 14 || image.naturalWidth * image.naturalHeight > 36000000 || image.naturalWidth / image.naturalHeight < 1 / 16 || image.naturalWidth / image.naturalHeight > 16)) throw new Error(t('Seedream 参考图尺寸超出支持范围。', 'Seedream reference image dimensions are outside the supported limits.'))
+    if (opts.nativeTransparentBackground) {
+      if (!model.supportsTransparency || blobs.length !== 1 || opts.params.output_format !== 'png') {
+        throw new Error(t('Seedream 原生透明背景仅支持 5.0 Pro/Flash、单张带透明通道的 PNG 参考图和 PNG 输出。', 'Native Seedream transparency requires 5.0 Pro/Flash, one PNG reference with an alpha channel, and PNG output.'))
+      }
+      const input = new Uint8Array(await blobs[0].arrayBuffer())
+      if (blobs[0].type !== 'image/png' || input.length < 26 || input[0] !== 0x89 || input[1] !== 0x50 || input[2] !== 0x4e || input[3] !== 0x47 || input[12] !== 0x49 || input[13] !== 0x48 || input[14] !== 0x44 || input[15] !== 0x52 || input[25] !== 4 && input[25] !== 6) {
+        throw new Error(t('Seedream 原生透明背景需要带透明通道的 PNG 参考图。', 'Native Seedream transparency requires a PNG reference with an alpha channel.'))
+      }
+    }
+  } else {
+    const model = profile.model.toLowerCase().replace('models/', '')
+    const maxImages = model.startsWith('qwen-image-2.1') ? 10 : 3
+    if (opts.inputImageDataUrls.length > maxImages) throw new Error(t(`该 Qwen-Image 模型最多支持 ${maxImages} 张参考图。`, `This Qwen-Image model supports up to ${maxImages} reference images.`))
+    if (blobs.some((blob) => blob.size > 10 * 1024 * 1024)) throw new Error(t('Qwen-Image 单张参考图不能超过 10 MB。', 'Qwen-Image reference images cannot exceed 10 MB each.'))
+    if (images.some((image) => image.naturalWidth < 1 || image.naturalHeight < 1 || image.naturalWidth > 8000 || image.naturalHeight > 8000 || image.naturalWidth / image.naturalHeight < 1 / 10 || image.naturalWidth / image.naturalHeight > 10)) throw new Error(t('Qwen-Image 参考图尺寸超出支持范围。', 'Qwen-Image reference image dimensions are outside the supported limits.'))
+  }
+
+  const body: Record<string, unknown> = { model: profile.model, prompt: opts.prompt }
+  if (opts.inputImageDataUrls.length === 1) body.image = opts.inputImageDataUrls[0]
+  if (opts.inputImageDataUrls.length > 1) body.image = opts.inputImageDataUrls
+  if (protocol === 'qwen' || opts.params.size !== 'auto') body.size = opts.params.size
+  if (protocol === 'qwen') body.n = 1
+  if (protocol === 'seedream') {
+    const model = getSeedreamModelInfo(profile.model)
+    if (model.isKnownV5) body.output_format = opts.params.output_format
+    body.response_format = profile.responseFormatB64Json ? 'b64_json' : 'url'
+    if (opts.nativeTransparentBackground) body.background = 'transparent'
+  }
+  return { url: getNativeImagesEndpoint(profile, protocol), body }
+}
+
+async function parseNativeJsonImageResponse(
+  payload: unknown,
+  mime: string,
+  signal: AbortSignal,
+  requestedFormat: TaskParams['output_format'],
+): Promise<CallApiResult> {
+  const record = isRecordValue(payload) ? payload : {}
+  const safePayload = { ...record, data: Array.isArray(record.data) ? record.data.filter(isRecordValue) : [] } as ImageApiResponse
+  const parsed = await parseImagesApiResponse(safePayload, mime, signal)
+  const valid = parsed.images.flatMap((image, index) => {
+    const data = /^data:[^,]*;base64,([\s\S]+)$/i.exec(image)?.[1]
+    const actual = data ? detectBase64ImageFormat(data) : null
+    return actual ? [{ image: 'data:' + actual.mimeType + ';base64,' + data, format: actual.format, index }] : []
+  })
+  if (!valid.length) throw new Error(t('接口返回的数据不是有效的 PNG、JPEG 或 WebP 图片。', 'The API response did not contain a valid PNG, JPEG, or WebP image.'))
+  const formats = valid.map((item) => item.format)
+  const actualParamsList = formats.map((output_format) => ({ output_format }))
+  return {
+    ...parsed,
+    images: valid.map((item) => item.image),
+    actualParams: actualParamsList[0],
+    actualParamsList,
+    revisedPrompts: valid.map((item) => parsed.revisedPrompts?.[item.index]),
+    warnings: formats.some((format) => format !== requestedFormat)
+      ? [t(`实际返回 ${[...new Set(formats)].join('、')} 图片，与请求的 ${requestedFormat} 格式不同。`, `The API returned ${[...new Set(formats)].join(', ')} images instead of the requested ${requestedFormat} format.`)]
+      : parsed.warnings,
   }
 }

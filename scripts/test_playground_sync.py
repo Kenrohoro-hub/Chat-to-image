@@ -382,10 +382,11 @@ class SyncTests(unittest.TestCase):
     self.assertEqual(self.image_server.calls[0]['path'], '/v1/images/generations')
 
   def test_browser_sync_preserves_image_protocol(self):
-    profile = {**self.profile, 'imageProtocol': 'gemini'}
-    status, raw, _ = self.send({'profile': profile})
-    self.assertEqual(status, 200)
-    self.assertEqual(read_snapshot()['profile']['imageProtocol'], 'gemini')
+    for protocol in ('seedream', 'qwen'):
+      profile = {**self.profile, 'imageProtocol': protocol}
+      status, raw, _ = self.send({'profile': profile})
+      self.assertEqual(status, 200)
+      self.assertEqual(read_snapshot()['profile']['imageProtocol'], protocol)
 
   def test_host_origin_token_and_media_type_guards(self):
     cases = [({'Origin': 'https://untrusted.example'}, 403), ({'Host': 'evil.example'}, 403), ({'X-Codex-Sync': 'bad'}, 403), ({'Content-Type': 'text/plain'}, 415)]

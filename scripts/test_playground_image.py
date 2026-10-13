@@ -215,6 +215,104 @@ class InterfaceTests(unittest.TestCase):
     self.assertEqual(len(result['images']), 2)
     self.assertTrue(all(Path(item['path']).suffix == '.jpeg' and Path(item['path']).read_bytes() == JPEG for item in result['images']))
 
+  def test_seedream_and_qwen_use_json_generation_for_reference_images(self):
+    (self.root / 'reference.png').write_bytes(IMAGE)
+    for model, prefix in [('doubao-seedream-5-0-pro-test', '/api/v3'), ('qwen-image-3.0-pro', '/compatible-mode/v1')]:
+      result = self.run_cli('--prompt', 'edit', '--model', model, '--base-url', self.base.removesuffix('/v1') + prefix,
+        '--image', 'reference.png', '--quality', 'high', '--moderation', 'low', '--output-compression', '70')
+      self.assertTrue(result['ok'], result)
+      call = self.server.calls[-1]
+      self.assertEqual(call['path'], prefix + '/images/generations')
+      self.assertEqual(call['headers']['Authorization'], 'Bearer mock-secret-must-not-leak')
+      self.assertEqual(call['headers']['Content-Type'], 'application/json')
+      body = json.loads(call['body'])
+      self.assertEqual(body['image'], 'data:image/png;base64,' + base64.b64encode(IMAGE).decode())
+      self.assertEqual(body['model'], model)
+      self.assertEqual(body['size'], '1024x1024')
+      for field in ('quality', 'moderation', 'output_compression', 'stream', 'partial_images'):
+        self.assertNotIn(field, body)
+      self.assertEqual(body.get('output_format'), 'png' if model.startswith('doubao') else None)
+    self.assertEqual(len(self.server.calls), 2)
+
+  def test_json_protocol_root_and_full_endpoint_do_not_gain_extra_v1(self):
+    origin = self.base.removesuffix('/v1')
+    for protocol, suffix in [('seedream', '/api/v3'), ('qwen', '/compatible-mode/v1')]:
+      for base in [origin, origin + suffix, origin + suffix + '/', origin + suffix + '/images/generations', origin + '/v1']:
+        result = self.run_cli('--prompt', 'x', '--model', 'private-alias', '--base-url', base, '--protocol', protocol, '--dry-run')
+        self.assertTrue(result['ok'], result)
+        expected = origin + '/v1/images/generations' if base.endswith('/v1') and suffix not in base else origin + suffix + '/images/generations'
+        self.assertEqual(result['endpoint'], expected)
+    self.assertEqual(self.server.calls, [])
+
+  def test_qwen_url_output_and_multiple_references_preserve_actual_format(self):
+    self.server.mode = 'url'
+    (self.root / 'reference.png').write_bytes(IMAGE)
+    result = self.run_cli('--prompt', 'edit', '--model', 'qwen-image-3.0-pro', '--image', 'reference.png', '--image', 'reference.png',
+      '--format', 'jpeg', '--response-format', 'b64_json', '--size', '512x512')
+    self.assertTrue(result['ok'], result)
+    body = json.loads(self.server.calls[0]['body'])
+    self.assertEqual(len(body['image']), 2)
+    self.assertEqual(body['n'], 1)
+    self.assertEqual(body['size'], '512x512')
+    self.assertNotIn('response_format', body)
+    self.assertNotIn('output_format', body)
+    self.assertEqual(result['images'][0]['format'], 'png')
+    self.assertEqual(Path(result['images'][0]['path']).suffix, '.png')
+    self.assertNotIn('Authorization', self.server.downloads[0])
+
+  def test_json_protocol_validation_prevents_unsupported_requests(self):
+    (self.root / 'reference.png').write_bytes(IMAGE)
+    cases = [
+      ('qwen-image-3.0-pro', ['--size', '4096x4096']),
+      ('qwen-image-3.0-pro', ['--image', 'reference.png'] * 4),
+      ('qwen-image-2.1-pro', ['--image', 'reference.png'] * 11),
+      ('qwen-image-3.0-pro', ['--background', 'transparent']),
+      ('seedream-5.0-pro', ['--size', '4096x4096']),
+      ('seedream-5.0-pro', ['--image', 'reference.png'] * 11),
+      ('seedream-5.0-pro', ['--format', 'webp']),
+      ('seedream-4.5-test', ['--size', '1024x1024']),
+    ]
+    for model, extra in cases:
+      with self.subTest(model=model, extra=extra):
+        result = self.run_cli('--prompt', 'x', '--model', model, *extra)
+        self.assertEqual(result['error']['code'], 'MODEL_CAPABILITY', result)
+    for protocol in ['seedream', 'qwen']:
+      result = self.run_cli('--prompt', 'x', '--protocol', protocol, '--image', 'reference.png', '--mask', 'reference.png')
+      self.assertEqual(result['error']['code'], 'MODEL_CAPABILITY', result)
+    self.assertEqual(self.server.calls, [])
+
+  def test_seedream_generation_defaults_and_native_transparency(self):
+    (self.root / 'reference.png').write_bytes(IMAGE)
+    result = self.run_cli('--prompt', 'edit', '--model', 'doubao-seedream-5-0-pro-test', '--image', 'reference.png', '--background', 'transparent', '--size', 'auto')
+    self.assertTrue(result['ok'], result)
+    body = json.loads(self.server.calls[-1]['body'])
+    self.assertEqual(body['background'], 'transparent')
+    self.assertNotIn('size', body)
+    self.assertNotIn('n', body)
+    self.assertNotIn('watermark', body)
+    result = self.run_cli('--prompt', 'x', '--model', 'doubao-seedream-4-5-test', '--size', '3750x1250')
+    self.assertTrue(result['ok'], result)
+    body = json.loads(self.server.calls[-1]['body'])
+    self.assertEqual(body['size'], '3750x1250')
+    self.assertNotIn('output_format', body)
+
+  def test_qwen_invalid_reference_is_rejected_before_submission(self):
+    for data in [png(8001, 1), png(16, 256), IMAGE[:-12] + bytes(10 * 1024 * 1024) + IMAGE[-12:]]:
+      reference = self.root / 'invalid-reference.png'
+      reference.write_bytes(data)
+      result = self.run_cli('--prompt', 'x', '--model', 'qwen-image-3.0-pro', '--image', str(reference))
+      self.assertFalse(result['ok'])
+      self.assertEqual(result['attempted_requests'], 0)
+    self.assertEqual(self.server.calls, [])
+
+  def test_json_protocol_names_can_explicitly_use_openai(self):
+    (self.root / 'reference.png').write_bytes(IMAGE)
+    for model in ['seedream-5.0-pro', 'qwen-image-3.0-pro']:
+      result = self.run_cli('--prompt', 'x', '--model', model, '--protocol', 'openai', '--image', 'reference.png')
+      self.assertTrue(result['ok'], result)
+      self.assertEqual(self.server.calls[-1]['path'], '/v1/images/edits')
+      self.assertTrue(self.server.calls[-1]['headers']['Content-Type'].startswith('multipart/form-data'))
+
   def test_generate_and_prompt_file_unicode(self):
     prompt = '中文海报\n包含 "引号" 和 $符号'
     (self.root / '提示词.txt').write_text(prompt, encoding='utf-8-sig')

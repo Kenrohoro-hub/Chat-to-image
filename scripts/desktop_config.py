@@ -169,23 +169,23 @@ def save_desktop(settings, expected_revision=None):
   if any(p['id'] in agent_slots and (p.get('provider') != 'openai' or p.get('apiMode') != 'responses') for p in profiles):
     raise ValueError(t('Agent 主备池只支持 OpenAI 兼容 Responses API。', 'The chat failover pool supports only OpenAI-compatible Responses APIs.'))
   metadata = []
-  from gemini_image import uses_gemini
+  from image_protocol import resolve_image_protocol
   for profile in profiles:
     for field in ('id', 'name', 'provider', 'baseUrl', 'model', 'apiMode', 'apiKey'):
       if not isinstance(profile.get(field, ''), str):
         raise ValueError(t('配置字段类型错误。', 'Invalid configuration field type.'))
     if 'models' in profile and (not isinstance(profile['models'], list) or any(not isinstance(model, str) for model in profile['models'])):
       raise ValueError(t('模型列表格式错误。', 'Invalid model list format.'))
-    if profile.get('imageProtocol') not in (None, 'auto', 'openai', 'gemini'):
+    if profile.get('imageProtocol') not in (None, 'auto', 'openai', 'gemini', 'seedream', 'qwen'):
       raise ValueError(t('生图协议格式错误。', 'Invalid image protocol.'))
     raw = profile.get('baseUrl', '')
     url = urlsplit(raw if '://' in raw else 'https://' + raw)
     if url.username or url.password or url.query or url.fragment:
       raise ValueError(t('API 地址不能包含账号、密码、查询参数或片段，请将密钥填入 Key 字段。', 'The API URL cannot contain a username, password, query, or fragment. Enter the secret in the Key field.'))
     selected_model = settings.get('galleryModel') if profile['id'] == settings.get('activeProfileId') and settings.get('galleryModel') in (profile.get('models') or [profile.get('model')]) else profile.get('model')
-    gemini = profile.get('provider') == 'openai' and profile.get('apiMode') == 'images' and uses_gemini(profile, selected_model)
-    if profile['id'] in slots and (profile.get('provider') != 'openai' or profile.get('apiMode') != 'images' or profile.get('codexCli') or profile.get('apiProxy') or (profile.get('streamImages') and not gemini)):
-      raise ValueError(t('主备池只支持标准 OpenAI 兼容 Images API 或 Gemini 原生生图协议。', 'The image failover pool supports only standard OpenAI-compatible Images APIs or the native Gemini image protocol.'))
+    native = profile.get('provider') == 'openai' and profile.get('apiMode') == 'images' and resolve_image_protocol(profile, selected_model) != 'openai'
+    if profile['id'] in slots and (profile.get('provider') != 'openai' or profile.get('apiMode') != 'images' or profile.get('codexCli') or profile.get('apiProxy') or (profile.get('streamImages') and not native)):
+      raise ValueError(t('主备池只支持 OpenAI Images 或原生图片生成协议。', 'The image failover pool supports only OpenAI Images or native image generation protocols.'))
     # 非敏感路由信息用于 dry-run，不读取或解密 Key。
     metadata.append({**{field: profile.get(field) for field in (
       'id', 'name', 'provider', 'baseUrl', 'model', 'models', 'apiMode', 'codexCli', 'apiProxy',
@@ -245,11 +245,11 @@ def candidates(selected_id=None, model=None):
     ids = [primary] + ([item for item in slots if item != primary] if pool.get('enabled') else [])
     ids = [item for item in ids if item not in pool.get('disabledIds', [])]
   profiles = {p['id']: p for p in record['profiles']}
-  from gemini_image import uses_gemini
+  from image_protocol import resolve_image_protocol
   eligible = [profiles[item] for item in ids if item in profiles and
     profiles[item].get('provider') == 'openai' and profiles[item].get('apiMode') == 'images' and
     not profiles[item].get('codexCli') and not profiles[item].get('apiProxy') and
-    (not profiles[item].get('streamImages') or uses_gemini(profiles[item], model or profiles[item].get('model')))]
+    (not profiles[item].get('streamImages') or resolve_image_protocol(profiles[item], model or profiles[item].get('model')) != 'openai')]
   if model:
     eligible = [p for p in eligible if model in (p.get('models') or [p.get('model')])]
   failed = route_state().get('failed', {})

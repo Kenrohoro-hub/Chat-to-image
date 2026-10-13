@@ -1,6 +1,6 @@
 # 图片 CLI 接口
 
-`chat-to-image.cmd` 调用同步、非流式 OpenAI Images 或 Gemini 原生 API，支持文字生图、参考图、PNG 蒙版和批量生成，返回本地图片路径。安装版使用内置 Python；源码版需要 Python 3.10+。可在桌面关闭后使用。
+`chat-to-image.cmd` 调用同步、非流式 OpenAI Images、Gemini、Seedream 或 Qwen-Image API，支持文字生图、参考图、PNG 蒙版和批量生成，返回本地图片路径。安装版使用内置 Python；源码版需要 Python 3.10+。可在桌面关闭后使用。
 
 ## 1. 配置服务和凭据
 
@@ -15,7 +15,7 @@
 
 独立模式地址/模型优先级：命令参数 → `PLAYGROUND_BASE_URL` / `PLAYGROUND_MODEL` → JSON。显式覆盖地址、模型或配置时，不使用共享密钥。`--config` 也可读取 `profiles` JSON，用 `--profile ID` 选择；未指定时必须有唯一的默认项。
 
-协议默认自动识别：`gemini-` 开头的模型使用 Gemini 原生接口，其他模型使用 OpenAI Images。可在生图配置中指定协议；独立模式用 `--protocol auto/openai/gemini` 或 JSON 的 `imageProtocol`。Gemini 地址可填站点根地址、`/v1` 或 `/v1beta` 前缀，自动使用 `/v1beta/models/{model}:generateContent`。
+协议默认按模型自动识别，支持 OpenAI Images、Gemini、Seedream 和 Qwen-Image。可在生图配置中指定协议；独立模式用 `--protocol auto/openai/gemini/seedream/qwen` 或 JSON 的 `imageProtocol`。官方接口地址、参考图和参数限制见 [生图协议说明](image-protocols.md)。
 
 ## 2. 生成与编辑
 

@@ -10,9 +10,8 @@ import { getActiveApiProfile, getAgentImageApiProfile, getAgentTextApiProfile, v
 import { getImageGenerationModel, isGptImage25Model } from '../lib/imageModels'
 import { selectGalleryModel } from '../lib/galleryModels'
 import { ensureImageCached, getCachedImage } from '../lib/imageCache'
-import { DEFAULT_FAL_IMAGE_SIZE, getChangedParams, getOutputImageLimitForSettings, normalizeParamsForSettings } from '../lib/paramCompatibility'
+import { DEFAULT_FAL_IMAGE_SIZE, getChangedParams, getOutputImageLimitForSettings, normalizeParamsForSettings, normalizeSizeForProfile } from '../lib/paramCompatibility'
 import { getAtImageQuery, getImageMentionLabel, getPromptIndexFromVisibleIndex, getPromptMentionParts, getSelectedImageMentionLabel, imageMentionMatches, insertImageMentionAtVisibleRange, insertTextMentionAtVisibleRange, isCursorInSelectedImageMention, stripImageMentionMarkers } from '../lib/promptImageMentions'
-import { normalizeCodexCliImageSize, normalizeImageSize } from '../lib/size'
 import { createMaskPreviewDataUrl } from '../lib/canvasImage'
 import { getSafeBoundingClientRect } from '../lib/domRect'
 import { collectAgentRoundOutputImageSlots } from '../lib/agentImageReferences'
@@ -492,7 +491,7 @@ export default function InputBar({ showComposer = true, creation = false, params
     : t(`OpenAI 最大请求数量为 ${outputImageLimit}`, `OpenAI request limit: ${outputImageLimit}`)
   const displaySize = imageRule?.sizes ? params.size : isFalTextToImage && params.size === 'auto'
     ? DEFAULT_FAL_IMAGE_SIZE
-    : (activeProfile.codexCli ? normalizeCodexCliImageSize(params.size) : normalizeImageSize(params.size)) || DEFAULT_PARAMS.size
+    : normalizeSizeForProfile(activeProfile, params.size) || DEFAULT_PARAMS.size
 
   const qualityOptions = imageRule?.qualities?.map((value) => ({ label: value, value })) ?? [
     ...(!isFalProvider ? [{ label: 'auto', value: 'auto' }] : []),
@@ -1569,6 +1568,7 @@ export default function InputBar({ showComposer = true, creation = false, params
           onClose={() => setShowSizePicker(false)}
           allowAuto={!isFalTextToImage}
           codexCli={activeProfile.codexCli}
+          profile={activeProfile}
         />
       )}
 

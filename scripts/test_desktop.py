@@ -590,6 +590,32 @@ class DesktopTests(unittest.TestCase):
     self.assertEqual([p for p, _ in self.server.calls], ['primary', 'backup'])
     self.assertIn('contents', json.loads(self.server.calls[1][1]))
 
+  def test_host_uses_saved_seedream_and_qwen_protocols_with_images(self):
+    api = DesktopApi()
+    reference = 'data:image/png;base64,' + base64.b64encode(IMAGE).decode()
+    for protocol, model in [('seedream', 'doubao-seedream-5-0-pro-test'), ('qwen', 'qwen-image-3.0-pro')]:
+      self.settings['profiles'][0].update(model=model, models=[model], imageProtocol=protocol, streamImages=True)
+      save_desktop(self.settings)
+      with patch.object(api, '_check'):
+        result = api.generate({'prompt': 'edit', 'profileId': 'primary', 'model': model, 'params': {}, 'inputImageDataUrls': [reference]})
+      self.assertTrue(result['ok'], result)
+      self.assertEqual(result['actualParamsList'][0]['output_format'], 'png')
+      self.assertEqual(json.loads(self.server.calls[-1][1])['image'], reference)
+    self.assertEqual(len(self.server.calls), 2)
+
+  def test_fallback_to_qwen_preserves_json_edit_protocol(self):
+    self.settings['profiles'][0].update(model='seedream-5.0-pro', imageProtocol='seedream')
+    self.settings['profiles'][1].update(model='qwen-image-3.0-pro', imageProtocol='qwen')
+    save_desktop(self.settings)
+    self.server.modes['primary'] = 401
+    reference = self.root / 'reference.png'
+    reference.write_bytes(IMAGE)
+    result = self.run_cli('--image', str(reference), '--size', 'auto')
+    self.assertTrue(result['ok'], result)
+    self.assertEqual([p for p, _ in self.server.calls], ['primary', 'backup'])
+    self.assertTrue(all('image' in json.loads(raw) for _, raw in self.server.calls))
+    self.assertEqual(result['used_profile']['id'], 'backup')
+
   def test_streaming_stays_outside_pool(self):
     self.settings['profiles'][0]['streamImages'] = True
     with self.assertRaises(ValueError): save_desktop(self.settings)

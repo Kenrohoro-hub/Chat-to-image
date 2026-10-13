@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_PARAMS } from '../types'
 import { createDefaultFalProfile, createDefaultOpenAIProfile, DEFAULT_SETTINGS, normalizeSettings } from './apiProfiles'
-import { getOutputImageLimitForSettings, normalizeParamsForSettings } from './paramCompatibility'
+import { getOutputImageLimitForSettings, normalizeParamsForSettings, normalizeSizeForProfile } from './paramCompatibility'
 
 describe('parameter compatibility', () => {
   it('limits OpenAI output count to 10', () => {
@@ -49,6 +49,24 @@ describe('parameter compatibility', () => {
 
     expect(normalizeParamsForSettings({ ...DEFAULT_PARAMS, size: 'auto' }, settings).size).toBe('1360x1024')
     expect(normalizeParamsForSettings({ ...DEFAULT_PARAMS, size: 'auto' }, settings, { hasInputImages: true }).size).toBe('auto')
+  })
+
+  it('preserves native protocol pixels while explicit OpenAI uses its existing limits', () => {
+    const seedream = createDefaultOpenAIProfile({ imageProtocol: 'seedream' })
+    const qwen = createDefaultOpenAIProfile({ imageProtocol: 'qwen' })
+    const openai = createDefaultOpenAIProfile({ imageProtocol: 'openai' })
+    const settings = (profile: ReturnType<typeof createDefaultOpenAIProfile>) => normalizeSettings({
+      ...DEFAULT_SETTINGS,
+      profiles: [profile],
+      activeProfileId: profile.id,
+    })
+
+    expect(normalizeParamsForSettings({ ...DEFAULT_PARAMS, size: '512x512' }, settings(qwen)).size).toBe('512x512')
+    for (const size of ['3750x1250', '4096x4096']) {
+      expect(normalizeParamsForSettings({ ...DEFAULT_PARAMS, size }, settings(seedream)).size).toBe(size)
+    }
+    expect(normalizeSizeForProfile(seedream, ' 3750 × 1250 ')).toBe('3750x1250')
+    expect(normalizeParamsForSettings({ ...DEFAULT_PARAMS, size: '512x512' }, settings(openai)).size).toBe('816x816')
   })
 
   it('limits Codex CLI custom sizes to 1K while preserving auto', () => {

@@ -5,6 +5,7 @@ import { getActiveApiProfile, getCustomProviderDefinition } from './apiProfiles'
 import { callFalAiImageApi } from './falAiImageApi'
 import { callGeminiImageApi, usesGeminiImageApi } from './geminiImageApi'
 import { callOpenAICompatibleImageApi } from './openaiCompatibleImageApi'
+import { getImageProtocol } from './imageProtocol'
 import type { CallApiOptions, CallApiResult } from './imageApiShared'
 import { desktopApi, flushDesktopSettings, isLocalService } from './desktop'
 
@@ -28,7 +29,7 @@ export async function callImageApi(opts: CallApiOptions): Promise<CallApiResult>
 
 async function callImageApiSingle(opts: CallApiOptions): Promise<CallApiResult> {
   const profile = getActiveApiProfile(opts.settings)
-  if (isLocalService() && profile.provider === 'openai' && profile.apiMode === 'images' && !profile.codexCli && !profile.apiProxy && (usesGeminiImageApi(profile) || !profile.streamImages)) {
+  if (isLocalService() && profile.provider === 'openai' && profile.apiMode === 'images' && !profile.codexCli && !profile.apiProxy && (getImageProtocol(profile) !== 'openai' || !profile.streamImages)) {
     await flushDesktopSettings()
     const api = await desktopApi()
     opts.signal?.throwIfAborted()

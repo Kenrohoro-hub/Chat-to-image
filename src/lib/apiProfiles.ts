@@ -21,7 +21,7 @@ import { DEFAULT_AGENT_MAX_TOOL_ROUNDS, DEFAULT_STREAM_PARTIAL_IMAGES, DEFAULT_Z
 import { customProviderSupportsNativeTransparentBackground } from './customProviderCapabilities'
 import { shouldUseApiProxy } from './devProxy'
 import { normalizeImageCapabilities } from './imageModelCapabilities'
-import { usesGeminiImageApi } from './geminiImageApi'
+import { getImageProtocol } from './imageProtocol'
 import { normalizeModelCatalog, normalizeModelCapabilities } from './modelCatalog'
 import { normalizeReasoningEffort, normalizeStreamPartialImages, parseDefaultApiUrl } from './defaultApiUrl'
 import { readRuntimeEnv } from './runtimeEnv'
@@ -524,7 +524,7 @@ function normalizeProviderDraft(
     codexCli: typeof input.codexCli === 'boolean' ? input.codexCli : fallback.codexCli,
     apiProxy: typeof input.apiProxy === 'boolean' ? input.apiProxy : fallback.apiProxy,
     responseFormatB64Json: input.responseFormatB64Json === true ? true : undefined,
-    imageProtocol: input.imageProtocol === 'openai' || input.imageProtocol === 'gemini' || input.imageProtocol === 'auto' ? input.imageProtocol : undefined,
+    imageProtocol: input.imageProtocol === 'openai' || input.imageProtocol === 'gemini' || input.imageProtocol === 'seedream' || input.imageProtocol === 'qwen' || input.imageProtocol === 'auto' ? input.imageProtocol : undefined,
     streamImages: typeof input.streamImages === 'boolean' ? input.streamImages : fallback.streamImages,
     streamPartialImages: normalizeStreamPartialImages(input.streamPartialImages, fallback.streamPartialImages),
     transparentBackgroundMethod: !nativeTransparentBackgroundUnavailable && (input.transparentBackgroundMethod === 'api' || input.transparentBackgroundMethod === 'local')
@@ -593,7 +593,7 @@ export function normalizeApiProfile(
     codexCli: Boolean(record.codexCli),
     apiProxy: provider === 'sb2api-async' ? false : typeof record.apiProxy === 'boolean' ? record.apiProxy : defaults.apiProxy,
     responseFormatB64Json: record.responseFormatB64Json === true ? true : undefined,
-    imageProtocol: record.imageProtocol === 'openai' || record.imageProtocol === 'gemini' || record.imageProtocol === 'auto' ? record.imageProtocol : undefined,
+    imageProtocol: record.imageProtocol === 'openai' || record.imageProtocol === 'gemini' || record.imageProtocol === 'seedream' || record.imageProtocol === 'qwen' || record.imageProtocol === 'auto' ? record.imageProtocol : undefined,
     streamImages,
     streamPartialImages: normalizeStreamPartialImages(record.streamPartialImages, defaults.streamPartialImages),
     transparentBackgroundMethod: !nativeTransparentBackgroundUnavailable && (record.transparentBackgroundMethod === 'api' || record.transparentBackgroundMethod === 'local')
@@ -726,7 +726,7 @@ export function normalizeSettings(input: Partial<AppSettings> | unknown): AppSet
 
   const pool = isRecord(record.failover) ? record.failover : {}
   const galleryModel = typeof record.galleryModel === 'string' ? record.galleryModel.trim() : ''
-  const eligible = profiles.filter((p) => p.provider === 'openai' && p.apiMode === 'images' && !p.codexCli && !p.apiProxy && (!p.streamImages || usesGeminiImageApi(p.id === activeProfileId && galleryModel && (p.models ?? [p.model]).includes(galleryModel) ? { ...p, model: galleryModel } : p)))
+  const eligible = profiles.filter((p) => p.provider === 'openai' && p.apiMode === 'images' && !p.codexCli && !p.apiProxy && (!p.streamImages || getImageProtocol(p.id === activeProfileId && galleryModel && (p.models ?? [p.model]).includes(galleryModel) ? { ...p, model: galleryModel } : p) !== 'openai'))
   const slots = [...new Set((Array.isArray(pool.slots) ? [...pool.slots, ...eligible.map((p) => p.id)] : eligible.map((p) => p.id))
     .filter((id): id is string => typeof id === 'string' && eligible.some((p) => p.id === id)))]
   const primaryId = typeof pool.primaryId === 'string' && slots.includes(pool.primaryId) ? pool.primaryId : slots[0] ?? ''

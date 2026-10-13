@@ -1,6 +1,9 @@
 import { t } from '../lib/i18n'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { calculateImageSize, normalizeCodexCliImageSize, normalizeImageSize, parseRatio, type SizeTier } from '../lib/size'
+import { calculateImageSize, normalizeImageSize, parseRatio, type SizeTier } from '../lib/size'
+import { getImageProtocol } from '../lib/imageProtocol'
+import { normalizeSizeForProfile } from '../lib/paramCompatibility'
+import type { ApiProfile } from '../types'
 import { usePreventBackgroundScroll } from '../hooks/usePreventBackgroundScroll'
 import ViewportTooltip from './ViewportTooltip'
 
@@ -8,6 +11,7 @@ const TIERS: SizeTier[] = ['1K', '2K', '4K']
 const SIZE_LIMIT_TEXT = t('由于模型限制，不符合要求的分辨率会被自动规整：\n宽高均为 16 的倍数，最大边长 3840px，宽高比不超过 3:1，总像素限制为 655360-8294400。', 'Sizes outside the model\'s limits are adjusted automatically:\nWidth and height must be multiples of 16, the longest side at most 3840 px, aspect ratio at most 3:1, and total pixels 655360–8294400.')
 const CODEX_CLI_SIZE_LIMIT_TEXT = t('由于模型和 Codex CLI 限制，不符合要求的分辨率会被自动规整：\n宽高均为 16 的倍数，宽高比不超过 3:1，分辨率不超过 1K。', 'Sizes outside the model and Codex CLI limits are adjusted automatically:\nWidth and height must be multiples of 16, aspect ratio at most 3:1, and resolution at most 1K.')
 const CLAMPED_SIZE_TEXT = t('由于模型限制，原始分辨率已被自动规整', 'The original resolution was adjusted to the model\'s limits')
+const NATIVE_SIZE_LIMIT_TEXT = t('尺寸范围由模型接口决定，请以接口支持范围为准。', 'Size limits depend on the model API. Use dimensions supported by that API.')
 const RATIOS = [
   { label: '1:1', value: '1:1' },
   { label: '3:2', value: '3:2' },
@@ -25,6 +29,7 @@ interface Props {
   onClose: () => void
   allowAuto?: boolean
   codexCli?: boolean
+  profile: ApiProfile
 }
 
 type Mode = 'auto' | 'ratio' | 'resolution'
@@ -35,8 +40,8 @@ function parseSize(size: string) {
   return { width: match[1], height: match[2] }
 }
 
-function findPresetForSize(size: string) {
-  const normalized = normalizeImageSize(size)
+function findPresetForSize(size: string, nativeSize: boolean) {
+  const normalized = nativeSize ? size : normalizeImageSize(size)
   for (const tier of TIERS) {
     for (const ratio of RATIOS) {
       if (calculateImageSize(tier, ratio.value) === normalized) {
@@ -47,7 +52,7 @@ function findPresetForSize(size: string) {
   return null
 }
 
-export default function SizePickerModal({ currentSize, onSelect, onClose, allowAuto = true, codexCli = false }: Props) {
+export default function SizePickerModal({ currentSize, onSelect, onClose, allowAuto = true, codexCli = false, profile }: Props) {
   usePreventBackgroundScroll(true)
 
   const modalRef = useRef<HTMLDivElement>(null)
@@ -73,7 +78,8 @@ export default function SizePickerModal({ currentSize, onSelect, onClose, allowA
     mouseDownTargetRef.current = null
   }
 
-  const currentPreset = findPresetForSize(currentSize)
+  const nativeSize = getImageProtocol(profile) === 'seedream' || getImageProtocol(profile) === 'qwen'
+  const currentPreset = findPresetForSize(currentSize, nativeSize)
   const currentParsedSize = parseSize(currentSize)
   const [mode, setMode] = useState<Mode>(() => {
     if (!currentSize || currentSize === 'auto') return allowAuto ? 'auto' : 'ratio'
@@ -100,8 +106,7 @@ export default function SizePickerModal({ currentSize, onSelect, onClose, allowA
     if (tierHintTimerRef.current != null) window.clearTimeout(tierHintTimerRef.current)
   }, [])
 
-  const normalizeSize = codexCli ? normalizeCodexCliImageSize : normalizeImageSize
-  const sizeLimitText = codexCli ? CODEX_CLI_SIZE_LIMIT_TEXT : SIZE_LIMIT_TEXT
+  const sizeLimitText = nativeSize ? NATIVE_SIZE_LIMIT_TEXT : codexCli ? CODEX_CLI_SIZE_LIMIT_TEXT : SIZE_LIMIT_TEXT
 
   const activeRatio = ratio === 'custom' ? customRatio : ratio
   const parsedCustomRatio = parseRatio(customRatio)
@@ -117,20 +122,20 @@ export default function SizePickerModal({ currentSize, onSelect, onClose, allowA
     
     if (mode === 'ratio') {
       const size = calculateImageSize(tier, activeRatio)
-      return size ? normalizeSize(size) : ''
+      return size ? normalizeSizeForProfile(profile, size) : ''
     }
     
     if (mode === 'resolution') {
       const w = parseInt(customW, 10)
       const h = parseInt(customH, 10)
       if (Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0) {
-        return normalizeSize(`${w}x${h}`)
+        return normalizeSizeForProfile(profile, `${w}x${h}`)
       }
       return ''
     }
     
     return ''
-  }, [mode, tier, activeRatio, customW, customH, normalizeSize])
+  }, [mode, tier, activeRatio, customW, customH, profile])
 
   const isClamped = useMemo(() => {
     if (!previewSize || previewSize === 'auto') return false

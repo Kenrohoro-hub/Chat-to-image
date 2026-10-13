@@ -70,13 +70,13 @@ const draft = (prompt: string): AgentInputDraft => ({ prompt, inputImages: [], m
 it('saves the selected image protocol in the profile', async () => {
   await mount()
   await act(() => button('API 配置').click())
-  const protocol = [...document.querySelectorAll('span')].find((item) => item.textContent === '自动（Gemini 模型使用原生协议）')!
+  const protocol = [...document.querySelectorAll('span')].find((item) => item.textContent === '自动（Gemini/Seedream/Qwen 模型使用原生协议）')!
   expect(protocol).toBeTruthy()
   await act(() => protocol.parentElement!.click())
-  await act(() => document.querySelector<HTMLElement>('[data-option-value="gemini"]')!.click())
+  await act(() => document.querySelector<HTMLElement>('[data-option-value="seedream"]')!.click())
   await save()
-  expect(state.settings.profiles[0].imageProtocol).toBe('gemini')
-  expect(calls.save).toHaveBeenCalledWith(expect.objectContaining({ profiles: expect.arrayContaining([expect.objectContaining({ imageProtocol: 'gemini' })]) }), 'test-revision')
+  expect(state.settings.profiles[0].imageProtocol).toBe('seedream')
+  expect(calls.save).toHaveBeenCalledWith(expect.objectContaining({ profiles: expect.arrayContaining([expect.objectContaining({ imageProtocol: 'seedream' })]) }), 'test-revision')
 })
 
 it('keeps the selected language in the draft and asks before closing unsaved changes', async () => {

@@ -6,11 +6,6 @@ from urllib.parse import quote
 from ui_language import t
 
 
-def uses_gemini(profile, model):
-  protocol = profile.get('imageProtocol') or 'auto'
-  return protocol == 'gemini' or (protocol == 'auto' and (model or '').removeprefix('models/').lower().startswith('gemini-'))
-
-
 def gemini_endpoint(base_url, model):
   base = base_url.rstrip('/')
   if '://' not in base:

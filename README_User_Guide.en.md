@@ -38,7 +38,7 @@ Image understanding, web search, transparency, and editing depend on your model.
 
 Image and chat profiles are separate; save changes before using them. To use fallbacks, add profiles, set their order, and enable automatic switching. Switching applies to clear rejections or missing configuration; uncertain or timed-out requests are not resubmitted automatically.
 
-The image protocol defaults to automatic detection: models starting with `gemini-` use the native Gemini API; other models use OpenAI Images. Choose a protocol manually if your provider requires it. Gemini accepts a site root or `/v1beta` prefix and supports reference images, but not native masks or transparency parameters. If the provider returns a different image format, the original image is kept and its actual format is shown.
+Image profiles support automatic detection and explicit OpenAI Images, native Gemini, Seedream, and Qwen-Image protocols. Seedream and Qwen reference images use JSON requests to the same generation endpoint. See the [protocol guide (Chinese)](docs/image-protocols.md) for official endpoints and limits. Valid images are kept in the actual returned format.
 
 ## Back up and restore
 

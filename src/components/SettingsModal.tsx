@@ -659,16 +659,18 @@ export default function SettingsModal() {
                 </div>
               </div>
 
-              <p className="text-xs text-gray-500 dark:text-gray-400">{apiGroup === 'agent' ? t('通过 Responses 接口进行对话，地址下自动使用 /responses。', 'Chat uses the Responses API, with /responses appended to the URL.') : t('根据所选协议通过 OpenAI Images 或 Gemini 原生协议生成和编辑图片。', 'Generates and edits images through the selected OpenAI Images or native Gemini protocol.')}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{apiGroup === 'agent' ? t('通过 Responses 接口进行对话，地址下自动使用 /responses。', 'Chat uses the Responses API, with /responses appended to the URL.') : t('根据所选协议通过 OpenAI Images、Gemini、Seedream 或 Qwen 原生协议生成和编辑图片。', 'Generates and edits images through the selected OpenAI Images, Gemini, Seedream, or Qwen protocol.')}</p>
               {apiGroup === 'gallery' && activeProfile.provider === 'openai' && <label className="block">
                 <span className="mb-1.5 block text-sm text-gray-600 dark:text-gray-300">{t('生图协议', 'Image protocol')}</span>
                 <Select
                   value={activeProfile.imageProtocol ?? 'auto'}
                   onChange={(value) => updateActiveProfile({ imageProtocol: value as ApiProfile['imageProtocol'] }, true)}
                   options={[
-                    { label: t('自动（Gemini 模型使用原生协议）', 'Auto (native protocol for Gemini models)'), value: 'auto' },
+                    { label: t('自动（Gemini/Seedream/Qwen 模型使用原生协议）', 'Auto (native protocol for Gemini/Seedream/Qwen models)'), value: 'auto' },
                     { label: 'OpenAI Images', value: 'openai' },
                     { label: t('Gemini 原生', 'Native Gemini'), value: 'gemini' },
+                    { label: 'Seedream（豆包）', value: 'seedream' },
+                    { label: t('Qwen-Image（千问）', 'Qwen-Image'), value: 'qwen' },
                   ]}
                   disabled={activeProfileLocked}
                   className="w-full rounded-xl border border-gray-200/70 bg-white/60 px-3 py-2.5 text-sm text-gray-700 outline-none transition focus:border-blue-300 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-200 dark:focus:border-blue-500/50"
@@ -708,7 +710,7 @@ export default function SettingsModal() {
                       </button>
                     </div>
                     <div data-selectable-text className="text-xs text-gray-500 dark:text-gray-500">
-                      {apiGroup === 'agent' ? t('逐步显示回复文字，接口需支持 Responses 流式返回。', 'Display reply text as it arrives. Requires Responses streaming support.') : t('逐步显示图片生成进度；接口需支持 Images 流式返回。开启后此方案使用原流式通道，不参与桌面画廊主备。', 'Display image generation progress as it arrives. Requires Images streaming support. This profile then uses the streaming channel separately from desktop image failover.')}
+                      {apiGroup === 'agent' ? t('逐步显示回复文字，接口需支持 Responses 流式返回。', 'Display reply text as it arrives. Requires Responses streaming support.') : t('仅 OpenAI Images 支持流式生成；Gemini、Seedream 和 Qwen 原生协议使用同步请求。', 'Streaming applies to OpenAI Images. Native Gemini, Seedream, and Qwen requests use the synchronous channel.')}
                     </div>
                   </div>
                   <div className={apiGroup === 'gallery' && activeProfile.streamImages ? 'block' : 'hidden'}>
