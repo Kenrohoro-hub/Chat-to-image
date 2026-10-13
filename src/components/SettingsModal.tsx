@@ -24,7 +24,6 @@ import {
   getCustomProviderDefinition,
   getDefaultApiProfileId,
   isOpenAICompatibleProvider,
-  normalizeAgentMaxToolRounds,
   normalizeSettings,
   normalizeStreamPartialImages,
 } from '../lib/apiProfiles'
@@ -38,7 +37,7 @@ import {
   isPresetProfileLocked,
 } from '../lib/presetConfig'
 import { requestBrowserNotificationPermission, type BrowserNotificationPermissionResult } from '../lib/browserNotification'
-import { DEFAULT_AGENT_MAX_TOOL_ROUNDS, DEFAULT_STREAM_PARTIAL_IMAGES, type ApiProfile, type AppSettings, type CustomProviderDefinition, type ZipDownloadRoute } from '../types'
+import { DEFAULT_STREAM_PARTIAL_IMAGES, type ApiProfile, type AppSettings, type CustomProviderDefinition, type ZipDownloadRoute } from '../types'
 import { useCloseOnEscape } from '../hooks/useCloseOnEscape'
 import { usePreventBackgroundScroll } from '../hooks/usePreventBackgroundScroll'
 import Select from './Select'
@@ -90,7 +89,6 @@ export default function SettingsModal() {
   const draftRef = useRef(draft)
   draftRef.current = draft
   const [timeoutInput, setTimeoutInput] = useState(String(getActiveApiProfile(settings).timeout))
-  const [agentMaxToolRoundsInput, setAgentMaxToolRoundsInput] = useState(String(settings.agentToolCallLimit))
   const [showApiKey, setShowApiKey] = useState(false)
   const [showZipDownloadRouteManager, setShowZipDownloadRouteManager] = useState(false)
   const [activeTab, setActiveTab] = useState<Exclude<SettingsTab, 'agent-api'>>('api')
@@ -161,7 +159,6 @@ export default function SettingsModal() {
     })
     setDraft(nextDraft)
     setTimeoutInput(String(getActiveApiProfile(nextDraft).timeout))
-    setAgentMaxToolRoundsInput(String(nextDraft.agentToolCallLimit))
   }, [apiProxyAvailable, apiProxyLocked, showSettings, settings, reusedTaskApiProfileId])
 
   useEffect(() => {
@@ -239,19 +236,14 @@ export default function SettingsModal() {
       timeoutInput.trim() === '' || Number.isNaN(nextTimeout)
         ? DEFAULT_SETTINGS.timeout
         : nextTimeout
-    const normalizedAgentMaxToolRounds = agentMaxToolRoundsInput.trim() === ''
-      ? DEFAULT_AGENT_MAX_TOOL_ROUNDS
-      : normalizeAgentMaxToolRounds(agentMaxToolRoundsInput, draft.agentToolCallLimit)
     const nextDraft = {
       ...draft,
-      agentToolCallLimit: normalizedAgentMaxToolRounds,
       profiles: activeProviderIsOpenAICompatible && !activeProfileLocked
         ? draft.profiles.map((profile) =>
             profile.id === activeProfile.id ? { ...profile, timeout: normalizedTimeout } : profile,
           )
         : draft.profiles,
     }
-    setAgentMaxToolRoundsInput(String(normalizedAgentMaxToolRounds))
     return commitSettings(nextDraft)
   }
 
@@ -323,14 +315,6 @@ export default function SettingsModal() {
     setTimeoutInput(String(normalizedTimeout))
     updateActiveProfile({ timeout: normalizedTimeout }, true)
   }, [draft, activeProfile.id, activeProfile.provider, activeProfile.timeout, activeProfileLocked, timeoutInput])
-
-  const commitAgentMaxToolRounds = useCallback(() => {
-    const value = agentMaxToolRoundsInput.trim() === ''
-      ? DEFAULT_AGENT_MAX_TOOL_ROUNDS
-      : normalizeAgentMaxToolRounds(agentMaxToolRoundsInput, draft.agentToolCallLimit)
-    setAgentMaxToolRoundsInput(String(value))
-    if (value !== draft.agentToolCallLimit) commitSettings({ ...draft, agentToolCallLimit: value })
-  }, [agentMaxToolRoundsInput, draft])
 
   const showNotificationPermissionMessage = (result: Exclude<BrowserNotificationPermissionResult, { ok: true }>) => {
     if (result.reason === 'unsupported') {
@@ -550,7 +534,7 @@ export default function SettingsModal() {
                 onOpenZipDownloadRouteManager={() => setShowZipDownloadRouteManager(true)}
                 toggleTaskCompletionNotification={toggleTaskCompletionNotification}
               />
-              <AgentPreferences draft={draft} agentMaxToolRoundsInput={agentMaxToolRoundsInput} setAgentMaxToolRoundsInput={setAgentMaxToolRoundsInput} commitSettings={commitSettings} commitAgentMaxToolRounds={commitAgentMaxToolRounds} />
+              <AgentPreferences draft={draft} commitSettings={commitSettings} />
               </>
             )}
 

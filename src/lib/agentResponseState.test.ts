@@ -3,10 +3,8 @@ import type { AgentConversation, AgentRound, ResponsesOutputItem, TaskRecord } f
 import { DEFAULT_PARAMS } from '../types'
 import {
   canonicalizeBatchFunctionCallArguments,
-  countResponseToolCalls,
   createReadyAgentRecoveredToolState,
   getAgentRecoveredFailureError,
-  getAgentRecoveredToolCallCount,
   getAgentRoundResponseOutput,
   getPersistableAgentConversations,
   getPersistableRawResponsePayload,
@@ -436,19 +434,7 @@ describe('Agent response recovery derivation', () => {
     expect(createReadyAgentRecoveredToolState(value, [completed, pending])).toBeNull()
   })
 
-  it('counts recovered calls defensively and derives stable failure messages', () => {
-    const output: ResponsesOutputItem[] = [
-      { type: 'function_call_output', output: '{"status":"done"}' },
-      { type: 'function_call_output', output: '{"images":[{"status":"done"},{"status":"error"}]}' },
-      { type: 'function_call_output', output: '{bad json' },
-      { type: 'function_call_output', output: [{ type: 'input_text', text: '{"status":"done"}' }] },
-      { type: 'image_generation_call' },
-    ]
-    const doneTasks = [task('done-a'), task('done-b'), task('done-c'), task('done-d')]
-    expect(countResponseToolCalls(output)).toBe(1)
-    expect(getAgentRecoveredToolCallCount(output, doneTasks)).toBe(4)
-    expect(getAgentRecoveredToolCallCount([{ type: 'function_call_output', output: [{ type: 'input_text', text: '{"status":"done"}' }] }], [])).toBe(0)
-
+  it('derives stable recovery failure messages', () => {
     const failedA = task('failed-a', { status: 'error', outputImages: [], error: '明确失败' })
     const failedB = task('failed-b', { status: 'error', outputImages: [], error: null })
     expect(getAgentRecoveredFailureError(round({ outputTaskIds: [failedA.id] }), [failedA])).toBe('明确失败')

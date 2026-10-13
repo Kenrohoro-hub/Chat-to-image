@@ -17,7 +17,7 @@ import type {
   CustomProviderSubmitMapping,
   CustomProviderTemplate,
 } from '../types'
-import { DEFAULT_AGENT_MAX_TOOL_ROUNDS, DEFAULT_STREAM_PARTIAL_IMAGES, DEFAULT_ZIP_DOWNLOAD_ROUTES, ZIP_DOWNLOAD_ROUTE_VALUES } from '../types'
+import { DEFAULT_STREAM_PARTIAL_IMAGES, DEFAULT_ZIP_DOWNLOAD_ROUTES, ZIP_DOWNLOAD_ROUTE_VALUES } from '../types'
 import { customProviderSupportsNativeTransparentBackground } from './customProviderCapabilities'
 import { shouldUseApiProxy } from './devProxy'
 import { normalizeImageCapabilities } from './imageModelCapabilities'
@@ -110,13 +110,6 @@ function getDefaultStreamImages(provider: ApiProvider, apiMode: ApiMode): boolea
 }
 
 export { normalizeReasoningEffort, normalizeStreamPartialImages } from './defaultApiUrl'
-
-export function normalizeAgentMaxToolRounds(value: unknown, fallback: number | undefined = DEFAULT_AGENT_MAX_TOOL_ROUNDS): number {
-  const fallbackValue = fallback ?? DEFAULT_AGENT_MAX_TOOL_ROUNDS
-  const numeric = typeof value === 'number' ? value : Number(value)
-  if (!Number.isFinite(numeric)) return fallbackValue
-  return Math.min(50, Math.max(1, Math.trunc(numeric)))
-}
 
 export function hasDefaultPresetConfig(): boolean {
   return Boolean(RAW_DEFAULT_API_URL) || DEFAULT_OPENAI_API_PROXY
@@ -771,8 +764,6 @@ export function normalizeSettings(input: Partial<AppSettings> | unknown): AppSet
     enterSubmit: typeof record.enterSubmit === 'boolean' ? record.enterSubmit : false,
     zipDownloadRoutes: normalizeZipDownloadRoutes(record.zipDownloadRoutes),
     agentScrollToBottomAfterSubmit: typeof record.agentScrollToBottomAfterSubmit === 'boolean' ? record.agentScrollToBottomAfterSubmit : true,
-    // 新字段让旧版保存的自动续跑上限回到 1，之后仍保留用户手动设置。
-    agentToolCallLimit: normalizeAgentMaxToolRounds(record.agentToolCallLimit),
     agentWebSearch: typeof record.agentWebSearch === 'boolean' ? record.agentWebSearch : false,
     agentPromptOptimization: typeof record.agentPromptOptimization === 'boolean' ? record.agentPromptOptimization : true,
     agentMathFormattingPrompt: typeof record.agentMathFormattingPrompt === 'boolean' ? record.agentMathFormattingPrompt : true,
@@ -1363,7 +1354,6 @@ export const DEFAULT_SETTINGS: AppSettings = normalizeSettings({
   enterSubmit: false,
   zipDownloadRoutes: DEFAULT_ZIP_DOWNLOAD_ROUTES,
   agentScrollToBottomAfterSubmit: true,
-  agentToolCallLimit: DEFAULT_AGENT_MAX_TOOL_ROUNDS,
   agentWebSearch: false,
   agentPromptOptimization: true,
   agentMathFormattingPrompt: true,

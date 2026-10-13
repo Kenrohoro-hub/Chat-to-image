@@ -291,10 +291,6 @@ export function mergeResponseOutputItems(previous: ResponsesOutputItem[], next: 
   return merged
 }
 
-export function countResponseToolCalls(output: ResponsesOutputItem[]) {
-  return output.filter((item) => item.type === 'image_generation_call').length
-}
-
 export function getAgentRoundResponseOutput(round: AgentRound, tasks: TaskRecord[]): ResponsesOutputItem[] | null {
   if (round.responseOutput?.length) return round.responseOutput
 
@@ -415,23 +411,6 @@ export function createReadyAgentRecoveredToolState(round: AgentRound, tasks: Tas
     recoveredTaskIds: roundTasks.map((task) => task.id),
     allSuccessful: roundTasks.every((task) => task.status === 'done' && task.outputImages.length > 0),
   }
-}
-
-export function getAgentRecoveredToolCallCount(output: ResponsesOutputItem[], tasks: TaskRecord[]) {
-  const functionOutputs = output.filter((item) => item.type === 'function_call_output')
-  const functionCallCount = functionOutputs.reduce((count, item) => {
-    if (typeof item.output !== 'string' || !item.output) return count
-    try {
-      const payload = JSON.parse(item.output) as { images?: unknown[]; status?: string }
-      if (Array.isArray(payload.images)) return count + payload.images.filter((image) => isRecord(image) && image.status === 'done').length
-      return payload.status === 'done' ? count + 1 : count
-    } catch {
-      return count
-    }
-  }, 0)
-  const builtInCount = countResponseToolCalls(output)
-  const doneTaskCount = tasks.filter((task) => task.status === 'done').length
-  return Math.max(functionCallCount + builtInCount, doneTaskCount)
 }
 
 export function getAgentRecoveredFailureError(round: AgentRound, tasks: TaskRecord[]) {

@@ -17,6 +17,13 @@ describe('Agent image boundaries and conversation preferences', () => {
     expect(parseImageToolArguments({ prompt: ' draw ', quality: 'invalid', output_format: 'png', transparent_output: true })).toEqual({ id: 'image', prompt: 'draw', params: { output_format: 'png', transparent_output: true } })
     expect(parseImageToolArguments({ prompt: '' })).toBeNull()
   })
+  it('accepts only valid explicit image counts', () => {
+    expect(parseImageToolArguments({ prompt: 'cat', n: 2 })?.params.n).toBe(2)
+    expect(parseImageToolArguments({ prompt: 'cat' })?.params.n).toBeUndefined()
+    for (const n of [0, -1, 1.5, 17, '2', null, NaN, Infinity]) {
+      expect(parseImageToolArguments({ prompt: 'cat', n })).toBeNull()
+    }
+  })
   it('persists conversation choices separately from new-conversation defaults', () => {
     const settings = normalizeSettings({ agentModel: 'chat-a', agentWebSearch: false, agentImageTools: false })
     const conversations = normalizeAgentConversations(JSON.parse(JSON.stringify([{ id: 'one', title: 'one', createdAt: 1, updatedAt: 1, rounds: [], messages: [], preferences: { agentModel: 'chat-b', agentWebSearch: true, agentImageTools: true } }])))

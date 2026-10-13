@@ -1,4 +1,4 @@
-import type { TaskParams } from '../types'
+import { API_MAX_IMAGES, type TaskParams } from '../types'
 
 export interface ImageToolArguments { id: string; prompt: string; params: Partial<TaskParams> }
 
@@ -7,6 +7,10 @@ export function parseImageToolArguments(value: unknown): ImageToolArguments | nu
   const record = value as Record<string, unknown>
   if (typeof record.prompt !== 'string' || !record.prompt.trim()) return null
   const params: Partial<TaskParams> = {}
+  if (record.n !== undefined) {
+    if (typeof record.n !== 'number' || !Number.isInteger(record.n) || record.n < 1 || record.n > API_MAX_IMAGES) return null
+    params.n = record.n
+  }
   if (typeof record.size === 'string') params.size = record.size
   if (['auto', 'low', 'medium', 'high', 'xhigh', 'max'].includes(String(record.quality))) params.quality = record.quality as TaskParams['quality']
   if (['png', 'jpeg', 'webp'].includes(String(record.output_format))) params.output_format = record.output_format as TaskParams['output_format']

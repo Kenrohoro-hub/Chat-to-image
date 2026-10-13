@@ -17,6 +17,11 @@ describe('parseBatchImageCallArguments', () => {
     ])
   })
 
+  it('preserves per-prompt counts and rejects an invalid count instead of using defaults', () => {
+    expect(parseBatchImageCallArguments(JSON.stringify({ images: [{ id: 'cat', prompt: 'a cat', n: 2 }] }))).toEqual([{ id: 'cat', prompt: 'a cat', n: 2 }])
+    expect(parseBatchImageCallArguments(JSON.stringify({ images: [{ prompt: 'a cat', n: 0 }] }))).toBeNull()
+  })
+
   it('makes duplicate and colliding ids deterministically unique', () => {
     const args = JSON.stringify({ images: [
       { id: 'same', prompt: 'one' },
@@ -185,6 +190,14 @@ describe('callAgentResponsesApi', () => {
     expect(body.tools.map((tool: { name?: string }) => tool.name)).toContain('edit_image')
     expect(JSON.stringify(body.tools)).not.toContain('input_image_mask')
     expect(body.tools[0]).toMatchObject({ type: 'function', name: 'generate_image' })
+    for (const tool of body.tools.filter((tool: { name?: string }) => ['generate_image', 'edit_image', 'generate_image_batch'].includes(tool.name ?? ''))) {
+      const properties = tool.name === 'generate_image_batch' ? tool.parameters.properties.images.items.properties : tool.parameters.properties
+      expect(properties.n).toMatchObject({ type: 'integer', minimum: 1, maximum: 16 })
+    }
+    expect(body.instructions).toContain('this takes priority over the configured count')
+    expect(body.instructions).toContain('three prompts with n=1')
+    expect(body.instructions).toContain('Do not reuse a count from an earlier user turn')
+    expect(body.instructions).not.toContain('maximum tool-use rounds')
   })
 
   it('requires resolution in Agent prompts and omits the Codex CLI size parameter', async () => {

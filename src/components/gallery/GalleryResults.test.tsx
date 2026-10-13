@@ -24,6 +24,8 @@ it('compares active branch images and routes every action to the selected image'
   expect(buttons()).toHaveLength(4)
   expect(buttons()[3].getAttribute('aria-pressed')).toBe('true')
   await act(() => buttons()[0].click())
+  expect(buttons()[0].getAttribute('aria-pressed')).toBe('true')
+  expect(mock.state.setLightboxImageId).toHaveBeenCalledWith('old-1', ['old-1', 'old-2', 'new-1', 'new-2'])
   const button = (label: string) => [...document.querySelectorAll('button')].find((el) => el.textContent === label)!
   await act(() => button('继续修改').click())
   expect(mock.edit).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'old', outputImages: ['old-1'] }), false)
@@ -31,8 +33,7 @@ it('compares active branch images and routes every action to the selected image'
   expect(mock.edit).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'old', outputImages: ['old-1'] }), true)
   await act(() => button('下载').click())
   expect(mock.download).toHaveBeenCalledWith(['old-1'], 'chat-to-image')
-  await act(() => button('放大图片').click())
-  expect(mock.state.setLightboxImageId).toHaveBeenCalledWith('old-1', ['old-1', 'old-2', 'new-1', 'new-2'])
+
   mock.state.tasks = mock.state.tasks.filter((task) => task.id !== 'old')
   await act(() => root.render(<GalleryResults />))
   expect(buttons()).toHaveLength(2)

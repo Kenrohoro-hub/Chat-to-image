@@ -1,7 +1,7 @@
 import { t } from './i18n'
 import { parseImageToolArguments, filterAgentVisionInput } from './agentImageTools'
 import { AgentApiRejection, withAgentFallback } from './agentRouting'
-import { DEFAULT_AGENT_MAX_TOOL_ROUNDS, type ApiProfile, type AppSettings, type ResponsesApiResponse, type ResponsesOutputItem, type TaskParams } from '../types'
+import { API_MAX_IMAGES, type ApiProfile, type AppSettings, type ResponsesApiResponse, type ResponsesOutputItem, type TaskParams } from '../types'
 import { buildApiUrl, readClientDevProxyConfig, shouldUseApiProxy } from './devProxy'
 import { appendStreamingFormatHint, getApiErrorMessage, getResponsesImageResultBase64, maybeAppendImageToolDroppedHint, maybeAppendStreamingHint, MIME_MAP, normalizeBase64Image, pickActualParams, PROMPT_REWRITE_GUARD_PREFIX } from './imageApiShared'
 import { normalizeResponsesOutputItems } from './responsesOutputState'
@@ -40,7 +40,7 @@ const AGENT_IMAGE_INSTRUCTIONS = [
   'For single-image requests, generate directly without any listing.',
   '',
   '## Generating images',
-  '- One image_generation call per distinct image. Never collage.',
+  '- Use one image_generation call per distinct prompt; n controls the number of separate images for that prompt. Never collage.',
   '- Dependent images (a later image needs to reference an earlier one) → generate the prerequisite first, then call continue_generation. The next round will have the result available as `<ref id="..." />`.',
   '- When the user clearly asks you to generate or edit an image now, call the appropriate gallery tool. Returning only a prompt or claiming an image exists is not completion.',
   '- Discussions, prompt suggestions, quoted requests, hypothetical examples, and explicit instructions not to generate require text only. Do not call image tools for them.',
@@ -67,7 +67,7 @@ const AGENT_PROMPT_OPTIMIZATION_INSTRUCTIONS = [
   '- Describe observed details only when actual pixels are provided. Distinguish observations from assumptions; when pixels are unavailable, rely on the user\'s description and do not claim visual inspection.',
   '- For edits, specify the target, requested change, allowed region, and invariants. Preserve unrequested identity, pose, framing, background, material, and lighting details as applicable. If a mask is provided, limit the change to its region; do not claim a mask exists when none is attached.',
   '- For multi-turn edits, use the selected target and current branch history. Carry forward confirmed requirements, replace only conflicting older requirements, and do not revive abandoned variants. Distinguish requested changes from effects actually visible in the latest image.',
-  '- Make every image-tool prompt self-contained: repeat the current goal, reference roles, and critical invariants rather than saying only "same as before". Keep the workspace image parameters unchanged.',
+  '- Make every image-tool prompt self-contained: repeat the current goal, reference roles, and critical invariants rather than saying only "same as before". Keep workspace image parameters unchanged except for the image count explicitly requested in the current user message.',
   '- When reviewing a supplied result, identify concrete mismatches and propose a targeted correction. Do not generate additional images merely to review or improve a result without a user request.',
   '- Preserve exact requested in-image text in quotes, with relevant placement and typography instructions; do not invent extra copy.',
   '- For prompt-only requests, output one complete, directly usable prompt without preamble or afterword unless the user asks for explanation. For edits, include both changes and invariants inside that prompt. Do not generate images for a prompt-only request.',
@@ -91,23 +91,19 @@ function createAgentInstructions(settings: AppSettings, codexCliSize?: string, i
     settings.agentPromptOptimization ? AGENT_PROMPT_OPTIMIZATION_INSTRUCTIONS : '',
     settings.agentMathFormattingPrompt ? AGENT_MATH_FORMATTING_INSTRUCTIONS : '',
   ].filter(Boolean).join('\n')
-  const maxToolRounds = Number.isFinite(settings.agentToolCallLimit)
-    ? Math.max(1, Math.trunc(settings.agentToolCallLimit))
-    : DEFAULT_AGENT_MAX_TOOL_ROUNDS
-  const imageToolInstruction = 'Use generate_image for new prompts, edit_image for changes to references, and generate_image_batch for independent prompts. These tools use the image service and image settings selected in the workspace parameters panel. Do not override image parameters.'
+  const imageToolInstruction = 'Use generate_image for new prompts, edit_image for changes to references, and generate_image_batch for independent prompts. These tools use the image service and image settings selected in the workspace parameters panel. Keep image parameters unchanged except for n when the current user request explicitly specifies an image count.'
   const imageInstructions = AGENT_IMAGE_INSTRUCTIONS.replace(/image_generation/g, 'generate_image')
   const instructions = [
     imageInstructions,
     '',
     '## Tool policy',
-    `- Current maximum tool-use rounds for this Agent turn: ${maxToolRounds}.`,
     `- ${imageToolInstruction}`,
     '- Call continue_generation ONLY when you have generated a prerequisite image and need another round to generate dependent images. Do NOT call it when the task is complete.',
     '- When web_search is available, use it only when current external information would improve the answer or the user asks for research/news/facts.',
     '- When the requested task is complete, stop calling tools and provide the final response.',
   ]
 
-  if (imageParams) instructions.push(`- Current image settings: ${JSON.stringify(imageParams)}. Each image prompt produces ${imageParams.n} images. Use one tool call for one prompt; do not repeat the same call to satisfy this configured count.`)
+  if (imageParams) instructions.push(`- Current image settings: ${JSON.stringify(imageParams)}. When the current user message does not specify an image count, omit n and each prompt produces the configured ${imageParams.n} images. When the current user message explicitly requests a different count, set n for this request only; this takes priority over the configured count. For an explicit total across distinct prompts or dependent steps, allocate n across calls so the total matches the request (e.g. three distinct images means three prompts with n=1, even if the configured count is higher). Do not reuse a count from an earlier user turn or repeat calls for an already completed count. Split counts above ${API_MAX_IMAGES} across calls, each with n at most ${API_MAX_IMAGES}.`)
 
   if (codexCliSize && codexCliSize !== 'auto') {
     instructions.push('', `- Start every image prompt with exactly "Generate at ${codexCliSize} resolution." followed by a space.`)
@@ -142,7 +138,7 @@ function createGenerateImageFunctionTool(name: 'generate_image' | 'edit_image' =
     name,
     description: [
       name === 'edit_image' ? 'Edit an existing reference image using the gallery Images API. Include its reference tag in the prompt. If a mask is attached, edit only the masked area.' : 'Generate images for one prompt through the gallery Images API.',
-      'Use the user-selected image settings and images-per-prompt count.',
+      'Use the workspace image settings. Omit n for the configured images-per-prompt count; set n only to fulfill the count explicitly requested in the current user message.',
       'The prompt must be self-contained and include full visual style descriptions.',
       'If it refers to an existing image, include the corresponding XML tag, e.g. <ref id="round-1-image-1" />, inside the prompt so the app can attach the reference image automatically.',
     ].join(' '),
@@ -152,6 +148,12 @@ function createGenerateImageFunctionTool(name: 'generate_image' | 'edit_image' =
         id: {
           type: 'string',
           description: 'Short stable identifier for this image, e.g. "cover", "base_character", "scene_1".',
+        },
+        n: {
+          type: 'integer',
+          minimum: 1,
+          maximum: API_MAX_IMAGES,
+          description: 'Optional image count for this prompt when the current user message explicitly requests a count. Overrides the workspace count for this request only. Omit to use the configured count.',
         },
         prompt: {
           type: 'string',
@@ -180,7 +182,7 @@ function createAgentTools(profile: ApiProfile, settings: AppSettings): Array<Rec
       '1. There are 2+ remaining images whose prerequisites (base references) are ALL already generated.',
       '2. These images are independent of each other (none references another image in this same batch).',
       singleImageToolInstruction,
-      'Each independent prompt uses the user-selected image settings and images-per-prompt count.',
+      'Each independent prompt uses workspace settings. Set n per item only for a count explicitly requested in the current user message, distributing any requested total across all prompts; otherwise omit n.',
       'Each image prompt must be self-contained and include full visual style descriptions.',
       'If an image needs to match a previously generated image, include the corresponding XML tag (e.g. <ref id="round-1-image-1" />) inside that image prompt so the app can attach the reference image automatically.',
     ].join(' '),
@@ -196,6 +198,12 @@ function createAgentTools(profile: ApiProfile, settings: AppSettings): Array<Rec
               id: {
                 type: 'string',
                 description: 'Short stable identifier for this image, e.g. "slide_2_problem", "scene_3".',
+              },
+              n: {
+                type: 'integer',
+                minimum: 1,
+                maximum: API_MAX_IMAGES,
+                description: 'Optional image count for this prompt when the current user message explicitly requests a count. Overrides the workspace count for this request only. Omit to use the configured count.',
               },
               prompt: {
                 type: 'string',
@@ -915,7 +923,9 @@ export function parseBatchImageCallArguments(args: string): Array<{ id: string; 
       let id = baseId
       for (let suffix = 2; ids.has(id); suffix++) id = `${baseId}_${suffix}`
       ids.add(id)
-      items.push({ id, prompt, ...parseImageToolArguments(item)?.params })
+      const parsedItem = parseImageToolArguments(item)
+      if (!parsedItem) return null
+      items.push({ id, prompt, ...parsedItem.params })
     }
     return items.length > 0 ? items : null
   } catch {

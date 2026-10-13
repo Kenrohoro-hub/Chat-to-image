@@ -27,7 +27,7 @@ import type {
   StoredImage,
   StoredImageThumbnail,
 } from './types'
-import { API_MAX_IMAGES, DEFAULT_AGENT_MAX_TOOL_ROUNDS, DEFAULT_PARAMS } from './types'
+import { API_MAX_IMAGES, DEFAULT_PARAMS } from './types'
 import { isLocalService, usesDesktopPool } from './lib/desktop'
 import { normalizeWorkspaceSettings } from './lib/workspaceSettings'
 import { DEFAULT_SETTINGS, getActiveApiProfile, getAgentImageApiProfile, getAgentTextApiProfile, getCustomProviderDefinition, mergeImportedSettings, mergePresetImportedSettings, normalizeSettings, validateApiProfile } from './lib/apiProfiles'
@@ -72,7 +72,7 @@ import { hasActiveDataOperations } from './lib/dataOperations'
 import { formatExportFileTime } from './lib/exportFileName'
 import { buildExportZip, createExportBlob, getExportImageEstimatedBytes, getExportZipPlan, MAX_EXPORT_ZIP_BYTES, readExportZip, readExportZipFileAsDataUrl, readExportZipManifest } from './lib/exportZip'
 import { appendDirectImageRound, deleteAgentRoundFromConversation, getActiveAgentRounds, getAgentConversationTaskIds, getAgentRoundPath, normalizeAgentConversations, remapAgentRoundMentionsForPathChange, uniqueIds } from './lib/agentConversationState'
-import { isAgentStoppedMessage, canonicalizeBatchFunctionCallArguments, countResponseToolCalls, createReadyAgentRecoveredToolState, getAgentFunctionOutputCallIds, getAgentRecoveredFailureError, getAgentRecoveredToolCallCount, getPersistableAgentConversations, getPersistableRawResponsePayload, mergeResponseOutputItems, scrubResponseOutputForDeletedAgentTasks, scrubTaskRawResponsePayloadForDeletedTasks } from './lib/agentResponseState'
+import { isAgentStoppedMessage, canonicalizeBatchFunctionCallArguments, createReadyAgentRecoveredToolState, getAgentFunctionOutputCallIds, getAgentRecoveredFailureError, getPersistableAgentConversations, getPersistableRawResponsePayload, mergeResponseOutputItems, scrubResponseOutputForDeletedAgentTasks, scrubTaskRawResponsePayloadForDeletedTasks } from './lib/agentResponseState'
 import { cleanStaleAgentInputDrafts, isEmptyAgentInputDraft, normalizeAgentInputDrafts, remapAgentInputDraftMentionsForPathChange, restoreAgentInputDraftState, restoreGalleryInputDraftState, saveActiveAgentInputDrafts, saveGalleryInputDraft, syncActiveInputDraft, updateInputDraftImages } from './lib/inputDraftState'
 import { ALL_FAVORITES_COLLECTION_ID, DEFAULT_FAVORITE_COLLECTION_ID, createDefaultFavoriteCollection, deleteFavoriteCollectionState, ensureDefaultFavoriteCollection, getTaskFavoriteCollectionIds, mergeFavoriteCollections, normalizeFavoriteCollectionIds, normalizeFavoriteCollectionName, normalizeFavoriteCollections, normalizeFavoritePatch, normalizeLoadedFavoriteState, resolveDefaultFavoriteCollectionId, sameFavoriteCollectionIds } from './lib/favoriteState'
 import { createPersistedState, mergePersistedAgentConversations, migratePersistedState, normalizePersistedState } from './lib/persistedState'
@@ -2232,7 +2232,6 @@ async function continueRecoveredAgentRound(taskId: string) {
     const roundTasks = updatedState.tasks.filter((item) => item.agentRoundId === round.id)
     const resumeParams = roundTasks.find((item) => item.params)?.params
       ?? normalizeParamsForSettings(getAgentImageParams(updatedConversation, updatedState.params), createSettingsForApiProfile(normalizedSettings, imageProfile), { hasInputImages: round.inputImageIds.length > 0 })
-    const toolCallsUsed = getAgentRecoveredToolCallCount(updatedRound.responseOutput ?? [], roundTasks)
 
     updateAgentConversation(conversation.id, (current) => ({
       ...current,
@@ -2247,7 +2246,7 @@ async function continueRecoveredAgentRound(taskId: string) {
     void executeAgentRound(
       conversation.id,
       round.id,
-      resumeParams,
+      { ...resumeParams, n: getAgentImageParams(updatedConversation, updatedState.params).n },
       createSettingsForApiProfile(normalizedSettings, activeProfile),
       activeProfile,
       imageProfile,
@@ -2255,7 +2254,6 @@ async function continueRecoveredAgentRound(taskId: string) {
       {
         responseOutput: updatedRound.responseOutput ?? [],
         recoveredTaskIds: recovered.recoveredTaskIds,
-        toolCallsUsed,
       },
     )
   } finally {
@@ -2478,7 +2476,7 @@ export async function regenerateAgentAssistantMessage(conversationId: string, ro
         : current.messages,
     }))
     state.setAgentEditingRoundId(null)
-    void executeAgentRound(conversationId, sourceRound.id, normalizedParams, preserveImages ? { ...requestSettings, agentImageTools: false } : requestSettings, activeProfile, imageProfile, Boolean(normalizedSettings.galleryModel && imageProfile.id === normalizedSettings.activeProfileId), preserveImages ? { responseOutput: sourceRound.responseOutput ?? [], recoveredTaskIds: sourceRound.outputTaskIds, toolCallsUsed: 0 } : undefined)
+    void executeAgentRound(conversationId, sourceRound.id, normalizedParams, preserveImages ? { ...requestSettings, agentImageTools: false } : requestSettings, activeProfile, imageProfile, Boolean(normalizedSettings.galleryModel && imageProfile.id === normalizedSettings.activeProfileId), preserveImages ? { responseOutput: sourceRound.responseOutput ?? [], recoveredTaskIds: sourceRound.outputTaskIds } : undefined)
     return
   }
 
@@ -2530,7 +2528,7 @@ async function executeAgentRound(
   activeProfile: ApiProfile,
   imageProfile: ApiProfile,
   imageModelSelected: boolean,
-  resume?: { responseOutput: ResponsesOutputItem[]; recoveredTaskIds: string[]; toolCallsUsed: number },
+  resume?: { responseOutput: ResponsesOutputItem[]; recoveredTaskIds: string[] },
 ) {
   const startedAt = Date.now()
   const controller = new AbortController()
@@ -2757,14 +2755,10 @@ async function executeAgentRound(
             ],
       }))
     }
-    const maxToolCalls = Number.isFinite(requestSettings.agentToolCallLimit)
-      ? Math.max(1, Math.trunc(requestSettings.agentToolCallLimit))
-      : DEFAULT_AGENT_MAX_TOOL_ROUNDS
     let accumulatedOutputItems: ResponsesOutputItem[] = resume?.responseOutput ?? []
     let accumulatedText = resumedAssistantContent
     const textSegments: string[] = resumedAssistantContent ? [resumedAssistantContent] : []
     let lastResponseId: string | undefined = round.responseId
-    let toolCallsUsed = resume?.toolCallsUsed ?? 0
     let apiInputForTurn = apiInput
     if (resume) {
       const resumeState = useStore.getState()
@@ -2775,12 +2769,9 @@ async function executeAgentRound(
         currentRoundOutput: accumulatedOutputItems,
         batchTaskIds: resume.recoveredTaskIds,
         imageToolsEnabled: requestSettings.agentImageTools,
-        toolCallsUsed,
-        maxToolCalls,
         loadImage: ensureImageCached,
       })
     }
-    let reachedToolLimit = resume ? toolCallsUsed >= maxToolCalls : false
     let pendingToolTextSeparator = false
 
     // Helper: resolve reference image ids to data URLs for batch image calls
@@ -2859,10 +2850,8 @@ async function executeAgentRound(
       const toolCallId = callId || genId()
       const existing = useStore.getState().tasks.find((task) => task.agentToolCallId === toolCallId && task.agentConversationId === conversationId)
       if (existing) return JSON.stringify({ id: item.id, status: existing.status, error: existing.error, note: 'Existing image task; do not resubmit.' })
-      if (toolCallsUsed >= maxToolCalls) return JSON.stringify({ error: 'Image tool limit reached' })
       if (functionCallItem.name === 'edit_image' && !references.imageIds.length) return JSON.stringify({ error: 'Editing requires an existing reference image.' })
-      toolCallsUsed += 1
-      const taskParams = normalizeParamsForSettings(imageParams, imageRequestSettings, { hasInputImages: references.dataUrls.length > 0 })
+      const taskParams = normalizeParamsForSettings({ ...imageParams, n: item.params.n ?? imageParams.n }, imageRequestSettings, { hasInputImages: references.dataUrls.length > 0 })
 
       const taskId = await ensureStreamingAgentTask(toolCallId, item.prompt, references.imageIds, {
         createdAt: Date.now(),
@@ -2914,7 +2903,6 @@ async function executeAgentRound(
 
     while (true) {
       if (controller.signal.aborted) throw createAgentAbortError()
-      if (reachedToolLimit) break
       const textBeforeResponse = accumulatedText
       let currentResponseOutputItems: ResponsesOutputItem[] = []
       const result = await callAgentResponsesApi({
@@ -3092,10 +3080,6 @@ async function executeAgentRound(
         throw new Error(t('图像工具当前已关闭，未执行接口返回的图像调用。需要生图时请先开启图像工具。', 'Image tools are disabled. The image call returned by the API was not run. Enable image tools to generate images.'))
       }
 
-      // Count built-in tool calls (image_generation, web_search) for budget tracking
-      const responseToolCalls = countResponseToolCalls(currentResponseOutputItems)
-      toolCallsUsed += responseToolCalls
-
       // Collect function_call_output items for all function calls that need responses
       const functionCallOutputs: ResponsesOutputItem[] = []
 
@@ -3165,11 +3149,6 @@ async function executeAgentRound(
         rounds: current.rounds.map((item) => item.id === roundId ? { ...item, responseId: lastResponseId, responseOutput: accumulatedOutputItemsWithFunctionOutputs } : item),
       }))
 
-      if (toolCallsUsed >= maxToolCalls) {
-        reachedToolLimit = true
-        break
-      }
-
       // Build continuation input with function call outputs and available refs
       const continuationState = useStore.getState()
       const latestConversation = continuationState.agentConversations.find((item) => item.id === conversationId)
@@ -3183,8 +3162,6 @@ async function executeAgentRound(
         currentRoundOutput: accumulatedOutputItemsWithFunctionOutputs,
         functionCallOutputs: effectiveFunctionCallOutputs,
         batchTaskIds: streamingTaskIds,
-        toolCallsUsed,
-        maxToolCalls,
         loadImage: ensureImageCached,
       })
       accumulatedOutputItems = accumulatedOutputItemsWithFunctionOutputs
@@ -3209,11 +3186,8 @@ async function executeAgentRound(
     const responseOutput = latestRound
       ? scrubResponseOutputForDeletedAgentTasks(latestRound, accumulatedOutputItems, deletedTasks, [...latestTasks, ...deletedTasks])
       : accumulatedOutputItems
-    const limitNotice = reachedToolLimit ? t(`已达到最大工具调用次数（${maxToolCalls}），已停止自动续跑。`, `The tool call limit (${maxToolCalls}) was reached. Automatic continuation stopped.`) : ''
     const joinedText = textSegments.join('\n\n').trim()
-    const finalContent = [joinedText, limitNotice]
-      .filter(Boolean)
-      .join(joinedText ? '\n\n' : '')
+    const finalContent = joinedText
       || (taskIds.length > 0 || outputIds.length > 0 ? t('图像已生成。', 'Image generated.') : '')
 
     const assistantMessage: AgentMessage = {

@@ -1355,7 +1355,6 @@ describe('fal task recovery', () => {
     useStore.setState({
       settings: normalizeSettings({
         ...DEFAULT_SETTINGS,
-        agentToolCallLimit: 15,
         profiles: [textProfile, imageProfile],
         activeProfileId: textProfile.id,
         agentApiConfigMode: 'hybrid',
@@ -1475,7 +1474,7 @@ describe('fal task recovery', () => {
     expect(toolOutput?.output).toContain('quota exceeded')
   })
 
-  it('does not call Agent again when recovered tasks already reached the tool limit', async () => {
+  it('continues the Agent reply after recovering image tasks', async () => {
     const textProfile = createDefaultOpenAIProfile({ id: 'agent-text-profile', apiKey: 'text-key', apiMode: 'responses' })
     const imageProfile = createDefaultFalProfile({ id: 'fal-profile', apiKey: 'fal-key' })
     const agentTask = task({
@@ -1535,7 +1534,6 @@ describe('fal task recovery', () => {
         agentApiConfigMode: 'hybrid',
         agentTextProfileId: textProfile.id,
         agentImageProfileId: imageProfile.id,
-        agentToolCallLimit: 1,
       }),
       tasks: [],
       agentConversations: [],
@@ -1545,13 +1543,14 @@ describe('fal task recovery', () => {
     await putDbTask(agentTask)
     await putAgentConversation(conversation)
 
+    vi.mocked(callAgentResponsesApi).mockResolvedValueOnce({ text: '已完成恢复', images: [], outputItems: [] })
     await initStore()
     await vi.waitFor(() => expect(useStore.getState().agentConversations[0]?.rounds[0]?.status).toBe('done'))
 
-    expect(callAgentResponsesApi).not.toHaveBeenCalled()
+    expect(callAgentResponsesApi).toHaveBeenCalledTimes(1)
     const round = useStore.getState().agentConversations[0].rounds[0]
     expect(round).toMatchObject({ status: 'done', error: null })
-    expect(useStore.getState().agentConversations[0].messages.find((message) => message.id === 'assistant-a')?.content).toContain('已达到最大工具调用次数（1）')
+    expect(useStore.getState().agentConversations[0].messages.find((message) => message.id === 'assistant-a')?.content).toContain('已完成恢复')
   })
 
   it.each(['已停止生成。', 'Generation stopped.'])('does not continue a stopped Agent round (%s) when a recoverable fal task later completes', async (stoppedMessage) => {
@@ -4449,7 +4448,6 @@ describe('agent built-in image tool failure', () => {
         agentApiConfigMode: 'hybrid',
         agentTextProfileId: responsesProfile.id,
         agentImageProfileId: imageProfile.id,
-        agentToolCallLimit: 1,
       }),
     })
     vi.mocked(callAgentResponsesApi).mockResolvedValueOnce({
@@ -4485,7 +4483,7 @@ describe('agent built-in image tool failure', () => {
     expect(conversation.messages.find((message) => message.role === 'assistant')?.content).not.toContain('已达到最大工具调用次数')
   })
 
-  it('reports only committed gallery batch results and counts all submitted attempts', async () => {
+  it('reports only committed gallery batch results', async () => {
     const imageProfile = createDefaultOpenAIProfile({ id: 'image-profile', apiKey: 'image-key', apiMode: 'images' })
     const deletedRequest = deferred<Awaited<ReturnType<typeof callImageApi>>>()
     const liveRequest = deferred<Awaited<ReturnType<typeof callImageApi>>>()
@@ -4497,7 +4495,6 @@ describe('agent built-in image tool failure', () => {
         agentApiConfigMode: 'hybrid',
         agentTextProfileId: responsesProfile.id,
         agentImageProfileId: imageProfile.id,
-        agentToolCallLimit: 3,
       }),
     })
     vi.mocked(callAgentResponsesApi)
@@ -4541,7 +4538,7 @@ describe('agent built-in image tool failure', () => {
     expect(continuationInput).not.toContain('deleted prompt')
     expect(continuationInput).toContain('live-item')
     expect(continuationInput).toContain('\\"status\\":\\"done\\"')
-    expect(continuationInput).toContain('Tool-call budget: 2/3 used.')
+    expect(continuationInput).not.toContain('Tool-call budget')
     await vi.waitFor(() => expect(useStore.getState().agentConversations[0].rounds[0]?.status).toBe('done'))
     expect(useStore.getState().tasks).toHaveLength(1)
     expect(useStore.getState().tasks[0]).toMatchObject({ prompt: 'live prompt', status: 'done' })
@@ -4552,7 +4549,6 @@ describe('agent built-in image tool failure', () => {
   })
 
   it('canonicalizes batch identities across tasks, round output, and continuation without deletion', async () => {
-    useStore.setState({ settings: { ...useStore.getState().settings, agentToolCallLimit: 15 } })
     const imageProfile = createDefaultOpenAIProfile({ id: 'image-profile', apiKey: 'image-key', apiMode: 'images' })
     const requests = Array.from({ length: 4 }, () => deferred<Awaited<ReturnType<typeof callImageApi>>>())
     useStore.setState({
@@ -4622,7 +4618,6 @@ describe('agent built-in image tool failure', () => {
   })
 
   it('keeps live batch output through repeated cleanup when deleted items fail or reject', async () => {
-    useStore.setState({ settings: { ...useStore.getState().settings, agentToolCallLimit: 15 } })
     const imageProfile = createDefaultOpenAIProfile({ id: 'image-profile', apiKey: 'image-key', apiMode: 'images' })
     const failedRequest = deferred<Awaited<ReturnType<typeof callImageApi>>>()
     const rejectedRequest = deferred<Awaited<ReturnType<typeof callImageApi>>>()
@@ -4735,7 +4730,6 @@ describe('agent built-in image tool failure', () => {
   })
 
   it('removes the function pair without reporting success when an entire batch is deleted', async () => {
-    useStore.setState({ settings: { ...useStore.getState().settings, agentToolCallLimit: 15 } })
     const imageProfile = createDefaultOpenAIProfile({ id: 'image-profile', apiKey: 'image-key', apiMode: 'images' })
     const failedRequest = deferred<Awaited<ReturnType<typeof callImageApi>>>()
     const rejectedRequest = deferred<Awaited<ReturnType<typeof callImageApi>>>()
@@ -5601,21 +5595,42 @@ describe('Agent gallery tool integration', () => {
   const toolReply = (name = 'generate_image', prompt = 'a cat') => ({ text: '', images: [], outputItems: [{ type: 'function_call' as const, name, call_id: 'gallery-call', arguments: JSON.stringify({ id: 'one', prompt, size: '1024x1024' }) }] })
   const doneReply = { text: '完成', images: [], outputItems: [{ type: 'message' as const, content: [{ type: 'output_text' as const, text: '完成' }] }] }
 
-  it('stops after one image tool call with a restored legacy limit', async () => {
-    const legacy = { ...useStore.getState().settings, agentMaxToolRounds: 15 } as Record<string, unknown>
-    delete legacy.agentToolCallLimit
-    useStore.setState({ settings: normalizeSettings(legacy) })
-    vi.mocked(callImageApi).mockResolvedValue({ images: ['data:image/png;base64,1024x1024'] })
-    vi.mocked(callAgentResponsesApi).mockResolvedValue(toolReply())
+  it('ignores retired limits and completes multiple image tool calls', async () => {
+    useStore.setState({ settings: normalizeSettings({ ...useStore.getState().settings, agentMaxToolRounds: 15, agentToolCallLimit: 1 }) })
+    vi.mocked(callAgentResponsesApi)
+      .mockResolvedValueOnce(toolReply())
+      .mockResolvedValueOnce({ text: '', images: [], outputItems: [{ type: 'function_call', name: 'generate_image', call_id: 'second-call', arguments: JSON.stringify({ id: 'two', prompt: 'a dog' }) }] })
+      .mockResolvedValueOnce(doneReply)
     await submitAgentMessage()
     await vi.waitFor(() => expect(useStore.getState().agentConversations[0].rounds[0].status).toBe('done'))
-    expect(callImageApi).toHaveBeenCalledTimes(1)
-    expect(callAgentResponsesApi).toHaveBeenCalledTimes(1)
-    expect(useStore.getState().tasks[0].status).toBe('done')
+    expect(callImageApi).toHaveBeenCalledTimes(2)
+    expect(callAgentResponsesApi).toHaveBeenCalledTimes(3)
+    expect(useStore.getState().tasks.every((task) => task.status === 'done')).toBe(true)
+  })
+
+  it.each(['generate_image', 'edit_image', 'generate_image_batch'])('honors a current-turn count through %s without changing workspace defaults', async (name) => {
+    const imageParams = { ...DEFAULT_PARAMS, size: '1536x1024', quality: 'high' as const, n: 3 }
+    useStore.setState({ prompt: '生成两张猫的图片', inputImages: name === 'edit_image' ? [imageA] : [], agentConversations: [agentConversation({ imageParams })] })
+    const args = name === 'generate_image_batch'
+      ? { images: [{ id: 'one', prompt: 'a cat', n: 1 }, { id: 'two', prompt: 'another cat', n: 1 }] }
+      : { id: 'one', prompt: 'a cat', n: 2 }
+    vi.mocked(callAgentResponsesApi)
+      .mockResolvedValueOnce({ text: '', images: [], outputItems: [{ type: 'function_call', name, call_id: 'count-call', arguments: JSON.stringify(args) }] })
+      .mockResolvedValueOnce(doneReply)
+    await submitAgentMessage()
+    await vi.waitFor(() => expect(useStore.getState().agentConversations[0].rounds[0].status).toBe('done'))
+    expect(callImageApi).toHaveBeenCalledTimes(name === 'generate_image_batch' ? 2 : 1)
+    expect(vi.mocked(callImageApi).mock.calls.reduce((sum, [request]) => sum + request.params.n, 0)).toBe(2)
+    expect(useStore.getState().agentConversations[0].imageParams).toEqual(imageParams)
+    expect(useStore.getState().tasks.every((task) => task.params.n === (name === 'generate_image_batch' ? 1 : 2))).toBe(true)
+    useStore.setState({ prompt: '再生成猫的图片' })
+    vi.mocked(callAgentResponsesApi).mockResolvedValueOnce(toolReply()).mockResolvedValueOnce(doneReply)
+    await submitAgentMessage()
+    await vi.waitFor(() => expect(useStore.getState().agentConversations[0].rounds[1].status).toBe('done'))
+    expect(vi.mocked(callImageApi).mock.lastCall?.[0].params).toMatchObject(imageParams)
   })
 
   it('uses Images once, saves one linked task and does not repeat a duplicate tool call', async () => {
-    useStore.setState({ settings: { ...useStore.getState().settings, agentToolCallLimit: 15 } })
     const settings = useStore.getState().settings
     useStore.setState({ settings: normalizeSettings({ ...settings, profiles: settings.profiles.map((profile) => profile.id === 'gallery' ? { ...profile, models: [profile.model, 'gallery-selected'] } : profile), galleryModel: 'gallery-selected' }) })
     vi.mocked(callImageApi).mockResolvedValue({ images: ['data:image/png;base64,1024x1024'], usedProfile: { id: 'gallery', name: 'Gallery', model: 'gallery-selected' } })
@@ -5873,7 +5888,6 @@ describe('Agent gallery tool integration', () => {
   })
 
   it('keeps generated images and disables new image calls when retrying failed follow-up text', async () => {
-    useStore.setState({ settings: { ...useStore.getState().settings, agentToolCallLimit: 15 } })
     vi.mocked(callAgentResponsesApi).mockResolvedValueOnce(toolReply()).mockRejectedValueOnce(new Error('chat disconnected')).mockResolvedValueOnce(doneReply)
     await submitAgentMessage()
     await vi.waitFor(() => expect(useStore.getState().agentConversations[0].rounds[0].status).toBe('error'))

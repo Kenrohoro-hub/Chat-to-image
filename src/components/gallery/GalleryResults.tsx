@@ -41,7 +41,10 @@ export default function GalleryResults() {
           const active = selected === image
           const size = image.task.actualParamsByImage?.[image.id]?.size || image.task.actualParams?.size || image.task.params.size
           return <article className="creation-compare-card" key={`${image.task.id}:${image.id}`} data-selected={active}>
-            <button type="button" className="creation-compare-select" aria-pressed={active} aria-label={t(`选择第 ${round?.index ?? 1} 轮第 ${image.index + 1} 张图片`, `Select image ${image.index + 1} from turn ${round?.index ?? 1}`)} onClick={() => setSelection({ taskId: image.task.id, imageId: image.id })}>
+            <button type="button" className="creation-compare-select" aria-pressed={active} aria-label={t(`查看第 ${round?.index ?? 1} 轮第 ${image.index + 1} 张图片`, `View image ${image.index + 1} from turn ${round?.index ?? 1}`)} onClick={() => {
+              setSelection({ taskId: image.task.id, imageId: image.id })
+              setLightboxImageId(image.id, images.map((item) => item.id))
+            }}>
               <span className="creation-compare-label"><span>{t(`第 ${round?.index ?? 1} 轮 · 第 ${image.index + 1} 张`, `Turn ${round?.index ?? 1} · Image ${image.index + 1}`)}</span><span>{active ? t('● 已选中', '● Selected') : t('○ 选择', '○ Select')}</span></span>
               <span className="creation-compare-preview"><GalleryImage id={image.id} alt={t(`第 ${round?.index ?? 1} 轮生成图片 ${image.index + 1}`, `Turn ${round?.index ?? 1}, generated image ${image.index + 1}`)} /></span>
               <span className="creation-compare-meta"><span>{image.task.apiModel || t('当前图像模型', 'Current image model')}</span><span>{size}</span></span>
@@ -51,7 +54,7 @@ export default function GalleryResults() {
       </div>
     </div>
     {selected && <div className="creation-selected-actions" aria-label={t('所选图片操作', 'Selected image actions')}>
-      <div><button type="button" className="creation-edit-selected" disabled={busy} onClick={() => run(sendTaskToAgent({ ...selected.task, outputImages: [selected.id] }, false))}>{t('继续修改', 'Continue editing')}</button><button type="button" disabled={busy} onClick={() => run(sendTaskToAgent({ ...selected.task, outputImages: [selected.id] }, true))}>{t('蒙版编辑', 'Mask editing')}</button><button type="button" onClick={() => run(downloadImageIds([selected.id], 'chat-to-image').then((result) => { if (result.failCount) showToast(t('下载失败，请重试。', 'Download failed. Please retry.'), 'error') }))}>{t('下载', 'Download')}</button><button type="button" onClick={() => setLightboxImageId(selected.id, images.map((image) => image.id))}>{t('放大图片', 'Enlarge image')}</button></div>
+      <div><button type="button" className="creation-edit-selected" disabled={busy} onClick={() => run(sendTaskToAgent({ ...selected.task, outputImages: [selected.id] }, false))}>{t('继续修改', 'Continue editing')}</button><button type="button" disabled={busy} onClick={() => run(sendTaskToAgent({ ...selected.task, outputImages: [selected.id] }, true))}>{t('蒙版编辑', 'Mask editing')}</button><button type="button" onClick={() => run(downloadImageIds([selected.id], 'chat-to-image').then((result) => { if (result.failCount) showToast(t('下载失败，请重试。', 'Download failed. Please retry.'), 'error') }))}>{t('下载', 'Download')}</button></div>
       <div><button type="button" disabled={busy} onClick={() => run(reuseConfig(selected.task))}>{t('复用提示词与参数', 'Reuse prompt and settings')}</button><button type="button" onClick={() => openFavoritePicker([selected.task.id])}>{selected.task.isFavorite ? t('管理收藏', 'Manage favorites') : t('收藏作品', 'Favorite image')}</button><button type="button" onClick={() => setDetailTaskId(selected.task.id)}>{t('提示词与详情', 'Prompt and details')}</button></div>
     </div>}
   </section>

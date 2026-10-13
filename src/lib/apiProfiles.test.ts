@@ -1721,11 +1721,8 @@ describe('custom providers', () => {
 })
 
 
-it('resets the legacy tool limit once and preserves a newly saved limit', () => {
-  const legacy = { ...DEFAULT_SETTINGS, agentMaxToolRounds: 15 } as Record<string, unknown>
-  delete legacy.agentToolCallLimit
-  const restored = normalizeSettings(legacy)
-  expect(restored.agentToolCallLimit).toBe(1)
-  expect(normalizeSettings({ ...restored, agentToolCallLimit: 3 }).agentToolCallLimit).toBe(3)
-  expect(normalizeSettings({ ...restored, agentToolCallLimit: 1 }).agentToolCallLimit).toBe(1)
+it('drops retired tool limits from restored settings', () => {
+  const restored = normalizeSettings({ ...DEFAULT_SETTINGS, agentMaxToolRounds: 15, agentToolCallLimit: 1 })
+  expect(restored).not.toHaveProperty('agentMaxToolRounds')
+  expect(restored).not.toHaveProperty('agentToolCallLimit')
 })

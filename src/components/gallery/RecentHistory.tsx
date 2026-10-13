@@ -17,7 +17,7 @@ export default function RecentHistory({ onAllHistory, onApply, compact = false, 
     <div className="creation-strip-heading"><h2>{t('最近生成', 'Recent generations')}</h2><div><button type="button" onClick={onExpand}>{t('展开操作', 'Show actions')}</button><button type="button" onClick={onAllHistory}>{t('全部历史 ↗', 'All history ↗')}</button></div></div>
     <div className="creation-history-thumbnails">
       {!recent.length && <p className="creation-history-empty">{t('生成的作品会保留在这里', 'Generated images will appear here')}</p>}
-      {recent.map((task) => <button type="button" key={task.id} className="creation-history-preview" aria-label={t(`预览历史：${task.prompt}`, `Preview history: ${task.prompt}`)} title={task.prompt} onClick={() => task.outputImages.length ? setLightboxImageId(task.outputImages[0], task.outputImages) : setDetailTaskId(task.id)}>
+      {recent.map((task) => <button type="button" key={task.id} className="creation-history-preview" aria-label={t(`预览历史：${task.prompt}`, `Preview history: ${task.prompt}`)} title={task.prompt} draggable={task.outputImages.length > 0} onDragStart={(event) => { event.dataTransfer.setData('text/plain', `agent-image:${task.outputImages[0]}`); event.dataTransfer.effectAllowed = 'copy' }} onClick={() => task.outputImages.length ? setLightboxImageId(task.outputImages[0], task.outputImages) : setDetailTaskId(task.id)}>
         {task.outputImages.length ? <GalleryImage id={task.outputImages[0]} alt={t('历史作品', 'History image')} /> : <span>{task.status === 'running' ? t('生成中…', 'Generating…') : t('未完成', 'Incomplete')}</span>}
         {task.outputImages.length > 1 && <small>{task.outputImages.length} {t('张', ' images')}</small>}
       </button>)}
@@ -28,7 +28,7 @@ export default function RecentHistory({ onAllHistory, onApply, compact = false, 
     <div className="creation-history-scroll">
       {!recent.length && <p className="creation-history-empty">{t('生成的作品会保留在这里', 'Generated images will appear here')}</p>}
       {recent.map((task) => <article key={task.id} className="creation-history-item">
-        <button type="button" className="creation-history-preview" aria-label={t(`预览历史：${task.prompt}`, `Preview history: ${task.prompt}`)} onClick={() => task.outputImages.length ? setLightboxImageId(task.outputImages[selected[task.id] ?? 0], task.outputImages) : setDetailTaskId(task.id)}>
+        <button type="button" className="creation-history-preview" aria-label={t(`预览历史：${task.prompt}`, `Preview history: ${task.prompt}`)} draggable={task.outputImages.length > 0} onDragStart={(event) => { event.dataTransfer.setData('text/plain', `agent-image:${task.outputImages[selected[task.id] ?? 0]}`); event.dataTransfer.effectAllowed = 'copy' }} onClick={() => task.outputImages.length ? setLightboxImageId(task.outputImages[selected[task.id] ?? 0], task.outputImages) : setDetailTaskId(task.id)}>
           {task.outputImages.length ? <GalleryImage id={task.outputImages[selected[task.id] ?? 0]} alt={t('历史作品', 'History image')} /> : <span>{task.status === 'running' ? t('生成中…', 'Generating…') : t('未完成', 'Incomplete')}</span>}
           {task.outputImages.length > 1 && <small>{task.outputImages.length} {t('张', ' images')}</small>}
         </button>

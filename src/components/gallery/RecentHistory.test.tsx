@@ -30,3 +30,32 @@ it('requires confirmation for the selected task and disables deletion while gene
   await dialog.action()
   expect(mock.removeTask).toHaveBeenCalledExactlyOnceWith(tasks[1])
 })
+
+it('drags the visible recent image into the current conversation in both layouts', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  mock.state.tasks = [
+    { id: 'older', prompt: '旧图', createdAt: 1, status: 'done', outputImages: ['older-1'] },
+    { id: 'newer', prompt: '新图', createdAt: 2, status: 'done', outputImages: ['newer-1', 'newer-2'] },
+  ] as TaskRecord[]
+  document.body.innerHTML = '<div id="root"></div>'
+  root = createRoot(document.getElementById('root')!)
+  await act(() => root.render(<RecentHistory onAllHistory={() => {}} compact />))
+  const drag = (button: HTMLButtonElement) => {
+    const transfer = { setData: vi.fn(), effectAllowed: '' }
+    const event = new Event('dragstart', { bubbles: true })
+    Object.defineProperty(event, 'dataTransfer', { value: transfer })
+    button.dispatchEvent(event)
+    return transfer
+  }
+  const compactTransfer = drag(document.querySelector<HTMLButtonElement>('.creation-history-preview')!)
+  expect(compactTransfer.setData).toHaveBeenCalledWith('text/plain', 'agent-image:newer-1')
+
+  await act(() => root.render(<RecentHistory onAllHistory={() => {}} />))
+  const select = document.querySelector<HTMLSelectElement>('[aria-label="选择历史图片：新图"]')!
+  await act(() => {
+    select.value = '1'
+    select.dispatchEvent(new Event('change', { bubbles: true }))
+  })
+  const expandedTransfer = drag(document.querySelector<HTMLButtonElement>('.creation-history-item .creation-history-preview')!)
+  expect(expandedTransfer.setData).toHaveBeenCalledWith('text/plain', 'agent-image:newer-2')
+})

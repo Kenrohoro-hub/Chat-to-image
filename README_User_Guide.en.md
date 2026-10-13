@@ -18,14 +18,15 @@ Provide your own API URL, key, and model. Generation and chat use the service yo
 4. Return to **Create** and choose the model, size, and image count under **Image parameters**.
 5. Enter a prompt and select **Generate directly**. Download, favorite, or edit the result.
 
-For conversational creation, also add a **Responses** service under **Chat API profiles** and save it. Select a chat model in Create and send your request. Explicit requests to generate or edit an image use your image service.
+For conversational creation, also add a **Responses** service under **Chat API profiles** and save it. Select a chat model in Create and send your request. Explicit requests to generate or edit an image use your image service. The image count defaults to Image parameters; an explicit count in the current message overrides it for that request only. Consecutive tool calls are no longer capped; the assistant stops when the request is complete, and you can stop it manually.
 
 ## Common tasks
 
 | Task | Action |
 | --- | --- |
 | Refine text first | Select **Optimize prompt only**, then generate from the reply when ready. |
-| Use reference images | Upload, drag, or paste images and explain their roles. Use `@` to refer to a specific image. |
+| Use reference images | Upload, drag, or paste images, or drag an image from **Recent generations** into the composer. Use `@` to refer to a specific image. |
+| View full-resolution images | Click a generated image to open the original, then use the left/right buttons or arrow keys to switch images. |
 | Edit an image | Select a result and choose **Continue editing**. For a local edit, open the mask editor, mark the area, save, and submit your instructions. |
 | Use a library prompt | Choose prompt-only, image-only, or prompt-and-image reuse, then review the draft before generating. |
 | Save a prompt | Create a personal prompt or save the current draft in **Prompt library**. Use category management to organize it. |
