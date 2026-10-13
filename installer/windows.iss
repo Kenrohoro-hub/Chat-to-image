@@ -32,6 +32,11 @@ Name: "zhcn"; MessagesFile: "ChineseSimplified.isl"
 [Tasks]
 Name: "desktopicon"; Description: "创建桌面快捷方式"; Flags: unchecked
 
+[InstallDelete]
+Type: files; Name: "{app}\run-image.cmd"
+Type: files; Name: "{app}\scripts\playground_bridge.js"
+Type: files; Name: "{app}\dist\assets\*"
+
 [Files]
 Source: "{#PayloadDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#WebViewInstaller}"; Flags: dontcopy

@@ -2,7 +2,7 @@
 
 A Windows AI image generation and editing tool with direct generation, conversational creation, reference images, masked edits, prompt libraries, history, favorites, and backups. The interface supports Chinese and English.
 
-[Download v0.2.0](https://github.com/Kenrohoro-hub/Chat-to-image/releases/latest) · [User Guide](README_User_Guide.en.md) · [中文](README.md)
+[Download v0.3.0](https://github.com/Kenrohoro-hub/Chat-to-image/releases/latest) · [User Guide](README_User_Guide.en.md) · [中文](README.md)
 
 ## Install and configure
 

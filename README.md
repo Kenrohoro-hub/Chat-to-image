@@ -2,7 +2,7 @@
 
 Windows AI 图片生成与编辑工具，支持直接生图、对话创作、参考图和蒙版编辑、提示词库、历史收藏与备份。界面支持中文和英文。
 
-[下载 v0.2.0](https://github.com/Kenrohoro-hub/Chat-to-image/releases/latest) · [使用说明](README_使用说明.md) · [English](README.en.md)
+[下载 v0.3.0](https://github.com/Kenrohoro-hub/Chat-to-image/releases/latest) · [使用说明](README_使用说明.md) · [English](README.en.md)
 
 ## 安装与配置
 
