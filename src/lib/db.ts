@@ -1,5 +1,6 @@
-import { t } from './i18n'
 import type { AgentConversation, TaskRecord, StoredImage, StoredImageThumbnail } from '../types'
+import { t } from './i18n'
+import { loadImage } from './canvasImage'
 
 const DB_NAME = 'gpt-image-playground'
 const DB_VERSION = 3
@@ -322,15 +323,6 @@ export async function storeImageWithSize(dataUrl: string, source: NonNullable<St
     return { id, width, height }
   }
   return { id, width: existing.width, height: existing.height }
-}
-
-function loadImage(dataUrl: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const image = new Image()
-    image.onload = () => resolve(image)
-    image.onerror = () => reject(new Error(t('图片加载失败', 'Could not load the image')))
-    image.src = dataUrl
-  })
 }
 
 async function createImageThumbnail(dataUrl: string): Promise<Omit<StoredImageThumbnail, 'id'>> {

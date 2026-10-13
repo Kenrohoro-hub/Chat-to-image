@@ -10,11 +10,10 @@ import secrets
 import socket
 import sys
 import threading
-import time
 from urllib.parse import urlsplit, parse_qs
 
-from playground_config import config_path, project_id, read_snapshot, save_profile, snapshot_status
-from desktop_config import read_desktop, candidates, settings_revision, SettingsConflict
+from playground_config import config_path, project_id, read_snapshot, snapshot_status
+from desktop_config import read_desktop, candidates, SettingsConflict
 from desktop_host import DesktopApi
 from ui_language import system_ui_language, set_request_ui_language, t
 
@@ -76,11 +75,9 @@ class Handler(SimpleHTTPRequestHandler):
       return self.respond(403, {'error': 'Host rejected'})
     path = urlsplit(self.path).path
     if path == '/__codex/status':
-      revision = self.server.sync_revision
       try:
         record = read_desktop()
         if record:
-          revision = settings_revision()
           eligible = candidates()
           profile = next((p for p in eligible if p.get('baseUrl') and p.get('model') and p.get('hasKey', True)), {})
           status = {'synced': bool(profile.get('baseUrl') and profile.get('model') and profile.get('hasKey', True)),
@@ -89,23 +86,19 @@ class Handler(SimpleHTTPRequestHandler):
         else:
           status = snapshot_status(read_snapshot())
       except (OSError, ValueError):
-        status = {'synced': False, 'message': t('同步配置无法读取，请从网页重新同步。', 'Cannot read synchronized settings. Synchronize them again from the browser.')}
+        status = {'synced': False, 'message': t('同步配置无法读取，请在桌面或本机网页设置中重新填写并保存。', 'Cannot read synchronized settings. Re-enter and save settings in the desktop app or local web app.')}
       return self.respond(200, {
         'service': 'playground-codex-sync', 'sync_version': 4,
         'project_id': project_id(),
-        'sync_revision': revision, **status,
+        **status,
       })
-    if path in ('/__codex/session', '/__local/session', '/__codex/bridge.js'):
+    if path == '/__local/session':
       # 仅同源网页可读取；此令牌不包含 API 凭据。
       origin = self.headers.get('Origin')
       if origin and origin != 'http://' + self.headers.get('Host', ''):
         return self.respond(403, {'error': 'Origin rejected'})
       if self.headers.get('Sec-Fetch-Site') == 'cross-site':
         return self.respond(403, {'error': 'Site rejected'})
-      if path == '/__codex/bridge.js':
-        script = Path(__file__).with_name('playground_bridge.js').read_text(encoding='utf-8')
-        script = script.replace('__CODEX_SYNC_TOKEN__', self.server.sync_token)
-        return self.respond(200, script.encode('utf-8'), 'text/javascript; charset=utf-8')
       return self.respond(200, {'token': self.server.sync_token})
     if path in ('/', '/index.html'):
       index = (Path(self.directory) / 'index.html').read_bytes()
@@ -128,39 +121,30 @@ class Handler(SimpleHTTPRequestHandler):
       return self.respond(403, {'error': 'Sync token rejected'})
     if self.headers.get('Content-Type', '').split(';')[0] != 'application/json':
       return self.respond(415, {'error': 'JSON required'})
-    path = urlsplit(self.path).path
-    if path not in ('/__codex/config', '/__local/api'):
+    if urlsplit(self.path).path != '/__local/api':
       return self.respond(404, {'error': 'Not found'})
     language = self.headers.get('X-Playground-Language')
     set_request_ui_language(language if language in ('zh-CN', 'en') else system_ui_language())
     try:
       length = int(self.headers.get('Content-Length', '0'))
-      if not 0 < length <= (128 * 1024 * 1024 if path == '/__local/api' else 65536) or self.headers.get('Transfer-Encoding'):
+      if not 0 < length <= 128 * 1024 * 1024 or self.headers.get('Transfer-Encoding'):
         return self.respond(413, {'error': 'Body exceeds limit'})
       value = json.loads(self.rfile.read(length))
-      if path == '/__local/api':
-        if not isinstance(value, dict) or set(value) != {'method', 'args'} or not isinstance(value['args'], list):
-          return self.respond(400, {'error': 'Invalid local API payload'})
-        method = value['method']
-        counts = {'load_settings': 0, 'recover_settings': 1, 'save_settings': 2, 'status': 0, 'reset_routes': 0,
-          'prompt_storage': 2, 'read_youmind_prompts': 1, 'read_heroprompt_posts': 1, 'download_prompt_image': 1, 'list_models': 1, 'generate': 1, 'cancel_generation': 1}
-        if not isinstance(method, str) or method not in counts or len(value['args']) != counts[method]:
-          return self.respond(400, {'error': 'Invalid local API method'})
-        if method not in ('generate', 'prompt_storage') and length > 2 * 1024 * 1024:
-          return self.respond(413, {'error': 'Body exceeds limit'})
-        if method in ('prompt_storage', 'download_prompt_image', 'read_youmind_prompts', 'read_heroprompt_posts', 'list_models'):
-          try:
-            return self.respond(200, getattr(self.server.api, method)(*value['args']))
-          except ValueError as error:
-            return self.respond(400, {'error': str(error)})
-        return self.respond(200, getattr(self.server.api, method)(*value['args']))
-      if not isinstance(value, dict) or set(value) != {'profile'}:
-        return self.respond(400, {'error': 'Invalid config payload'})
-      if read_desktop():
-        return self.respond(409, {'error': t('请刷新网页，使用本机共享配置入口。', 'Refresh the page to use the local shared settings entry.')})
-      status = save_profile(value['profile'])
-      self.server.sync_revision = str(time.time_ns())
-      return self.respond(200, status)
+      if not isinstance(value, dict) or set(value) != {'method', 'args'} or not isinstance(value['args'], list):
+        return self.respond(400, {'error': 'Invalid local API payload'})
+      method = value['method']
+      counts = {'load_settings': 0, 'recover_settings': 1, 'save_settings': 2, 'status': 0, 'reset_routes': 0,
+        'prompt_storage': 2, 'read_youmind_prompts': 1, 'read_heroprompt_posts': 1, 'download_prompt_image': 1, 'list_models': 1, 'generate': 1, 'cancel_generation': 1}
+      if not isinstance(method, str) or method not in counts or len(value['args']) != counts[method]:
+        return self.respond(400, {'error': 'Invalid local API method'})
+      if method not in ('generate', 'prompt_storage') and length > 2 * 1024 * 1024:
+        return self.respond(413, {'error': 'Body exceeds limit'})
+      if method in ('prompt_storage', 'download_prompt_image', 'read_youmind_prompts', 'read_heroprompt_posts', 'list_models'):
+        try:
+          return self.respond(200, getattr(self.server.api, method)(*value['args']))
+        except ValueError as error:
+          return self.respond(400, {'error': str(error)})
+      return self.respond(200, getattr(self.server.api, method)(*value['args']))
     except SettingsConflict as error:
       return self.respond(409, {'error': str(error)})
     except (OSError, ValueError, TypeError, KeyError):
@@ -182,7 +166,6 @@ def make_server(port):
     server.server_close()
     raise
   server.sync_token = secrets.token_hex(32)
-  server.sync_revision = '0'
   return server
 
 

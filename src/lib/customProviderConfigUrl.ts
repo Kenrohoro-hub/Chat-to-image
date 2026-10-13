@@ -1,6 +1,6 @@
 import type { ImportedProviderSettings } from './apiProfiles'
 import { importCustomProviderSettingsFromJson } from './apiProfiles'
-import { EMBEDDED_CONFIG_PREFIX, isImportableConfigUrl } from './importableConfigUrl'
+import { EMBEDDED_CONFIG_PREFIX } from './importableConfigUrl'
 import { readRuntimeEnv } from './runtimeEnv'
 
 const DEFAULT_API_URL = readRuntimeEnv(import.meta.env.VITE_DEFAULT_API_URL)

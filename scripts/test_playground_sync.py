@@ -1,5 +1,6 @@
 """验证网页配置同步、DPAPI 隔离和 CLI 自动发现；仅使用模拟服务。"""
 
+import base64
 import json
 from concurrent.futures import ThreadPoolExecutor
 import os
@@ -60,7 +61,7 @@ class SyncTests(unittest.TestCase):
     server.server_close()
     thread.join()
 
-  def send(self, body=None, path='/__codex/config', headers=None):
+  def send(self, body=None, path='/__local/api', headers=None):
     req_headers = {'Origin': self.origin, 'Content-Type': 'application/json', 'X-Codex-Sync': self.server.sync_token}
     req_headers.update(headers or {})
     req = urllib.request.Request(self.origin + path, data=json.dumps(body).encode() if body is not None else None, headers=req_headers)
@@ -87,6 +88,17 @@ class SyncTests(unittest.TestCase):
       status, raw, _ = self.send(payload, path='/__local/api', headers={'X-Playground-Language': language})
       self.assertEqual(status, 400)
       self.assertEqual(json.loads(raw)['error'], expected)
+
+  def write_snapshot_fixture(self, profile=None):
+    profile = dict(profile or self.profile)
+    profile['baseUrl'] = profile['baseUrl'].rstrip('/') + '/v1'
+    key = profile.pop('apiKey')
+    from playground_config import protect
+    secret = json.dumps({'baseUrl': profile['baseUrl'], 'model': profile['model'], 'apiKey': key}).encode('utf-8')
+    record = {'version': 1, 'profile': profile, 'encryptedKey': base64.b64encode(protect(secret)).decode('ascii')}
+    config_path().parent.mkdir(parents=True, exist_ok=True)
+    config_path().write_text(json.dumps(record), encoding='utf-8')
+    return record
 
   def cli(self, *args):
     result = subprocess.run([sys.executable, '-B', str(Path(__file__).with_name('playground_image.py')), '--prompt', '测试纸飞机', *args], cwd=self.root, capture_output=True, encoding='utf-8', timeout=10)
@@ -193,7 +205,7 @@ class SyncTests(unittest.TestCase):
     self.assertEqual(self.rpc('save_settings', settings, first['revision'])[0], 200)
     self.assertEqual(self.rpc('save_settings', {**settings, 'theme': 'dark'}, first['revision'])[0], 409)
     self.assertNotIn('theme', read_desktop(True))
-    self.assertEqual(self.send({'profile': {**self.profile, 'model': 'old-client'}})[0], 409)
+    self.assertEqual(self.send({'profile': {**self.profile, 'model': 'old-client'}}, path='/__codex/config')[0], 404)
     self.assertEqual(read_desktop(True)['profiles'][0]['model'], 'mock-image')
 
   def test_shared_api_rejects_foreign_reads_and_unknown_methods(self):
@@ -202,8 +214,7 @@ class SyncTests(unittest.TestCase):
     self.assertEqual(self.rpc('_stop')[0], 400)
     self.assertEqual(self.rpc('save_settings', {'profiles': [self.profile]})[0], 400)
     self.assertFalse(desktop_path().exists())
-    for path in ('/__local/session', '/__codex/bridge.js'):
-      self.assertEqual(self.send(path=path, headers={'Sec-Fetch-Site': 'cross-site'})[0], 403)
+    self.assertEqual(self.send(path='/__local/session', headers={'Sec-Fetch-Site': 'cross-site'})[0], 403)
 
   def test_unreadable_config_recovery_uses_protected_revision_contract(self):
     save_desktop({'profiles': [self.profile]})
@@ -364,12 +375,19 @@ class SyncTests(unittest.TestCase):
       stop_service(process)
     process.terminate.assert_not_called()
 
-  def test_browser_profile_to_cli_without_manual_parameters(self):
+  def test_initial_settings_migrates_saved_snapshot(self):
+    from desktop_config import initial_settings
+
+    self.write_snapshot_fixture()
+    settings = initial_settings()
+    self.assertEqual(settings['activeProfileId'], 'test')
+    self.assertEqual(settings['profiles'][0]['apiKey'], 'sync-test-secret')
+    self.assertEqual(settings['profiles'][0]['imageProtocol'], 'auto')
+
+  def test_saved_snapshot_supports_independent_cli_without_manual_parameters(self):
     self.assertFalse(self.cli('--dry-run')['ok'])
-    status, raw, _ = self.send({'profile': self.profile})
-    self.assertEqual(status, 200)
-    self.assertTrue(json.loads(raw)['synced'])
-    self.assertNotIn(b'sync-test-secret', config_path().read_bytes())
+    self.write_snapshot_fixture()
+    self.assertNotIn('sync-test-secret', config_path().read_text(encoding='utf-8'))
     self.assertEqual(snapshot_key(read_snapshot()), 'sync-test-secret')
     dry = self.cli('--dry-run')
     self.assertTrue(dry['ok'])
@@ -381,45 +399,13 @@ class SyncTests(unittest.TestCase):
     self.assertEqual(self.image_server.calls[0]['headers']['Authorization'], 'Bearer sync-test-secret')
     self.assertEqual(self.image_server.calls[0]['path'], '/v1/images/generations')
 
-  def test_browser_sync_preserves_image_protocol(self):
+  def test_snapshot_preserves_image_protocol_and_binds_key_to_endpoint(self):
     for protocol in ('seedream', 'qwen'):
       profile = {**self.profile, 'imageProtocol': protocol}
-      status, raw, _ = self.send({'profile': profile})
-      self.assertEqual(status, 200)
+      self.write_snapshot_fixture(profile)
       self.assertEqual(read_snapshot()['profile']['imageProtocol'], protocol)
-
-  def test_host_origin_token_and_media_type_guards(self):
-    cases = [({'Origin': 'https://untrusted.example'}, 403), ({'Host': 'evil.example'}, 403), ({'X-Codex-Sync': 'bad'}, 403), ({'Content-Type': 'text/plain'}, 415)]
-    for headers, expected in cases:
-      with self.subTest(headers=headers):
-        self.assertEqual(self.send({'profile': self.profile}, headers=headers)[0], expected)
-    self.assertFalse(config_path().exists())
-
-  def test_payload_limit_and_invalid_structure(self):
-    self.assertEqual(self.send({'profile': {'apiKey': 'x' * 70000}})[0], 413)
-    self.assertEqual(self.send({'unexpected': self.profile})[0], 400)
-    self.assertEqual(self.send({'profile': []})[0], 400)
-    self.assertFalse(config_path().exists())
-
-  def test_missing_key_disables_previous_profile(self):
-    self.send({'profile': self.profile})
-    self.profile['apiKey'] = ''
-    status, raw, _ = self.send({'profile': self.profile})
-    self.assertEqual(status, 200)
-    self.assertFalse(json.loads(raw)['synced'])
-    self.assertNotIn('encryptedKey', read_snapshot())
-    self.assertEqual(self.cli()['error']['code'], 'BROWSER_CONFIG_UNAVAILABLE')
-    self.assertEqual(self.image_server.calls, [])
-
-  def test_unsupported_provider_disables_previous_profile(self):
-    self.send({'profile': self.profile})
-    self.profile['provider'] = 'fal'
-    self.assertFalse(json.loads(self.send({'profile': self.profile})[1])['synced'])
-    self.assertEqual(self.cli()['error']['code'], 'BROWSER_CONFIG_UNAVAILABLE')
-    self.assertEqual(self.image_server.calls, [])
-
-  def test_changed_endpoint_does_not_reuse_synced_key(self):
-    self.send({'profile': self.profile})
+      self.assertEqual(snapshot_key(read_snapshot()), 'sync-test-secret')
+    self.write_snapshot_fixture()
     result = self.cli('--base-url', self.profile['baseUrl'] + '/v1', '--model', 'override')
     self.assertEqual(result['error']['code'], 'MISSING_API_KEY')
     self.assertEqual(self.image_server.calls, [])
@@ -428,26 +414,22 @@ class SyncTests(unittest.TestCase):
     with self.assertRaises(ValueError):
       snapshot_key(record)
 
-  def test_invalid_url_disables_old_config_without_exposing_url_credentials(self):
-    self.send({'profile': self.profile})
-    for url in ['https://user:secret@example.com/v1', 'https://example.com/v1?key=secret', 'https://[broken']:
-      self.profile['baseUrl'] = url
-      status, raw, _ = self.send({'profile': self.profile})
-      self.assertEqual(status, 200)
-      self.assertFalse(json.loads(raw)['synced'])
-      self.assertNotIn(b'secret', raw)
-      self.assertNotIn('encryptedKey', read_snapshot())
+  def test_local_api_host_origin_token_and_media_type_guards(self):
+    cases = [({'Origin': 'https://untrusted.example'}, 403), ({'Host': 'evil.example'}, 403), ({'X-Codex-Sync': 'bad'}, 403), ({'Content-Type': 'text/plain'}, 415)]
+    for headers, expected in cases:
+      with self.subTest(headers=headers):
+        self.assertEqual(self.rpc('load_settings', headers=headers)[0], expected)
+    self.assertFalse(config_path().exists())
 
-  def test_refresh_selected_profile_replaces_saved_configuration(self):
-    self.send({'profile': self.profile})
-    self.profile.update({'id': 'second', 'model': 'second-model', 'apiKey': 'second-secret'})
-    self.send({'profile': self.profile})
-    self.assertEqual(read_snapshot()['profile']['model'], 'second-model')
-    self.assertEqual(snapshot_key(read_snapshot()), 'second-secret')
-    self.assertNotIn(b'second-secret', config_path().read_bytes())
+  def test_local_api_payload_limit_and_structure_validation(self):
+    self.assertEqual(self.rpc('list_models', {'apiKey': 'x' * (2 * 1024 * 1024)})[0], 413)
+    self.assertEqual(self.send({'unexpected': {}}, path='/__local/api')[0], 400)
+    self.assertEqual(self.rpc('_stop')[0], 400)
+    self.assertEqual(self.rpc('load_settings', {})[0], 400)
+    self.assertFalse(desktop_path().exists())
 
   def test_status_and_static_files_never_return_credentials(self):
-    self.send({'profile': self.profile})
+    self.write_snapshot_fixture()
     status, raw, headers = self.send(path='/__codex/status')
     self.assertEqual(status, 200)
     self.assertNotIn(b'sync-test-secret', raw)
@@ -456,21 +438,15 @@ class SyncTests(unittest.TestCase):
     index = self.send(path='/')[1]
     self.assertIn(b'__PLAYGROUND_LOCAL__', index)
     self.assertNotIn(b'/__codex/bridge.js', index)
-    script = self.send(path='/__codex/bridge.js')[1]
-    self.assertIn(self.server.sync_token.encode(), script)
     self.assertEqual(self.send(path='/__codex/codex-profile.json')[0], 404)
 
-  def test_url_normalization_matches_browser_rules(self):
-    cases = {
-      'https://example.com': 'https://example.com/v1',
-      'https://example.com/custom': 'https://example.com/custom/v1',
-      'https://example.com/custom/': 'https://example.com/custom',
-      'https://example.com/v1/ignored': 'https://example.com/v1',
-    }
-    for given, expected in cases.items():
-      self.profile['baseUrl'] = given
-      self.send({'profile': self.profile})
-      self.assertEqual(read_snapshot()['profile']['baseUrl'], expected)
+  def test_retired_sync_bridge_routes_return_not_found(self):
+    self.assertEqual(self.send(path='/__codex/session')[0], 404)
+    self.assertEqual(self.send(path='/__codex/bridge.js')[0], 404)
+    self.assertEqual(self.send({'profile': self.profile}, path='/__codex/config')[0], 404)
+    status, raw, _ = self.send(path='/__local/session')
+    self.assertEqual(status, 200)
+    self.assertEqual(json.loads(raw)['token'], self.server.sync_token)
 
 
 if __name__ == '__main__':

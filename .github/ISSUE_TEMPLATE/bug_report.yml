@@ -58,9 +58,6 @@ body:
         - Windows 桌面
         - 本机网页
         - CLI / Agent 连接
-        - Vercel
-        - Cloudflare Workers
-        - Docker
         - 本地部署
         - 其他
     validations:

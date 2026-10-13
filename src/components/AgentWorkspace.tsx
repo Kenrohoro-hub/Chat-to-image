@@ -4,7 +4,7 @@ import type { AgentMessage, AgentRound, TaskRecord } from '../types'
 import { generateImageFromAgentMessage, regenerateAgentAssistantMessage, useStore } from '../store'
 import ConversationList from './ConversationList'
 import { takePromptToGallery } from '../lib/workspaceTransfer'
-import { getActiveAgentRounds, getAgentBranchLeafId, getAgentRoundTaskIds, getAgentSiblingRounds } from '../lib/agentConversationState'
+import { getActiveAgentRounds, getAgentBranchLeafId, getAgentSiblingRounds } from '../lib/agentConversationState'
 import { ensureImageCached, getCachedImage } from '../lib/imageCache'
 import { getPromptMentionParts } from '../lib/promptImageMentions'
 import { copyTextToClipboard, getClipboardFailureMessage } from '../lib/clipboard'
@@ -149,7 +149,6 @@ export default function AgentWorkspace() {
   const messageRefs = useRef(new Map<string, HTMLElement>())
   const [scrollTargetRoundId, setScrollTargetRoundId] = useState<string | null>(null)
   const [pullDownOffset, setPullDownOffset] = useState(0)
-  const [mobileTopBarVisible, setMobileTopBarVisible] = useState(true)
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(true)
   const touchStartY = useRef(-1)
   const autoScrollStateRef = useRef<{ conversationId: string | null; lastUserMessageSignature: string | null }>({ conversationId: null, lastUserMessageSignature: null })
@@ -187,10 +186,6 @@ export default function AgentWorkspace() {
     touchStartY.current = touchY
   }
 
-  const handleHeaderTouchStart = (e: React.TouchEvent) => {
-    touchStartY.current = e.touches[0].clientY
-  }
-   
   const handleTouchMove = (e: React.TouchEvent) => {
     if (touchStartY.current <= 0 || agentMobileHeaderVisible) return
 
@@ -248,26 +243,14 @@ export default function AgentWorkspace() {
   useEffect(() => {
     if (appMode !== 'agent') return
 
-    setMobileTopBarVisible(true)
-    let lastScrollY = scrollContainerRef.current?.scrollTop ?? 0
     let ticking = false
 
     const handleScroll = () => {
       if (ticking) return
 
       window.requestAnimationFrame(() => {
-        const currentScrollY = scrollContainerRef.current?.scrollTop ?? 0
-        if (currentScrollY < 20) {
-          setMobileTopBarVisible(true)
-        } else if (currentScrollY > lastScrollY + 10) {
-          setMobileTopBarVisible(false)
-        } else if (currentScrollY < lastScrollY - 10) {
-          setMobileTopBarVisible(true)
-        }
-
         updateIsScrolledToBottom()
 
-        lastScrollY = currentScrollY
         ticking = false
       })
       ticking = true

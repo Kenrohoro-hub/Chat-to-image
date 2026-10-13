@@ -7,8 +7,6 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import tempfile
-from urllib.parse import urlsplit, urlunsplit
 
 from ui_language import t
 
@@ -49,7 +47,7 @@ def protect(data, decrypt=False):
   kernel.LocalFree.argtypes = [ctypes.c_void_p]
   kernel.LocalFree.restype = ctypes.c_void_p
   if not fn(ctypes.byref(source), None, None, None, None, 1, ctypes.byref(target)):
-    raise ValueError(t('无法加密或解密同步密钥，请在当前 Windows 账户中重新同步网页配置。', 'Could not encrypt or decrypt the synced key. Sync the web settings again in the current Windows account.'))
+    raise ValueError(t('无法加密或解密配置，请在桌面或本机网页设置中重新填写并保存。', 'Could not encrypt or decrypt settings. Re-enter and save them in the desktop app or local web app.'))
   try:
     return ctypes.string_at(target.data, target.size)
   finally:
@@ -62,13 +60,13 @@ def read_snapshot():
     return None
   record = json.loads(path.read_text(encoding='utf-8'))
   if not isinstance(record, dict) or record.get('version') != 1 or not isinstance(record.get('profile'), dict):
-    raise ValueError(t('同步配置损坏，请刷新已配置 API 的网页重新同步。', 'Synced settings are damaged. Refresh the web app with the configured API to sync again.'))
+    raise ValueError(t('同步配置损坏，请在桌面或本机网页设置中重新填写并保存。', 'Synced settings are damaged. Re-enter and save them in the desktop app or local web app.'))
   return record
 
 
 def snapshot_status(record):
   if not record:
-    return {'synced': False, 'message': t('请在原来配置过 API 的浏览器中刷新 Chat to image 网页。', 'Refresh Chat to image in the browser where the API was configured.')}
+    return {'synced': False, 'message': t('请在桌面或本机网页设置中填写并保存 API 配置。', 'Enter and save API settings in the desktop app or local web app.')}
   profile = record['profile']
   return {
     'synced': not bool(record.get('error')) and bool(record.get('encryptedKey')),
@@ -78,83 +76,16 @@ def snapshot_status(record):
   }
 
 
-def save_profile(value):
-  if not isinstance(value, dict):
-    raise ValueError(t('profile 必须是对象。', 'profile must be an object.'))
-  fields = ('id', 'name', 'provider', 'baseUrl', 'model', 'apiMode')
-  if any(not isinstance(value.get(field, ''), str) for field in fields):
-    raise ValueError(t('配置字段类型错误。', 'Invalid configuration field type.'))
-  profile = {field: value.get(field, '').strip() for field in fields}
-  profile['provider'] = profile['provider'] or 'openai'
-  profile['apiMode'] = profile['apiMode'] or 'images'
-  profile['imageProtocol'] = value.get('imageProtocol') if value.get('imageProtocol') in ('auto', 'openai', 'gemini', 'seedream', 'qwen') else 'auto'
-  profile['responseFormatB64Json'] = value.get('responseFormatB64Json') is True
-  profile['streamImages'] = value.get('streamImages') is True
-  key = value.get('apiKey', '')
-  if not isinstance(key, str) or len(key) > 16384:
-    raise ValueError(t('密钥字段格式错误。', 'Invalid API key format.'))
-  key = key.strip()
-  error = ''
-  if profile['provider'] != 'openai' or profile['apiMode'] != 'images' or value.get('codexCli') or value.get('apiProxy'):
-    error = t('当前网页配置使用特殊供应商、Responses、Codex CLI 或代理模式，命令行入口尚不支持；未沿用之前的配置。', 'This web profile uses a custom provider, Responses, Codex CLI, or proxy mode, which the CLI does not support. The previous settings were not reused.')
-  elif not profile['baseUrl'] or not profile['model'] or not key:
-    error = t('当前网页配置缺少服务地址、模型或 Key；请在网页设置中补齐。', 'The web profile is missing a service URL, model, or API key. Complete it in web settings.')
-  elif '\n' in key or '\r' in key:
-    error = t('当前网页 Key 含有换行，请在网页设置中修正。', 'The web API key contains a line break. Correct it in web settings.')
-  else:
-    # 与 src/lib/devProxy.ts 的浏览器路径补齐规则一致。
-    raw = profile['baseUrl']
-    try:
-      url = urlsplit(raw if '://' in raw else 'https://' + raw)
-    except ValueError:
-      url = urlsplit('')
-    if not url.hostname or url.username or url.password or url.query or url.fragment:
-      error = t('服务地址应不含用户名、密码、查询参数或片段。', 'The service URL must not contain a username, password, query, or fragment.')
-    else:
-      segments = [part for part in url.path.split('/') if part]
-      if not raw.endswith('/'):
-        segments = segments[:segments.index('v1') + 1] if 'v1' in segments else segments + ['v1']
-      profile['baseUrl'] = urlunsplit((url.scheme, url.netloc, '/' + '/'.join(segments), '', '')).rstrip('/')
-      # 延迟导入，避免命令行入口与共享配置模块循环初始化。
-      from playground_image import checked_url, CallError
-      try:
-        checked_url(profile['baseUrl'])
-      except CallError:
-        error = t('服务地址格式错误；远程接口要求 HTTPS。', 'Invalid service URL. Remote APIs require HTTPS.')
-  if error:
-    # 不把有问题的 URL（可能含用户误填的凭据）写进状态响应或配置文件。
-    profile['baseUrl'] = ''
-  record = {'version': 1, 'profile': profile, 'error': error}
-  if not error:
-    # 将地址与密钥一起加密，阻止明文元数据被误改后把密钥发到另一个地址。
-    secret = json.dumps({'baseUrl': profile['baseUrl'], 'model': profile['model'], 'apiKey': key}).encode('utf-8')
-    record['encryptedKey'] = base64.b64encode(protect(secret)).decode('ascii')
-  path = config_path()
-  path.parent.mkdir(parents=True, exist_ok=True)
-  temp = None
-  try:
-    with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=path.parent, suffix='.tmp', delete=False) as file:
-      temp = Path(file.name)
-      json.dump(record, file, ensure_ascii=False)
-      file.flush()
-      os.fsync(file.fileno())
-    os.replace(temp, path)
-  finally:
-    if temp and temp.exists():
-      temp.unlink()
-  return snapshot_status(record)
-
-
 def snapshot_key(record):
   if record.get('error'):
     raise ValueError(record['error'])
   if not isinstance(record.get('encryptedKey'), str):
-    raise ValueError(t('同步密钥缺失，请刷新网页重新同步。', 'The synced key is missing. Refresh the web app to sync again.'))
+    raise ValueError(t('同步密钥缺失，请在桌面或本机网页设置中重新填写并保存。', 'The synced key is missing. Re-enter and save settings in the desktop app or local web app.'))
   secret = json.loads(protect(base64.b64decode(record['encryptedKey'], validate=True), decrypt=True))
   if not isinstance(secret, dict) or not isinstance(secret.get('apiKey'), str):
-    raise ValueError(t('同步密钥格式错误，请刷新网页重新同步。', 'The synced key has an invalid format. Refresh the web app to sync again.'))
+    raise ValueError(t('同步密钥格式错误，请在桌面或本机网页设置中重新填写并保存。', 'The synced key is invalid. Re-enter and save settings in the desktop app or local web app.'))
   if any(secret.get(field) != record['profile'].get(field) for field in ('baseUrl', 'model')):
-    raise ValueError(t('同步配置地址或模型已改变，请从网页重新同步。', 'The API URL or model in synced settings changed. Sync again from the web app.'))
+    raise ValueError(t('同步配置地址或模型已改变，请在桌面或本机网页设置中重新填写并保存。', 'The API URL or model in synced settings changed. Re-enter and save settings in the desktop app or local web app.'))
   return secret['apiKey']
 
 
@@ -173,5 +104,5 @@ if __name__ == '__main__':
       status = snapshot_status(read_snapshot())
     print(json.dumps(status, ensure_ascii=False))
   except (OSError, ValueError):
-    print(json.dumps({'synced': False, 'message': t('同步配置无法读取，请刷新网页重新同步。', 'Could not read synced settings. Refresh the web app to sync again.')}, ensure_ascii=False))
+    print(json.dumps({'synced': False, 'message': t('同步配置无法读取，请在桌面或本机网页设置中重新填写并保存。', 'Could not read synced settings. Re-enter and save settings in the desktop app or local web app.')}, ensure_ascii=False))
     sys.exit(1)

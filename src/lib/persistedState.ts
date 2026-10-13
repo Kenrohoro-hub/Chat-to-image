@@ -22,8 +22,6 @@ export interface PersistedAppState {
   activeAgentConversationId: string | null
   agentInputDrafts: Record<string, AgentInputDraft>
   agentSidebarCollapsed: boolean
-  agentAssetTab: 'references' | 'outputs'
-  agentAssetPanelCollapsed: boolean
   favoriteCollections: FavoriteCollection[]
   promptTemplates?: PromptTemplate[]
   promptCategories?: string[]
@@ -99,8 +97,6 @@ export function createPersistedState(state: PersistedStateSource, includeLegacyA
     activeAgentConversationId: state.activeAgentConversationId,
     agentInputDrafts: settings.persistInputOnRestart ? getPersistableAgentInputDrafts(state) : {},
     agentSidebarCollapsed: state.agentSidebarCollapsed,
-    agentAssetTab: state.agentAssetTab,
-    agentAssetPanelCollapsed: state.agentAssetPanelCollapsed,
     favoriteCollections: state.favoriteCollections,
     promptTemplates: state.promptTemplates ?? [],
     promptCategories: state.promptCategories,
@@ -194,8 +190,6 @@ export function normalizePersistedState(
       activeAgentConversationId,
       agentInputDrafts,
       agentSidebarCollapsed: Boolean(persistedState.agentSidebarCollapsed),
-      agentAssetTab: persistedState.agentAssetTab === 'references' ? 'references' : 'outputs',
-      agentAssetPanelCollapsed: Boolean(persistedState.agentAssetPanelCollapsed),
       favoriteCollections,
       ...normalizePersonalPromptLibrary(persistedState.promptTemplates, persistedState.promptCategories, now),
       defaultFavoriteCollectionId: resolveDefaultFavoriteCollectionId(favoriteCollections, preferredDefaultFavoriteCollectionId),

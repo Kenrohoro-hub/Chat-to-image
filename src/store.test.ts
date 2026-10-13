@@ -2968,7 +2968,6 @@ describe('agent draft lifecycle', () => {
       galleryInputDraft: null,
       agentInputDrafts: {},
       agentSidebarCollapsed: false,
-      agentAssetPanelCollapsed: false,
       ...draftState,
     })
   })

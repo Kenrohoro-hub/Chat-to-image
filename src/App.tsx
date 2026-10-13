@@ -11,7 +11,6 @@ import { buildSettingsFromUrlParams, clearUrlSettingParams, getExplicitUrlSettin
 import { createDefaultOpenAIProfile, hasDefaultPresetConfig, isAgentTextApiProfile, normalizeSettings } from './lib/apiProfiles'
 import { getCustomProviderConfigUrl, hasEmbeddedDefaultConfig, loadCustomProviderSettingsFromUrl, loadEmbeddedDefaultConfig } from './lib/customProviderConfigUrl'
 import { getDefaultPresetProfileId, getPresetProfileIds, isPresetConfigOnlyEnabled, setPresetConfig } from './lib/presetConfig'
-import { useDockerApiUrlMigrationNotice } from './hooks/useDockerApiUrlMigrationNotice'
 import type { AppSettings } from './types'
 import Header from './components/Header'
 import SearchBar from './components/SearchBar'
@@ -71,7 +70,6 @@ export default function App() {
     return () => window.removeEventListener('playground-prompts', open)
   }, [])
   const activeFavoriteCollectionId = useStore((s) => s.activeFavoriteCollectionId)
-  useDockerApiUrlMigrationNotice()
   useGlobalClickSuppression()
 
   useEffect(() => {

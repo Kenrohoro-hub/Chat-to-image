@@ -36,8 +36,6 @@ function source(settings: AppSettings = DEFAULT_SETTINGS) {
     activeAgentConversationId: 'conversation-a',
     agentInputDrafts: {},
     agentSidebarCollapsed: true,
-    agentAssetTab: 'outputs' as const,
-    agentAssetPanelCollapsed: false,
     favoriteCollections: [collectionA],
     defaultFavoriteCollectionId: collectionA.id,
   }

@@ -671,7 +671,7 @@ async function callSingleAgentConversationTitleApi(opts: {
   imageDataUrls?: string[]
   signal?: AbortSignal
 }): Promise<string> {
-  const { settings, profile, prompt, imageDataUrls, signal } = opts
+  const { profile, prompt, imageDataUrls, signal } = opts
   const proxyConfig = readClientDevProxyConfig()
   const useApiProxy = shouldUseApiProxy(profile.apiProxy, proxyConfig)
   const controller = new AbortController()

@@ -31,7 +31,7 @@ import { API_MAX_IMAGES, DEFAULT_AGENT_MAX_TOOL_ROUNDS, DEFAULT_PARAMS } from '.
 import { isLocalService, usesDesktopPool } from './lib/desktop'
 import { normalizeWorkspaceSettings } from './lib/workspaceSettings'
 import { DEFAULT_SETTINGS, getActiveApiProfile, getAgentImageApiProfile, getAgentTextApiProfile, getCustomProviderDefinition, mergeImportedSettings, mergePresetImportedSettings, normalizeSettings, validateApiProfile } from './lib/apiProfiles'
-import { enforcePresetConfigPolicy, getPresetConfig, getPresetProfileIds, getPresetProviderIds, isPresetConfigDeletionPrevented, isPresetConfigOnlyEnabled, isPresetConfigParamsLocked, isPresetProfile, isPresetProviderDeletionPrevented } from './lib/presetConfig'
+import { enforcePresetConfigPolicy, getPresetConfig, getPresetProfileIds, getPresetProviderIds, isPresetConfigDeletionPrevented, isPresetConfigParamsLocked, isPresetProviderDeletionPrevented } from './lib/presetConfig'
 import { dismissAllTooltips } from './lib/tooltipDismiss'
 import { remapImageMentionsForOrder, replaceImageMentionsForApi } from './lib/promptImageMentions'
 import {
@@ -73,7 +73,7 @@ import { formatExportFileTime } from './lib/exportFileName'
 import { buildExportZip, createExportBlob, getExportImageEstimatedBytes, getExportZipPlan, MAX_EXPORT_ZIP_BYTES, readExportZip, readExportZipFileAsDataUrl, readExportZipManifest } from './lib/exportZip'
 import { appendDirectImageRound, deleteAgentRoundFromConversation, getActiveAgentRounds, getAgentConversationTaskIds, getAgentRoundPath, normalizeAgentConversations, remapAgentRoundMentionsForPathChange, uniqueIds } from './lib/agentConversationState'
 import { isAgentStoppedMessage, canonicalizeBatchFunctionCallArguments, countResponseToolCalls, createReadyAgentRecoveredToolState, getAgentFunctionOutputCallIds, getAgentRecoveredFailureError, getAgentRecoveredToolCallCount, getPersistableAgentConversations, getPersistableRawResponsePayload, mergeResponseOutputItems, scrubResponseOutputForDeletedAgentTasks, scrubTaskRawResponsePayloadForDeletedTasks } from './lib/agentResponseState'
-import { cleanStaleAgentInputDrafts, clearInputDraftState, isEmptyAgentInputDraft, normalizeAgentInputDrafts, remapAgentInputDraftMentionsForPathChange, restoreAgentInputDraftState, restoreGalleryInputDraftState, saveActiveAgentInputDrafts, saveGalleryInputDraft, syncActiveInputDraft, updateInputDraftImages } from './lib/inputDraftState'
+import { cleanStaleAgentInputDrafts, isEmptyAgentInputDraft, normalizeAgentInputDrafts, remapAgentInputDraftMentionsForPathChange, restoreAgentInputDraftState, restoreGalleryInputDraftState, saveActiveAgentInputDrafts, saveGalleryInputDraft, syncActiveInputDraft, updateInputDraftImages } from './lib/inputDraftState'
 import { ALL_FAVORITES_COLLECTION_ID, DEFAULT_FAVORITE_COLLECTION_ID, createDefaultFavoriteCollection, deleteFavoriteCollectionState, ensureDefaultFavoriteCollection, getTaskFavoriteCollectionIds, mergeFavoriteCollections, normalizeFavoriteCollectionIds, normalizeFavoriteCollectionName, normalizeFavoriteCollections, normalizeFavoritePatch, normalizeLoadedFavoriteState, resolveDefaultFavoriteCollectionId, sameFavoriteCollectionIds } from './lib/favoriteState'
 import { createPersistedState, mergePersistedAgentConversations, migratePersistedState, normalizePersistedState } from './lib/persistedState'
 import { addImageSizeParam, createTaskDonePatch, createTaskErrorPatch, deriveAgentImageActualParams, deriveGalleryActualParams, firstActualParams, hasActualParams, hasActualSizeParam, mapActualParamsByImage, mapRevisedPromptsByImage, markInterruptedOpenAIRunningTasks } from './lib/taskState'
@@ -299,8 +299,6 @@ interface AppState {
   activeAgentConversationId: string | null
   agentInputDrafts: Record<string, AgentInputDraft>
   agentSidebarCollapsed: boolean
-  agentAssetTab: 'references' | 'outputs'
-  agentAssetPanelCollapsed: boolean
   agentMobileHeaderVisible: boolean
   agentEditingRoundId: string | null
   agentEditingConversationId: string | null
@@ -313,8 +311,6 @@ interface AppState {
   deleteAgentRound: (conversationId: string, roundId: string) => Promise<AgentDeletionResult>
   deleteAgentAssistantMessage: (conversationId: string, messageId: string) => Promise<AgentDeletionResult>
   setAgentSidebarCollapsed: (collapsed: boolean) => void
-  setAgentAssetTab: (tab: 'references' | 'outputs') => void
-  setAgentAssetPanelCollapsed: (collapsed: boolean) => void
   setAgentMobileHeaderVisible: (visible: boolean) => void
   setAgentEditingRoundId: (id: string | null) => void
   setAgentEditingConversationId: (id: string | null) => void
@@ -491,7 +487,6 @@ export const useStore = create<AppState>()(
           galleryInputDraft,
           agentMobileHeaderVisible: false,
           agentSidebarCollapsed: true,
-          agentAssetPanelCollapsed: true,
           selectedTaskIds: [],
           selectedFavoriteCollectionIds: [],
           ...restoreAgentInputDraftState(state.agentInputDrafts, state.activeAgentConversationId),
@@ -712,8 +707,6 @@ export const useStore = create<AppState>()(
       activeAgentConversationId: null,
       agentInputDrafts: {},
       agentSidebarCollapsed: true,
-      agentAssetTab: 'outputs',
-      agentAssetPanelCollapsed: false,
       agentMobileHeaderVisible: false,
       agentEditingRoundId: null,
       agentEditingConversationId: null,
@@ -762,7 +755,6 @@ export const useStore = create<AppState>()(
           return {
             activeAgentConversationId: id,
             agentSidebarCollapsed: true,
-            agentAssetPanelCollapsed: true,
             agentEditingRoundId: null,
           }
         }
@@ -771,7 +763,6 @@ export const useStore = create<AppState>()(
           activeAgentConversationId: id,
           agentInputDrafts,
           agentSidebarCollapsed: true,
-          agentAssetPanelCollapsed: true,
           agentEditingRoundId: null,
           ...restoreAgentInputDraftState(agentInputDrafts, id),
         }
@@ -801,8 +792,6 @@ export const useStore = create<AppState>()(
       deleteAgentRound: (conversationId, roundId) => deleteAgentRoundAndTasks(conversationId, roundId),
       deleteAgentAssistantMessage: (conversationId, messageId) => deleteAgentAssistantMessageAndTasks(conversationId, messageId),
       setAgentSidebarCollapsed: (agentSidebarCollapsed) => set({ agentSidebarCollapsed }),
-      setAgentAssetTab: (agentAssetTab) => set({ agentAssetTab }),
-      setAgentAssetPanelCollapsed: (agentAssetPanelCollapsed) => set({ agentAssetPanelCollapsed }),
       setAgentMobileHeaderVisible: (agentMobileHeaderVisible) => set({ agentMobileHeaderVisible }),
       setAgentEditingRoundId: (agentEditingRoundId) => set({ agentEditingRoundId }),
       setAgentEditingConversationId: (agentEditingConversationId) => set({ agentEditingConversationId }),
@@ -1140,10 +1129,6 @@ function getReusedTaskApiProfile(settings: AppSettings, profileId: string | null
   return normalizeSettings(settings).profiles.find((profile) => profile.id === profileId) ?? null
 }
 
-function getTaskApiProfileName(task: TaskRecord) {
-  return task.apiProfileName || task.apiModel || t('未知配置', 'Unknown profile')
-}
-
 function isNetworkRecoverableError(err: unknown) {
   if (typeof DOMException !== 'undefined' && err instanceof DOMException && err.name === 'AbortError') return true
   const message = err instanceof Error ? err.message : String(err)
@@ -1179,7 +1164,7 @@ function getApiRequestNetworkErrorHint(
     const unsupportedApiHint = profile?.provider === 'openai'
       ? t(`\n· API 不支持 ${getApiModeApiName(profile.apiMode)}`, `\n· The API does not support ${getApiModeApiName(profile.apiMode)}`)
       : ''
-    return t(`提示：请求立即失败，可能原因：\n· API 服务器不可达或地址有误，请检查 API URL 是否正确、服务是否正常运行${unsupportedApiHint}\n· 接口不支持浏览器跨域请求，可使用 Docker 部署版或本地运行版并配置 API 代理解决`, `The request failed immediately. Possible causes:\n· The API server is unreachable or the URL is incorrect. Check the URL and service status.${unsupportedApiHint}\n· The API does not allow browser cross-origin requests. Use the Docker or local version with an API proxy.`)
+    return t(`提示：请求立即失败，可能原因：\n· API 服务器不可达或地址有误，请检查 API URL 是否正确、服务是否正常运行${unsupportedApiHint}\n· 接口不支持浏览器跨域请求；可改用桌面版，或为本地开发服务配置 API 代理。`, `The request failed immediately. Possible causes:\n· The API server is unreachable or the URL is incorrect. Check the URL and service status.${unsupportedApiHint}\n· The API does not allow browser cross-origin requests. Use the desktop app, or configure an API proxy for the local development server.`)
   }
 
   if (elapsedSeconds >= 55 && elapsedSeconds <= 75) {
@@ -2247,9 +2232,6 @@ async function continueRecoveredAgentRound(taskId: string) {
     const roundTasks = updatedState.tasks.filter((item) => item.agentRoundId === round.id)
     const resumeParams = roundTasks.find((item) => item.params)?.params
       ?? normalizeParamsForSettings(getAgentImageParams(updatedConversation, updatedState.params), createSettingsForApiProfile(normalizedSettings, imageProfile), { hasInputImages: round.inputImageIds.length > 0 })
-    const maxToolCalls = Number.isFinite(normalizedSettings.agentToolCallLimit)
-      ? Math.max(1, Math.trunc(normalizedSettings.agentToolCallLimit))
-      : DEFAULT_AGENT_MAX_TOOL_ROUNDS
     const toolCallsUsed = getAgentRecoveredToolCallCount(updatedRound.responseOutput ?? [], roundTasks)
 
     updateAgentConversation(conversation.id, (current) => ({
