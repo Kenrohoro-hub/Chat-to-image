@@ -2,7 +2,7 @@
 
 Windows AI 图片生成与编辑工具，支持直接生图、对话创作、参考图和蒙版编辑、提示词库、历史收藏与备份。界面支持中文和英文。
 
-[下载 v0.3.0](https://github.com/Kenrohoro-hub/Chat-to-image/releases/latest) · [使用说明](README_使用说明.md) · [English](README.en.md)
+[下载 v0.4.0](https://github.com/Kenrohoro-hub/Chat-to-image/releases/latest) · [使用说明](README_使用说明.md) · [English](README.en.md)
 
 ## 安装与配置
 
@@ -15,8 +15,9 @@ Windows AI 图片生成与编辑工具，支持直接生图、对话创作、参
 ## 功能
 
 - 文字生图、多参考图、蒙版修改、多图生成和连续改图。
-- 对话优化提示词、图片引用、对话分支及按模型能力联网。
+- 对话优化提示词、图片引用、分支及按模型能力联网；当前结果支持高清查看与左右切换，最近生成可拖入对话。
 - 图像与对话 API 分别管理，各最多 10 套，支持模型选择和备用服务。
+- 连续工具调用不设次数上限；聊天张数默认沿用生图参数，本次聊天明确指定时优先。
 - 45 条内置图文示例、个人分类和七个网络提示词库，支持收藏、引用和预载。
 - 作品下载、历史收藏、对话管理、备份导入导出及自定义提示词目录。
 - 通过本地 CLI 连接 Codex、Claude Code、Cursor 和 DeepSeek Harness。
@@ -30,7 +31,7 @@ Windows AI 图片生成与编辑工具，支持直接生图、对话创作、参
 1. 运行 `build-app.cmd` 构建。
 2. 运行 `run-app.cmd` 打开桌面，或 `run-sync.cmd` 打开本地浏览器。
 
-GitHub 源码包不包含 `dist/`，必须先构建。更新源码后关闭应用，再重新构建。
+GitHub 源码包不包含 `dist/`，必须先构建。更新源码后关闭应用，再重新构建；构建会更新 `dist/`，不会删除个人配置、作品、对话和备份。
 
 ## 数据
 

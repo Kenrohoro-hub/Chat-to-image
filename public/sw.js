@@ -1,4 +1,4 @@
-const CACHE_NAME = 'chat-to-image-v0.3.0'
+const CACHE_NAME = 'chat-to-image-v0.4.0'
 const APP_SHELL = ['./', './index.html', './manifest.webmanifest', './app.ico', './app-icon-192.png', './app-icon-512.png', './apple-touch-icon.png']
 const APP_SHELL_URLS = new Set(APP_SHELL.map((path) => new URL(path, self.registration.scope).href))
 const ASSETS_PATH = new URL('./assets/', self.registration.scope).pathname

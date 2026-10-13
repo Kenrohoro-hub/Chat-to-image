@@ -2,7 +2,7 @@
 
 A Windows AI image generation and editing tool with direct generation, conversational creation, reference images, masked edits, prompt libraries, history, favorites, and backups. The interface supports Chinese and English.
 
-[Download v0.3.0](https://github.com/Kenrohoro-hub/Chat-to-image/releases/latest) · [User Guide](README_User_Guide.en.md) · [中文](README.md)
+[Download v0.4.0](https://github.com/Kenrohoro-hub/Chat-to-image/releases/latest) · [User Guide](README_User_Guide.en.md) · [中文](README.md)
 
 ## Install and configure
 
@@ -15,8 +15,9 @@ The installer and uninstaller are self-signed, so Windows may show a trust warni
 ## Features
 
 - Text-to-image, multiple references, masked and iterative edits, and batch generation.
-- Prompt refinement, image references, conversation branches, and model-supported web search.
+- Prompt refinement, image references, conversation branches, and model-supported web search. Click current results to view and navigate full-resolution images, or drag recent images into chat.
 - Separate image and chat profiles, up to 10 per group, with model selection and fallback services.
+- Consecutive tool calls have no fixed cap; chat image counts default to Image parameters, with an explicit count in the current request taking priority.
 - 45 built-in examples, personal categories, and seven online prompt libraries with favorites, reuse, and preloading.
 - Downloads, history, collections, conversations, backups, and custom prompt storage.
 - Local CLI connections for Codex, Claude Code, Cursor, and DeepSeek Harness.
@@ -30,7 +31,7 @@ Prepare Windows, WebView2, Python 3.10+, and Node.js LTS with npm. Download and 
 1. Run `build-app.cmd` to build.
 2. Run `run-app.cmd` for the desktop app or `run-sync.cmd` for a local browser.
 
-GitHub source archives do not include `dist/`; build before starting. Close the app and rebuild after source updates.
+GitHub source archives do not include `dist/`; build before starting. Close the app and rebuild after source updates. The build updates `dist/` and preserves personal configuration, artwork, conversations, and backups.
 
 ## Data
 

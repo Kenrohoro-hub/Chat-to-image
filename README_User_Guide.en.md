@@ -1,6 +1,6 @@
 # Chat to image User Guide
 
-[中文](README_使用说明.md) · [Download the latest release](https://github.com/Kenrohoro-hub/Chat-to-image/releases/latest)
+[中文](README_使用说明.md) · [Download v0.4.0](https://github.com/Kenrohoro-hub/Chat-to-image/releases/latest)
 
 ## Install and launch
 
@@ -51,11 +51,11 @@ Open **Settings & API → Data management**, select what to include, and export 
 
 ## Update or move to another computer
 
-Open **Settings & API → Check for updates** to manually check stable GitHub releases and read release notes. In the installed desktop app, choose **Download update**, then **Exit and install** after verification. Confirm to close the app and launch the installer. Keep the preselected installation folder to retain access to your configuration, artwork, and history.
+Versions 0.3.0 and earlier do not include an update checker. Download the installer from the release page and install over the existing folder first. Starting with v0.4.0, open **Settings & API → Check for updates** to check stable GitHub releases and read release notes. In the installed desktop app, choose **Download update**, then **Exit and install** after verification. Confirm to close the app and launch the installer. Keep the preselected installation folder to retain access to your configuration, artwork, and history.
 
 Back up important data, save settings and input drafts, finish or stop image generation, chats, and data transfers, and close other local browser or CLI tasks before upgrading. Upgrading preserves personal data; uninstalling also leaves configuration and artwork created during use.
 
-The local browser and source checkout can check versions. Upgrade from the installed desktop app or download the installer from the release page. For source checkouts, update the source and run `build-app.cmd` again. Network errors, GitHub rate limits, and verification failures are displayed with retry or release-page options; unverified files are never launched automatically.
+The local browser and source checkout can only check versions; they cannot download and install updates. Upgrade from the installed desktop app or download the installer from the release page. For source checkouts, close the app, update the source, and run `build-app.cmd` again. The build updates `dist/` and preserves personal configuration, artwork, conversations, and backups. Network errors, GitHub rate limits, and verification failures are displayed with retry or release-page options; unverified files are never launched automatically.
 
 On another computer, install the app, enter your API keys again, and import backups. Do not rely on copying `user-config/` to transfer keys: its encryption is tied to the original Windows account.
 
